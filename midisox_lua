@@ -1,0 +1,1114 @@
+#! /usr/local/bin/lua
+local MIDI= require 'MIDI'
+require 'DataDumper'
+
+local Version = '5.5  for Lua5'
+local VersionDate = '20130507'
+
+-- todo: introduce phaser effect, with channels
+-- todo: pan effect should get channels too
+-- todo: should be able to quantise one channel to a master-channel
+-- 20130507 5.5 quantise effect gets channels too
+-- 20120626 5.4 bug fixed in quantise effect
+-- 20120626 5.3 compand effect default_gradient is 1.0 not 0.0
+-- 20111225 5.2 pitch effect gets channels too
+-- 20111224 5.1 introduce vol effect, with channels like compand
+-- 20111130 5.0 mixer effect with negative channel suppresses that channel
+-- 20111129 5.0 introduce new quantise effect and compand effect
+-- 20110920 4.9 fade with stop_time == 0 fades at end of file
+-- 20110910 4.8 fix reading from pipes, 3.7 but never worked.
+-- 20110111 4.6 fix empty-string-is-true bug in gm_on_already
+-- 20101026 4.5 stat -freq works
+-- 20101021 4.4 function wget() uses luacurl to get URLs
+-- 20100926 4.3 bug fixed appending to tuple in mixer()
+-- 20100910 4.2 python version fade effect handles absent params
+-- 20100802 4.1 bug fixed in mixer effect
+-- 20100306 4.0 bug fixed in pan effect
+-- 20100203 3.9 pitch as synonym for key effect
+-- 20091128 3.8 fetches URLs as input-filenames
+-- 20091127 3.7 '|cmd' pipe-style input files
+-- 20091113 3.6 -d output-file plays through aplaymidi
+-- 20091112 3.5 pad shifts from 0 ticks, stat output tidied
+-- 20091107 3.4 mixer effect does channel-remapping e.g. 3:1
+-- 20091021 3.3 warns about mixing GM on and GM off or bank-select
+-- 20091018 3.2 stat -freq detects screen width
+-- 20091018 3.1 does the pan effect
+-- 20091018 3.0 stat effect gets the -freq option
+-- 20091015 2.9 does the mixer effect (channels ?)
+-- 20091014 2.8 echo channels get panned right and left
+-- 20091014 2.7 does the echo effect
+-- 20091013 2.6 does the key effect
+-- 20091013 2.5 midi2ms_score not opus2ms_score
+-- 20091012 2.4 uses midi2ms_score
+-- 20091011 2.3 fixed infinite loop in pad at the end
+-- 20091010 2.2 to_millisecs() must now be called on the opus
+-- 20091010 2.1 stat effect sorted, and more complete
+-- 20091010 2.0 vol_mul() improves defensiveness and clarity
+-- 20091010 1.9 the fade effect fades-out correctly
+-- 20091010 1.8 does the fade effect, and trim works with one arg
+-- 20091009 1.7 will read from - (i.e. stdin)
+-- 20091009 1.6 does the repeat effect
+-- 20091008 1.5 does -h, --help and --help-effect=NAME
+-- 20091007 1.4 does the pad effect
+-- 20091007 1.3 does the tempo effect
+-- 20091007 1.2 will write to - (i.e. stdout), and does trim
+-- 20091006 1.1 does sequence, concatenate and stat
+-- 20091003 1.0 first working version, does merge and mix
+
+local function warn(str) io.stderr:write(str,'\n') ; io.stderr:flush() end
+local function warning(s) warn('warning: '..tostring(s)) end
+local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
+local function round(x) return math.floor(x+0.5) end
+local function dict(a)
+    local d = {}
+    if a == nil then return d end
+    for k,v in ipairs(a) do d[v] = true end
+    return d
+end
+local function pairsByKeys(t,f)   -- Programming in Lua p.173
+	local a = {}
+	for n in pairs(t) do a[#a+1] = n end
+	table.sort(a,f)
+	local i = 0
+	return function()
+		i = i + 1
+		return a[i], t[a[i]]
+	end
+end
+local function copy(t)
+	local new_table = {}
+	for k, v in pairs(t) do new_table[k] = v end
+	return new_table
+end
+local function deepcopy(object)  -- http://lua-users.org/wiki/CopyTable
+	local lookup_table = {}
+	local function _copy(object)
+		if type(object) ~= "table" then
+			return object
+		elseif lookup_table[object] then
+			return lookup_table[object]
+		end
+		local new_table = {}
+		lookup_table[object] = new_table
+		for index, value in pairs(object) do
+			new_table[_copy(index)] = _copy(value)
+		end
+		return setmetatable(new_table, getmetatable(object))
+	end
+	return _copy(object)
+end
+function str(t)
+	local s = string.gsub(DataDumper(t), '^%s*return%s*', '')
+	return string.gsub(s, "%s*\n%s*", ' ')
+end
+
+local function print_help(topic)
+	if not topic then topic = 'global' end
+	help_dict = {
+	global= [=[
+midisox [global-options]  \\
+   [format-options] infile1 [[format-options] infile2] ...  \\
+   [format-options] outfile  \\
+   [effect [effect-options]] ...
+
+Global Options:
+   -h, --help
+       Show version number and usage information.
+   --help-effect=NAME
+       Show usage information on the specified effect (or "all").
+   --interactive
+       Prompt before overwriting an existing file
+   -m|-M|--combine concatenate|merge|mix|sequence
+       Select the input file combining method; -m means 'mix', -M 'merge'
+   --version
+       Show version number and exit.
+
+Input & Output Files and their Options:
+   Files can be either filenames, or:
+   "-" meaning STDIN or STDOUT accordingly
+   "|program [options] ..."  uses the program's stdout as an input file
+   "http://etc/etc"  will fetch any valid URL as an input file
+   "-d" meaning the default output-device; will be played through aplaymidi
+   "-n" meaning a null output-device (useful with the "stat" effect)
+   There is only one file-format-option available:
+   -v, --volume FACTOR
+       Adjust volume by a factor of FACTOR.  A number less
+       than 1 decreases the volume; greater than 1 increases it.
+]=],
+	compand= [=[compand  gradient { channel:gradient }
+    Adjusts the velocity of all notes closer to (or away from) 100.
+    If the gradient parameter is 0 every note gets volume 100, if it is
+    1.0 there is no effect, if it is greater than 1.0 there is expansion,
+    and if negative the loud notes become soft and the soft notes loud.
+    Individual channels (0..15) can be given individual gradients.
+    The syntax of this effect is not the same as SoX's compand.
+]=],
+	['echo']= [=[echo   gain-in gain-out  <delay decay>
+    Add echoing to the audio.  Each  delay decay  pair gives the
+    delay in milliseconds  and the decay of that echo.  Gain-in and
+    gain-out are ignored, they are there for compatibilty with SoX.
+    The echo effect triples the number of channels in the MIDI, so
+    doesn't work well if there are more than 5 channels initially.
+    E.g.:   echo 1 1 240 0.6 450 0.3
+]=],
+	fade= [=[fade   fade-in-length   [stop-time [fade-out-length]]
+    Add a fade effect to the beginning, end, or both of the MIDI.
+    Fade-ins start from the beginning and ramp the volume (specifically,
+    the velocity parameter of all the notes) from zero to full over
+    fade-in-length seconds. Specify 0 seconds if no fade-in is wanted.
+    For fade-outs, the MIDI is truncated at stop-time, and the volume
+    ramped from full down to zero, starting at fade-out-length seconds
+    before the stop-time. If fade-out-length is not specified, it defaults
+    to the same as fade-in-length. No fade-out is performed if stop-time
+    is not specified. If the stop-time is specified as 0, it will be
+    set to the end of the MIDI.  Times are specified in seconds: ss.frac
+]=],
+	key= [=[key  shift { channel:shift }
+    Changes the key (i.e. pitch but not tempo).
+    This is just a synonym for the pitch effect.
+]=],
+	mixer= [=[mixer < channel[:to_channel] >
+    Reduces the number of MIDI channels, by selecting just some
+    of them and combining these (if necessary) into one track.
+    The parameters are the channel-numbers 0...15, for example
+    mixer 9  selects just the drumkit.  If an optional to_channel is
+    specified, the selected channel will be remapped to it; for example,
+    mixer 3:1  will select just channel 3 and renumber it to channel 1.
+    If a channel number begins with a minus (including -0 !) then
+    that channel will be suppressed and the others transmitted.
+    The syntax of this effect is not the same as its SoX equivalent.
+]=],
+	pad= [=[pad { length[@position] }
+pad  length_at_start  length_at_end
+    Pads the audio with silence, at the beginning, the end, or any
+    specified points through the audio.  Both length and position
+    are specified in seconds.  length is the amount of silence to
+    insert, and position the position at which to insert it.
+    Any number of lengths and positions may be specified, provided
+    that each specified position is not less that the previous one.
+    position is optional for the first and last lengths specified,
+    and if omitted correspond to the beginning and end respectively.
+    For example:   pad 1.5 1.5   adds 1.5 seconds of silence at each
+    end of the MIDI,  whilst   pad 2.5@180   inserts 2.5 seconds of
+    silence 3 minutes into the MIDI. If silence is wanted only at
+    the end of the audio, specify a zero-length pad at the start.
+]=],
+	pan= [=[pan  direction
+    Pans all the MIDI-channels from one side to another.
+    The direction is a value from -1 to 1;
+    -1 represents far left and 1 represents far right.
+]=],
+	pitch= [=[pitch  shift { channel:shift }
+    Changes the pitch (i.e. key but not tempo). shift gives the pitch
+    shift as positive or negative 'cents' (i.e. 100ths of a semitone).
+    However, all pitch-shifts are rounded to the nearest 100 cents,
+    i.e. to the nearest semitone.
+    Individual channels (0..15) can be given individual shifts.
+]=],
+	quantise= [=[quantise  length { channel:length }
+    Adjusts the beginnings of all the notes to be
+    a multiple of length seconds since the previous note.
+    If length>30 then it is deemed to be be milliseconds.
+    Channels for which length is zero do not get quantised.
+    quantize is a synonym.
+    This is a MIDI-related effect, and is not present in Sox.
+]=],
+	quantize= [=[quantize  length { channel:length }
+    Adjusts the beginnings of all the notes to be
+    a multiple of length seconds since the previous note.
+    If length>30 then it is deemed to be be milliseconds.
+    Channels for which length is zero do not get quantised.
+    quantise is a synonym.
+    This is a MIDI-related effect, and is not present in Sox.
+]=],
+	['repeat']= [=[repeat  count
+    Repeat the entire MIDI "count" times. Note that repeating once
+    doubles the length: the original MIDI plus the one repeat.
+]=],
+	stat= [=[stat  [ -freq ]
+    Do a statistical check on the input file, and print results on
+    stderr. The MIDI is passed unmodified through the processing chain.
+    The -freq option calculates the input's MIDI-pitch-spectrum 
+    (60=middle-C) and prints it to stderr before the rest of the stats
+]=],
+	tempo= [=[tempo  factor
+    Change the tempo (but not the pitch).
+    "factor" gives the ratio of new tempo to the old tempo.
+]=],
+	trim= [=[trim  start [length]
+    Outputs only the segment of the file starting at "start" seconds,
+    and ending "length" seconds later, or at the end if length is
+    not specified.  Patch-setting events, however, are preserved,
+    even if they occurred before the start of the segment.
+]=],
+	vol= [=[vol  increment { channel:increment }
+    Adjusts the velocity (volume) of all notes by a fixed increment.
+    If "increment" is -15 every note has its velocity reduced by
+    fifteen, if it is 0 there is no effect, if it is +10 the velocity is
+    increased by ten. Individual channels (0..15) can be given individual
+    adjustments.  The syntax of this effect is not the same as SoX's vol.
+]=]
+	}
+	if topic == 'global' then
+		io.write('midisox version '..Version..' '..VersionDate)
+		io.write(help_dict['global'])
+		help_dict['global'] = nil
+		--help_dict['unimplemented'] = nil
+		io.write("Available effects:\n	")
+		-- for k,v in pairsByKeys(help_dict) do io.write(v) end
+		for k,v in pairsByKeys(help_dict) do
+			if v then io.write(v) else warn('k = '..tostring(k)) end
+		end
+	elseif topic == 'all' then
+		help_dict['global'] = nil
+		for k,v in pairsByKeys(help_dict) do io.write(v) end
+	else
+		if help_dict[topic] then
+			io.write(help_dict[topic])
+		else
+			help_dict['global'] = nil
+			--help_dict.pop('unimplemented')
+			io.write("Available effects:\n")
+			for k,v in pairsByKeys(help_dict) do
+				if v then io.write(v) else warn('k = '..tostring(k)) end
+			end
+		end
+	end
+end
+
+------------------------- infrastructure --------------------
+
+local function vol_mul(vol, mul)
+	if not vol then vol = 100 end
+	if not mul then mul = 1.0 end
+	local new_vol = round(vol * mul)
+	if new_vol < 0 then new_vol = 0 - new_vol end
+	if new_vol > 127 then
+		new_vol = 127
+	elseif new_vol < 1 then
+		new_vol = 1   -- some synths interpret vol=0 as vol=default
+	end
+	return new_vol
+end
+
+function wget(url)  -- 4.4
+	local text = {}
+	local function WriteMemoryCallback(a,b)
+		-- luacurl and Lua-cURL friendly, see http://github.com/mkottman/wdm
+		local s ; if type(a) == "string" then s = a else s = b end
+		text[#text+1] = s
+		return string.len(s)
+	end
+	local c
+	if curl.new then c = curl.new() else c = curl.easy_init() end
+	c:setopt(curl.OPT_URL, url)
+	c:setopt(curl.OPT_WRITEFUNCTION, WriteMemoryCallback)
+	c:setopt(curl.OPT_USERAGENT, "luacurl-agent/1.0")
+	assert(c:perform())
+	if curl.close then c:close() end
+	return table.concat(text,'')
+end
+
+local UsingStdinAsAFile = false
+local function file2millisec(filename)
+	-- global UsingStdinAsAFile
+	if filename == '-n' then return {1000,{}} end
+	local midi = ""
+	if filename == '-' then
+		if UsingStdinAsAFile then die("can't read STDIN twice") end
+		-- (sys.stdin.fileno(), 'rb') as fh: Should disable txtmode for dos
+		UsingStdinAsAFile = true
+		return MIDI.midi2ms_score(io.read('*all'))
+	end
+	if string.find(filename, '^|%s*(.+)') then  -- 4.8
+		local command = string.match(filename, '^|%s*(.+)')  -- 4.8
+		local err_fn = os.tmpname()
+		local pipe = assert(io.popen(command..' 2>'..err_fn, 'r'))
+		-- rb if windows
+		midi = pipe:read('*all')  --XXX  -- 4.8
+		err_fh = assert(io.open(err_fn))
+		local err_msg = err_fh:read('*all')  -- 4.8
+		err_fh:close()  -- 4.8
+		os.remove(err_fn)
+		--msg  = pipe.stderr.read()
+		pipe:close()  -- 4.8
+		--status = pipe:wait()  -- 4.8
+		if string.len(err_msg) > 1 then
+			die("can't run "..command..": "..err_msg)
+		end
+		return MIDI.midi2ms_score(midi)
+	end
+	if string.find(filename, '^[a-z]+:/') then  -- 3.8
+		pcall(function() require 'curl' end)
+		if not curl then pcall(function() require 'luacurl' end) end
+		if not curl then
+			die([[you need to install lua-curl or luacurl, e.g.:
+  aptitude install liblua5.1-curl0  (or equivalent on non-debian sytems)
+or, if that doesn't work:
+  luarocks install luacurl]])
+		end
+		local midi = wget(filename)
+		return MIDI.midi2ms_score(midi)
+	end
+
+	fh = assert(io.open(filename, "rb"))
+	local midi = fh:read('*all')
+	fh:close()
+	return MIDI.midi2ms_score(midi)
+end
+
+-- ------------------------- effects ---------------------------
+
+local function compand(score, params)
+	local h = ', see midisox --help-effect=compand'
+	if #params < 1 then params[1] = '0.5' end
+	local default_gradient
+	local channel_gradient = {}
+	local iparam = 1
+	while iparam <= #params do
+		local param = params[iparam]
+		local rate = tonumber(param)
+		if rate then
+			default_gradient = rate
+		else
+			local cha,grad = string.match(param, '^(%d+):(-?[.%d]+)$')
+			if cha and grad then
+				channel_gradient[tonumber(cha)] = tonumber(grad)
+			else
+				die('compand: strange parameter '..tostring(params[iparam])..h)
+			end
+		end
+		iparam = iparam + 1
+	end
+	if not default_gradient then
+		if next(channel_gradient,nil) then  -- test for empty table
+			default_gradient = 1.0   -- 5.3
+		else
+			default_gradient = 0.5
+		end
+	end
+	-- warn("channel_gradient="..DataDumper(channel_gradient))
+	-- warn("default_gradient="..DataDumper(default_gradient))
+	local itrack
+	for itrack = 2,#score do
+		for k,event in ipairs(score[itrack]) do
+			if event[1] == 'note' then
+				local gradient = default_gradient
+				if channel_gradient[event[4]] then
+					gradient = channel_gradient[event[4]]
+				end
+				event[6] = 100 + round(gradient*(event[6]-100))
+				if event[6] > 127 then
+					event[6] = 127
+				elseif event[6] < 1 then
+					event[6] = 1  -- some synths see v=0 as meaning v=default
+				end
+			end
+		end
+	end
+	return score
+end
+
+local function echo(score, params)
+	local h = ', see midisox --help-effect=echo'
+	if #params < 4 then
+		die('echo needs at least 4 parameters'..h)
+	end
+	if #params % 2 == 1 then
+		die('echo needs an even number of parameters'..h)
+	end
+	local stats = MIDI.score2stats(score)
+	local nchannels = #(stats['channels_total'])
+	if nchannels > 5 then
+		warning(tostring(nchannels)..' channels is too many for echo effect')
+	end
+	local echo_scores = {score,}
+	local iparam = 3
+	local iecho_score = 2
+	while iparam <= #params do
+		delay = round(tonumber(params[iparam]))
+		if not delay then
+			die('echo: strange delay parameter '..tostring(params[iparam])..h)
+		end
+		iparam = iparam + 1
+		decay = tonumber(params[iparam])
+		if not decay then
+			die('echo: strange decay parameter '..tostring(params[iparam])..h)
+		end
+		if iparam < 7 then
+			echo_scores[#echo_scores+1] = MIDI.timeshift{deepcopy(score), shift=delay}
+		end
+		local pan = 117 - 107*(iecho_score%2)
+		local itrack = 2
+		while itrack <= table.maxn(echo_scores[#echo_scores]) do
+			local extra_events = {}
+			-- pan the echo_tracks Left and Right respectively
+			for k,event in ipairs(echo_scores[iecho_score][itrack]) do
+				if event[1] == 'note' then
+					event[6] = vol_mul(event[6], decay)
+				elseif event[1] == 'patch_change' then
+					extra_events[#extra_events+1] = {'control_change', event[2]+6, event[3], 10, pan}
+				elseif event[1] == 'control_change' and event[4] == 10 then
+					event[5] = pan   -- would like to pop the event by daren't
+				end
+			end
+			-- echo_scores[iecho_score][itrack].extend(extra_events)
+			for k,v in ipairs(extra_events) do
+				table.insert(echo_scores[iecho_score][itrack], v)
+			end
+			itrack = itrack + 1
+		end
+		iparam = iparam + 1
+		iecho_score = iecho_score + 1
+		if iecho_score > 3 then
+			iecho_score = 2
+		end
+	end
+	return MIDI.merge_scores(echo_scores)
+end
+
+local function fade(score, params)
+	local p1 = tonumber(params[1])
+	if not p1 then
+		die('the fade effect needs a fade-in length')
+	end
+	local fade_in_ticks = round(1000*p1)
+	local stop_time_ticks = 1000000
+	local fade_out_ticks = fade_in_ticks
+	if #params > 1 then
+		local p2 = tonumber(params[2])
+		if not p2 then
+			die("the fade effect's stop_time unrecognised: "..tostring(params[2]))
+		end
+		if p2 == 0 then  -- 4.9
+			local stats = MIDI.score2stats(score)
+			stop_time_ticks = stats['nticks']   -- better: the last note?
+		else
+			stop_time_ticks = round(1000*p2)
+		end
+	end
+	if #params > 2 then
+		local p3 = tonumber(params[3])
+		if not p3 then
+			die("the fade effect's fade_out_time unrecognised: "..tostring(params[3]))
+		end
+		fade_out_ticks = round(1000*p3)
+	end
+
+	if (fade_in_ticks+fade_out_ticks) > stop_time_ticks then
+		warning('the fade-in overlaps the fade-out; see midisox --help-effect=fade')
+	end
+
+	score = MIDI.segment{score, start_time=0, end_time=stop_time_ticks}
+	itrack = 1
+	for itrack = 2,#score do
+		for k,event in ipairs(score[itrack]) do
+			if event[1] == 'note' then
+				if event[2] < fade_in_ticks then
+					event[6] = vol_mul(event[6], event[2]/fade_in_ticks)
+				end
+				if event[2] > (stop_time_ticks - fade_out_ticks) then
+					event[6] = vol_mul(event[6], (stop_time_ticks-event[2]) / fade_out_ticks)
+				end
+			end
+		end
+	end
+	return score
+end
+
+local function key(score, params)
+	local h = ', see midisox --help-effect=pitch'
+	if #params < 1 then return score end
+	local default_incr
+	local channel_incr = {}
+	local iparam = 1
+	while iparam <= #params do
+		local param = params[iparam]
+		local rate = tonumber(param)
+		if rate then
+			default_incr = round(rate/100)  -- nearest semitone
+		else
+			local cha,incr = string.match(param, '^(%d+):([-+]?%d+)$')
+			if cha and incr then
+				channel_incr[tonumber(cha)] = round(tonumber(incr)/100)
+			else
+				die('pitch: strange parameter '..tostring(params[iparam])..h)
+			end
+		end
+		iparam = iparam + 1
+	end
+	if not default_incr then
+		if next(channel_incr,nil) then  -- test for empty table
+			default_incr = 0
+		else
+			return score
+		end
+	end
+	local new_score = { score[1] or 1000 }
+	for itrack = 2,#score do
+		new_score[itrack] = {}
+		for k,event in ipairs(score[itrack]) do
+			local new_event = copy(event)
+			if event[1] == 'note' and event[4] ~= 9 then -- don't shift drumkit
+				local incr = default_incr
+				if channel_incr[event[4]] then
+					incr = channel_incr[event[4]]
+				end
+				new_event[5] = new_event[5] + incr
+				if new_event[5] > 127 then
+					new_event[5] = 127
+				elseif new_event[5] < 0 then
+					new_event[5] = 0
+				end
+			end
+			table.insert(new_score[itrack], new_event)
+		end
+	end
+	return new_score
+end
+
+local function mixer(score, params)
+	h = ', see midisox --help-effect=mixer'
+	local pos_params = {}
+	local neg_params = {}  -- a dict
+	local remap = {}  -- a dict
+	if not params or #params < 1 then
+		die('mixer effect needs parameters'..h)
+	end
+	for k,param in ipairs(params) do
+		if string.match(param, '^%d+:%d+') then
+			local fr,to = string.match(param, '^(%d+):(%d+)')
+			frn = round(tonumber(fr))  -- why round ?
+			remap[frn] = round(tonumber(to))  -- why round ?
+			pos_params[#pos_params+1] = frn
+		elseif string.match(param, '^-%d+$') then -- detect -0 in string form
+			local fr = string.match(param, '^-(%d+)$')
+			neg_params[tonumber(fr)] = true
+		elseif string.match(param, '^%d+$') then
+			pos_params[#pos_params+1] = round(tonumber(param))
+		else
+			die('mixer: unrecognised channel number '..tostring(param)..h)
+		end
+	end
+	if next(neg_params,nil) then
+		-- if params are mixed positive and negative then die
+		if #pos_params > 0 then
+			die("mixer channels must be either all positive or all negative")
+		end
+		-- if params are all negative then use the complement list
+		for cha = 0, 15 do
+			if not neg_params[cha] then
+				pos_params[#pos_params+1] = cha
+			end
+		end
+	end
+	-- warn("pos_params="..DataDumper(pos_params))
+	local grepped_score = MIDI.grep(score, pos_params)
+	for itrack = 2, #grepped_score do
+		for k,event in ipairs(grepped_score[itrack]) do
+			channel_index = MIDI.Event2channelindex[event[1]]
+			if channel_index and remap[event[channel_index]] then -- 4.1
+				event[channel_index] = remap[event[channel_index]]
+			end
+		end
+	end
+	return MIDI.mix_scores{grepped_score,}
+end
+
+local function pad(score, params)
+	for i,param in ipairs(params) do
+		if string.find(param, '^(%d+%.?%d*)@(%d+%.?%d*)') then
+			-- XXX must apply these intermediate pads after any beginning pad
+			local s,f = string.match(param,'^(%d+%.?%d*)@(%d+%.?%d*)')
+			local from_time = round(1000 * f)
+			local shift	 = round(1000 * s)
+			score = MIDI.timeshift{score, shift=shift, from_time=from_time}
+		else
+			local shift
+			pcall(function() shift = round(1000 * tonumber(param)) end)
+			if not shift then
+				die('unrecognised pad parameter: '..tostring(param))
+			end
+			if i == 1 then
+				score = MIDI.timeshift{score, shift=shift, from_time=0}
+			elseif i == #params then
+				stats = MIDI.score2stats(score)
+				new_end_time = shift + stats['nticks']
+				mark_string = 'pad '..tostring(param)
+				for itrack = 2,#score do
+					score[itrack].insert({'marker',new_end_time,mark_string})
+					itrack = itrack + 1
+				end
+			else
+				die('pad parameter "'..tostring(param)..'" should be either first or last')
+			end
+		end
+	end
+	return score
+end
+
+local function pan(score, params)
+	local direction
+	pcall(function() direction = tonumber(params[1]) end)
+	if not direction then
+		die("pan parameter must be [-1.0 ... 1.0], was: "..params[1])
+	end
+	if direction > 1.00000001 or direction < -1.00000001 then
+		die("pan parameter must be [-1.0 ... 1.0], was: "..params[1])
+	end
+	for itrack = 2,#score do
+		local extra_events = {}
+		for k,event in ipairs(score[itrack]) do
+			if event[1] == 'control_change' and event[4] == 10 then
+				if direction < -0.00000001 then
+					event[5] = round(event[5] * (1.0+direction))
+				elseif direction > 0.00000001 then
+					event[5] = event[5] + round((127-event[5]) * direction)
+				end
+			elseif event[1] == 'patch_change' then
+				local new_pan = round(63.5 + 63.5*direction)
+				extra_events[#extra_events+1] =
+					{'control_change', event[2]+6, event[3], 10, new_pan}
+			end
+		end
+		for k,v in ipairs(extra_events) do table.insert(score[itrack],v) end
+	end
+	return score
+end
+
+local function quantise(score, params)  -- 5.0
+	local h = ', see midisox --help-effect=quantise'
+	local default_quantum      -- 5.5
+	local channel_quantum = {}
+	local iparam = 1
+	while iparam <= #params do
+		local param = params[iparam]
+		local rate = tonumber(param)
+		if rate then
+			local quantum = rate
+			if quantum < 0  then quantum = 0 - quantum end
+			if quantum < 30 then quantum = 1000 * quantum end  -- to ms
+			default_quantum = round(quantum)
+		else
+			local cha,grad = string.match(param, '^(%d+):(-?[.%d]+)$')
+			if cha and grad then
+				local quantum = tonumber(grad)
+				if quantum < 0  then quantum = 0 - quantum end
+				if quantum < 30 then quantum = 1000 * quantum end  -- to ms
+				channel_quantum[tonumber(cha)] = round(quantum)
+			else
+				die('quantise: strange parameter '..tostring(params[iparam])..h)
+			end
+		end
+		iparam = iparam + 1
+	end
+	if not default_quantum then default_quantum = 0 end
+	-- warn("default_quantum="..default_quantum)
+	-- warn("channel_quantum="..DataDumper(channel_quantum))
+	local itrack
+	for itrack = 2,#score do
+		-- the score track appears sorted by THE END TIMES of the notes
+		-- but here I need them sorted by the START times ....
+		table.sort(score[itrack], function (e1,e2) return e1[2] < e2[2] end )
+		local old_previous_note_time = 0
+		local new_previous_note_time = 0
+		for k,event in ipairs(score[itrack]) do
+			if event[1] == 'note' then
+				local quantum = channel_quantum[event[4]]
+				if not quantum then
+					quantum = default_quantum
+				end
+				local old_this_note_time = event[2]
+				local dt = old_this_note_time - old_previous_note_time
+				if quantum > 0.5 then -- quantum must not be zero
+					local dn = round(dt/quantum)
+					event[2] = new_previous_note_time + quantum * dn
+					local new_this_note_time = event[2]
+					-- readjust non-notes to lie between the adjusted times
+					-- in same proportion as they lay between the old times
+					local k2 = k - 1
+					while k2 > 0 and score[itrack][k2][1] ~= 'note' do
+						local old_non_note_time = score[itrack][k2][2]
+						if old_this_note_time > old_previous_note_time then
+							score[itrack][k2][2] = round(
+							  new_previous_note_time +
+							  (old_non_note_time - old_previous_note_time) *
+							  (new_this_note_time - new_previous_note_time) /
+							  (old_this_note_time - old_previous_note_time)
+							)
+						else
+							score[itrack][k2][2] = new_previous_note_time
+						end
+						k2 = k2 - 1
+					end
+					if dn > 0 and not channel_quantum[event[4]] then  -- 5.4,5
+						old_previous_note_time = old_this_note_time
+						new_previous_note_time = new_this_note_time
+					end
+				end
+			end
+		end
+	end
+	return score
+end
+
+local function my_repeat(score, params)
+	if not string.find(params[1], '%d+') then
+		die("repeat's count parameter must be an integer: "..params[1])
+	end
+	local count = round(tonumber(params[1]))
+	local scores = {score}
+	for i = 1,count do scores[#scores+1] = score end
+	return MIDI.concatenate_scores(scores)
+end
+
+local function stat(score, params)
+	local stats = MIDI.score2stats(score)
+	if params[1] == '-freq' then   -- 4.5
+		local pmin = 127
+		local pmax = 0
+		for p in pairs(stats['pitches']) do
+			 if p < pmin then pmin = p end
+			 if p > pmax then pmax = p end
+		end
+		local nmax = 0
+		p = pmax
+		while p >= pmin do
+			n = stats['pitches'][p] or 0
+			if nmax < n then nmax = n end
+			p = p - 1
+		end
+		local nwidth = 3+round(math.log(nmax)/math.log(10))
+		warn('Pitch  N')
+		-- http://bytes.com/groups/python/607757-getting-terminal-display-size
+		-- s = struct.pack("HHHH", 0, 0, 0, 0)
+		-- try:
+			-- x = fcntl.ioctl(sys.stderr.fileno(), termios.TIOCGWINSZ, s)
+			-- [maxrows, maxcols, xpixels, ypixels] = struct.unpack("HHHH", x)
+		-- except:
+		local maxcols
+		local f = io.open('/usr/bin/tput','r') ; if f then  -- 4.5
+			f:close()
+			local p = io.popen('/usr/bin/tput cols','r')
+			if p then maxcols = p:read('*n') ; p:close() end
+		end
+		if not maxcols then maxcols = 80 end
+		p = pmax
+		while p >= pmin do
+			local n = stats['pitches'][p] or 0
+			local bar
+			if nmax > (maxcols-10-nwidth) then
+				bar = string.rep('#', round((maxcols-10-nwidth)*n/nmax))
+			else
+				bar = string.rep('#', n)
+			end
+			--warn(('{0: >3} {1: >'..str(nwidth)..'} '..bar).format(p,n)) --XXX
+			warn(string.format('%3d%'..nwidth..'d %s', p, n, bar))
+			p = p - 1
+		end
+	end
+	for stat,val in pairsByKeys(stats) do
+		val = stats[stat]
+		if stat == 'nticks' then
+			warn('nticks: '..tostring(val)..'  = '..tostring(0.001*tonumber(val))..' sec')
+		elseif stat == 'patch_changes_total' then
+			l = {}
+			for k,patchnum in ipairs(val) do
+				-- table.insert(l,tostring(patchnum)..': '..(MIDI.Number2patch[patchnum] or ''))
+				table.insert(l, tostring(patchnum))
+			end
+			table.sort(l,
+				function (n1,n2) return tonumber(n1) < tonumber(n2) end
+			)
+			warn('patch_changes_total: {' .. table.concat(l,', ') .. '}')
+		else
+			warn(tostring(stat) .. ': ' .. str(val))
+		end
+	end
+	return score
+end
+
+local function tempo(score, tempo)
+	tempo = tonumber(tempo)
+	if tempo < 0.1 then tempo = 0.1 end
+	-- do we need to build a new_score and copy the events?
+	for itrack = 2,#score do
+		for k,event in ipairs(score[itrack]) do
+			event[2] = round(event[2]/tempo)
+			if event[1] == 'note' then event[3] = round(event[3]/tempo) end
+		end
+	end
+	return score
+end
+
+local function trim(score, start, length)
+	local start_ticks = round(1000*start)
+	local end_ticks
+	if length then
+		end_ticks = start_ticks + round(1000*length)
+	else
+		end_ticks = 100000000000
+	end
+	return MIDI.timeshift{
+		MIDI.segment{score, start_time=start_ticks, end_time=end_ticks},
+		start_time=1,
+	}
+end
+
+local function vol(score, params)
+	local h = ', see midisox --help-effect=vol'
+	if #params < 1 then return score end
+	local default_incr
+	local channel_incr = {}
+	local iparam = 1
+	while iparam <= #params do
+		local param = params[iparam]
+		local rate = tonumber(param)
+		if rate then
+			default_incr = round(rate)
+		else
+			local cha,incr = string.match(param, '^(%d+):([-+]?%d+)$')
+			if cha and incr then
+				channel_incr[tonumber(cha)] = tonumber(incr)
+			else
+				die('vol: strange parameter '..tostring(params[iparam])..h)
+			end
+		end
+		iparam = iparam + 1
+	end
+	if not default_incr then
+		if next(channel_incr,nil) then  -- test for empty table
+			default_incr = 0
+		else
+			return score
+		end
+	end
+	-- warn("channel_incr="..DataDumper(channel_incr))
+	-- warn("default_incr="..DataDumper(default_incr))
+	local itrack
+	for itrack = 2,#score do
+		for k,event in ipairs(score[itrack]) do
+			if event[1] == 'note' then
+				local incr = default_incr
+				if channel_incr[event[4]] then
+					incr = channel_incr[event[4]]
+				end
+				event[6] = incr + event[6]
+				if event[6] > 127 then
+					event[6] = 127
+				elseif event[6] < 1 then
+					event[6] = 1  -- some synths see v=0 as meaning v=default
+				end
+			end
+		end
+	end
+	return score
+end
+
+-- --------------------------main -----------------------------
+Possible_Combines = dict{'concatenate','merge','mix','sequence'}
+Possible_Effects = dict{'compand','echo', 'fade','key','mixer','pad','pan',
+ 'pitch','quantise','quantize','repeat','silence','stat','tempo','trim','vol'}
+global_options = {}
+input_files	= {}
+output_file	= {{}, ''}
+effects		= {}
+
+-- command-line options:
+Interactive_mode = false
+Combine_mode = 'sequence'
+
+local iarg=1; while arg[iarg] ~= nil do
+	local argument = arg[iarg]
+	if argument == '--interactive' then
+		Interactive_mode = true
+	elseif argument == '--version' then
+		io.write('midisox version '..Version..' '..VersionDate.."\n")
+		os.exit(0)
+	elseif argument == '-h' or argument == '--help' then
+		print_help()
+		os.exit(0)
+	-- aside from [a-z], - is a synonym for * (0 or more repetitions)
+	elseif string.find(argument, '^%-%-help%-effect=%l+') then
+		print_help(string.match(argument, '^%-%-help%-effect=(%l+)'))
+		os.exit(0)
+	elseif argument == '-m' then
+		Combine_mode = 'mix'
+	elseif argument == '-M' then
+		Combine_mode = 'merge'
+	elseif argument == '--combine' then
+		iarg = iarg + 1
+		if iarg > #arg then die('--combine must be followed by something') end
+		argument = arg[iarg]
+		if Possible_Combines[argument] then
+			Combine_mode = argument
+		else
+			die('--combine must be followed by concatenate, merge, mix, or sequence')
+		end
+	else
+		break
+	end
+	iarg = iarg + 1
+end
+
+
+volume = 1.0
+while iarg <= #arg do   -- loop through all files, input and output...
+	argument = arg[iarg]
+	if argument == '--volume' or argument == '-v' then
+		iarg = iarg + 1
+		if iarg > #arg then
+			die(argument + ' must be followed by a volume, and an input file')
+		end
+		volume = tonumber(arg[iarg])
+		if not volume then
+			die('-v must be followed by a number (default volume is 1.0)')
+		end
+	elseif Possible_Effects[argument] then
+		break
+		-- os.path.exists(arg) or arg == '-':   -- or a pipe...
+		-- die('input file ' + arg + ' does not exist')   might be output...
+	-- it's a filename
+	else
+		input_files[#input_files+1] = {volume, argument}
+		volume = 1.0
+	end
+	iarg = iarg + 1
+end
+
+-- then the last of these files must be the output-file; pop it
+if #input_files < 2 then
+	die('midisox needs at least one input-file and one output-file')
+end
+
+output_file = table.remove(input_files)[2]
+
+while iarg <= #arg do   -- loop through all effects...
+	argument = arg[iarg]
+	if Possible_Effects[argument] then
+		effects[#effects+1] = {argument,}
+	else
+		table.insert(effects[#effects], argument)
+	end
+	iarg = iarg + 1
+end
+
+-- read input files in, and apply the input effects
+input_scores = {}
+gm_on_already  = false  -- 4.6
+gm_off_already = false  -- 4.6
+bank_already   = false  -- 4.6
+for k,input_file in ipairs(input_files) do
+	local score = file2millisec(input_file[2])
+	-- 3.3 detect incompatible GM-modes and warn...
+	stats = MIDI.score2stats(score)
+	for k,gm_mode in ipairs(stats['general_midi_mode']) do
+		if gm_mode == 0 and gm_on_already then
+			warning(gm_on_already+' turns GM on, but '+input_file[2]+' turns it off')
+		elseif gm_mode > 0 and gm_off_already then
+			warning(gm_off_already+' turns GM off, but '+input_file[2]+' turns it on')
+		elseif gm_mode > 0 and bank_already then
+			warning(bank_already+' selects a bank, but '+input_file[2]+' turns GM on')
+		elseif gm_mode == 0 then
+			gm_off_already = input_file[2]
+		elseif gm_mode > 0 then
+			gm_on_already = input_file[2]
+		end
+	end
+	if table.maxn(stats['bank_select']) > 0 then
+		--warn("stats['bank_select']="..DataDumper(stats['bank_select']))
+		if gm_on_already then
+			warning(gm_on_already..' turns GM on, but '..input_file[2]..' selects a bank')
+		end
+		bank_already = input_file[2]
+	end
+	volume = input_file[1]
+	if volume < 0.99 or volume > 1.01 then
+		for itrack = 2,#score do
+			for k,event in ipairs(score[itrack]) do
+				if event[1] == 'note' then
+					event[6] = vol_mul(volume, event[6])
+				end
+			end
+		end
+	end
+	input_scores[#input_scores+1] = score
+end
+
+
+-- combine the input score into an output score
+if Combine_mode == 'merge' then
+	output_score = MIDI.merge_scores(input_scores)
+elseif Combine_mode == 'mix' then
+	output_score = MIDI.mix_scores(input_scores)
+elseif Combine_mode == 'sequence' or Combine_mode == 'concatenate' then
+	output_score = MIDI.concatenate_scores(input_scores)
+else
+	die("unsupported combine mode: "+str(Combine_mode))
+end
+
+-- apply effects to the output score
+for k,effect in ipairs(effects) do
+	if effect[1] == 'compand' then
+		table.remove(effect, 1)
+		output_score = compand(output_score, effect)
+	elseif effect[1] == 'echo' then
+		table.remove(effect, 1)
+		output_score = echo(output_score, effect)
+	elseif effect[1] == 'fade' then
+		table.remove(effect, 1)
+		output_score = fade(output_score, effect)
+	elseif effect[1] == 'key' or effect[1] == 'pitch' then
+		table.remove(effect, 1)
+		output_score = key(output_score, effect)
+	elseif effect[1] == 'mixer' then
+		table.remove(effect, 1)
+		output_score = mixer(output_score, effect)
+	elseif effect[1] == 'pad' then
+		table.remove(effect, 1)
+		output_score = pad(output_score, effect)
+	elseif effect[1] == 'pan' then
+		table.remove(effect, 1)
+		output_score = pan(output_score, effect)
+	elseif effect[1] == 'quantise' or effect[1] == 'quantize' then
+		table.remove(effect, 1)
+		output_score = quantise(output_score, effect)
+	elseif effect[1] == 'repeat' then
+		table.remove(effect, 1)
+		output_score = my_repeat(output_score, effect)
+	elseif effect[1] == 'stat' then
+		table.remove(effect, 1)
+		stat(output_score, effect)
+	elseif effect[1] == 'tempo' then
+		output_score = tempo(output_score, effect[2] or 1.0)
+	elseif effect[1] == 'trim' then
+		output_score = trim(output_score, effect[2] or 0, effect[3])
+	elseif effect[1] == 'vol' then
+		table.remove(effect, 1)
+		output_score = vol(output_score, effect)
+	else
+		die('unrecognised effect: '..table.concat(effect,' '))
+	end
+end
+
+-- open the output file and print the output score to it
+if output_file == '-n' then
+	os.exit(0)
+end
+if output_file == '-d' then
+	MIDI.play_score(output_score)
+	os.exit(0)
+end
+if output_file == '-' then
+	-- sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb')
+	io.write(MIDI.score2midi(output_score))
+	os.exit(0)
+end
+--if Interactive_mode and os.path.exists(output_file[1]) then
+--  could do cheapo-confirm with fh=file.open(posix.ctermid(),'r'); fh:read(1)
+--	import TermClui
+--	TermClui.confirm('OK to overwrite '+output_file[1]+' ?') or os.exit()
+--end
+
+local fh = assert(io.open(output_file, "wb"))
+fh:write(MIDI.score2midi(output_score))

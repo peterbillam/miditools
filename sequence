@@ -1,0 +1,265 @@
+#! /usr/bin/perl
+#########################################################################
+#        This Perl script is Copyright (c) 2009, Peter J Billam         #
+#                          www.pjb.com.au                               #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+my $Version       = '1.1';
+my $VersionDate   = '7nov2009';
+
+my $Mode   = 'morse_thue';
+my $Number = 0;
+while ($ARGV[$[] =~ /^-([a-z])/) {
+	if ($1 eq 'v')      { shift;
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+		print "$n version $Version $VersionDate\n";
+		exit 0;
+	} elsif ($1 eq 'c') { $Mode = 'cycle';      shift;
+	} elsif ($1 eq 'l') { $Mode = 'leibnitz';   shift;
+	} elsif ($1 eq 'm') { $Mode = 'morse_thue'; shift;
+	} elsif ($1 eq 'p') { $Mode = 'push_and_half_shift'; shift;
+	} elsif ($1 eq 'n') { shift; $Number = 0+$ARGV[$[]; shift;
+	} elsif ($1 eq 'r') { $Mode = 'rabbit';     shift;
+	} else {
+		print "usage:\n";  my $synopsis = 0;
+		while (<DATA>) {
+			if (/^=head1 SYNOPSIS/)     { $synopsis = 1; next; }
+			if ($synopsis && /^=head1/) { last; }
+			if ($synopsis && /\S/)      { s/^\s*/   /; print $_; next; }
+		}
+		exit 0;
+	}
+}
+if (!$Number) {
+	if ($Mode eq 'rabbit') { $Number = 21;
+	} elsif ($Mode eq 'push_and_half_shift') { $Number = 9999;
+	} else { $Number = 16;
+	}
+}
+if (! @ARGV) { die "sequence needs some arguments\n"; }
+my @a = ();
+if ($Mode eq 'cycle') {
+	@a = cycle(scalar @ARGV, $Number);
+} elsif ($Mode eq 'leibnitz') {
+	my $needs = 1 + int(-0.01 + log($Number+1)/log(2));
+	if ($needs > scalar @ARGV) {
+		die "a leibnitz sequence of length $Number needs $needs arguments\n";
+	}
+	@a = leibnitz(2, $Number);
+} elsif ($Mode eq 'morse_thue') {
+	@a = morse_thue(scalar @ARGV, $Number);
+} elsif ($Mode eq 'rabbit') {
+	if (2 > scalar @ARGV) { die "a rabbit sequence needs two arguments\n"; }
+	@a = rabbit(2, $Number);
+} elsif ($Mode eq 'push_and_half_shift') {
+	@a = push_and_half_shift(scalar @ARGV, $Number);
+}
+@s = map($ARGV[$_], @a);
+print "@s\n";
+
+# ---------------------------- infrastructure --------------------------
+sub cycle { my ($k, $n) = @_;
+	my @a = (0 .. $k-1);
+	while ($n > @a) { push @a, @a; }
+	$#a = $n-1;
+	return @a;
+}
+sub leibnitz   { my ($k, $n) = @_;
+	my @a = (0 .. $k-1);
+	while ($n > @a) {
+		my @new = @a;
+		foreach my $j (1 .. $k-1) { push @new, map($_+$j, @a); }
+		@a = @new;
+	}
+	$#a = $n-1;
+	return @a;
+}
+sub morse_thue { my ($k, $n) = @_;
+	return map($_ % $k, leibnitz($k, $n));
+}
+sub rabbit   { my ($k, $n) = @_;
+	my @a = (0,1,0,0,1);
+	my @b = (0,1,0,0,1,0,1,0);
+	while ($n > @b) { my @c = @b; push @b, @a; @a = @c; }
+	$#b = $n-1;
+	return @b;
+}
+sub push_and_half_shift   { my ($k, $n) = @_;
+	my @a = (0);
+	my @b = (0);
+	my $i = 1;
+	while ($n > @a) {
+		last if $i >= $k;
+		push @b, $i;
+		@a = (@a,@b);
+		$i = $i + 1;
+		last if $i >= $k;
+		push @b, $i;  shift @b;
+		@a = (@a,@b);
+		$i = $i + 1;
+	}
+	while ($n > @a) {
+		@a = (@a,@b);
+		shift @b;
+		last unless @b;
+		@a = (@a,@b);
+		if (1 == @b) { last; }
+	}
+	if ($n < @a) { $#a = $n-1; }
+	return @a;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+sequence - generates Morse-Thue, Rabbit, Leibnitz & Cycle sequences
+
+=head1 SYNOPSIS
+
+ > sequence -c -n 16 A B C  # outputs 16 terms of a Cycle
+ A B C A B C A B C A B C A B C A
+
+ > sequence -l -n 16 A B C D E  # 16 terms of a Leibnitz sequence
+ A B B C B C C D B C C D C D D E
+
+ > sequence -m -n 16 A B    # 16 terms of a Morse-Thue-2 sequence
+ A B B A B A A B B A A B A B B A
+
+ > sequence -m -n 27 A B C  # 27 terms of a Morse-Thue-3 sequence
+ A B C B C A C A B B C A C A B A B C C A B A B C B C A
+
+ > sequence -r A B  # outputs 21 terms of a Rabbit sequence
+ A B A A B A B A A B A A B A B A A B A B A
+
+ > sequence -p A B C D E F  # Push-and-Half-Shift expands 6-notes to 30
+ A A B B C B C D C D E C D E F C D E F D E F D E F E F E F F
+
+ > sox -s `sequence -n 8 snippet1.wav snippet2.wav` longer.wav
+ > play longer.wav        # much more interesting than a loop :-)
+ > midisox -s `sequence -n 8 snippet1.mid snippet2.mid` longer.mid
+ > aplaymidi longer.mid   # much more interesting than a loop :-)
+
+=head1 DESCRIPTION
+
+This script outputs its arguments in one of a number of particular sequences:
+Cycle, Leibnitz, Morse-Thue or Rabbit.
+Apart from the Cycle, the other three sequences are fractal and scale-free.
+
+The Morse-Thue sequence, according to Schroeder, is named in honour of the
+Norwegian mathematician Axel Thue (1863-1922), who introduced it in 1906
+as an aperiodic, recursively computable sequence,
+and after Marston Morse of Princeton (1892-1977) who discovered its
+significance in the symbolic dynamics of certain nonlinear systems.
+The sequence for K=2 can be generated by taking the modulo 2 of the
+number of one-bits in the binary nonnegative integers;
+or, starting with a 0,
+by repeatedly applying the mapping 0 -> 0 1 and 1 -> 1 0;
+or by repeatedly appending the complement.
+The first five stages are 0, then 0 1, then 0 1 1 0,
+then 0 1 1 0 1 0 0 1, then 0 1 1 0 1 0 0 1 1 0 0 1 0 1 1 0.
+
+With K=3 it can be generated by taking the modulo 3 of the
+number of one-bits in the binary nonnegative integers;
+or recursively by adding 1 and then 2, modulo 3.
+The first three stages are 0, then 0 1 2, then 0 1 2 1 2 0 2 0 1.
+
+The Leibnitz sequence can be generated by counting the
+one-bits in the binary nonnegative integers;
+or by repeatedly appending the current sequence with one added to it.
+The first five stages are 0, then 0 1, then 0 1 1 2,
+then 0 1 1 2 1 2 2 3, then 0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4.
+
+The Rabbit sequence (named by Schroeder) arises from
+Fibonacci's rabbit-problem in the I<Liber Abaci> (1202).
+The sequence can be generated by starting with 1
+and repeatedly applying the mapping 0 -> 1 and 1 -> 1 0;
+or by starting with the first two
+stages 1, then 1 0, and then appending to each stage the previous stage,
+so the next four stages are 1 0 1, then 1 0 1 1 0, then 1 0 1 1 0 1 0 1,
+then 1 0 1 1 0 1 0 1 1 0 1 1 0.
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-c>
+
+Outputs its arguments in a Cycle.
+
+=item I<-l>
+
+Outputs its arguments in a Leibnitz sequence.
+If I<N> terms are to be output,
+there must be at least enough arguments (I<K>) so that:
+ 2**K > N
+
+=item I<-m>
+
+Outputs its arguments in a Morse-Thue sequence.
+This is the default.
+
+=item I<-n 42>
+
+Outputs just a certain Number (42 in this example)
+of terms in the sequence.
+The default is 16, except for the Rabbit sequence where the default is 21.
+
+=item I<-p>
+
+Expands its arguments with a homebrew push-and-half-shift algorithm,
+by repeatedly outputting a sub-block of those arguments.
+The block starts with just the initial argument, and this is output.
+At each stage, for as long as there are arguments left
+the next argument is pushed onto to the end of the block,
+and every alternate stage, the first note is shifted off the beginning;
+then the block is appended to the output.
+
+By this method,
+the output starts at the first argument and ends at the last argument.
+But it takes longer to make the journey:
+for example, 4 arguments expand to 16, 5 expand to 19,
+6 to 30, 7 to 34, and 8 to 48.
+
+=item I<-r>
+
+Outputs its arguments in a Rabbit sequence.
+There must be two arguments (if there are more, the others are ignored).
+
+=item I<-v>
+
+Prints version number.
+
+=back
+
+=head1 CHANGES
+
+ 20091107  1.1  mode options don't override -n if they follow it
+ 20091005  1.0  first working version
+
+=head1 AUTHOR
+
+Peter J Billam   http://www.pjb.com.au/comp/contact.html
+
+=head1 BUGS
+
+On output, I<sequence> doesn't quote arguments containing spaces;
+this is actually a feature, to allow patterns like:
+ sequence -c -n 8 "A A A" B   # works :-)
+
+But it does make a mess of filenames with spaces, like
+ sequence -n 8 "a midi file.mid" another.mid  # misfires :-(
+
+=head1 SEE ALSO
+
+ "Fractals, Chaos, Power Laws", Manfred Schroeder, Freeman, 1991
+ http://www.pjb.com.au/midi/midisox.html
+ http://www.pjb.com.au/
+ perl(1).
+
+=cut
+

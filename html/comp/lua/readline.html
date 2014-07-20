@@ -1,0 +1,210 @@
+<HTML><HEAD><TITLE>readline.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="readline, history, Lua, module, luarocks">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>readline.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<A NAME="index"></A>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+    <li><a href="#name">NAME</a></li>
+    <li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#description">DESCRIPTION</a></li>
+    <li><a href="#functions">FUNCTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#download">DOWNLOAD</a></li>
+    <li><a href="#changes">CHANGES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#author">AUTHOR</a></li>
+    <li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR></TABLE>
+
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<h2><a name="name">NAME</a></h2>
+<p><code>readline</code> - a simple interface
+to the <em>readline</em> and <em>history</em> libraries</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local RL = require 'readline'
+ -- see: man readline
+ RL<A HREF="#set_options">.set_options{ keeplines=1000, histfile='~/.synopsis_history' }</A>
+ local str = RL<A HREF="#readline">.readline('Please enter some filename: ')</A>
+ local save_options = RL<A HREF="#set_options">.set_options{ completion=false }</A>
+ str = RL<A HREF="#readline">.readline('Please type a line which can include Tabs: ')</A>
+ RL<A HREF="#set_options">.set_options(save_options)</A>
+ str = RL<A HREF="#readline">.readline('Now tab-filename-completion is working again: ')</A>
+ ...
+ RL<A HREF="#save_history">.save_history()</A> ; os.exit()</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>This Lua module offers a simple calling interface
+to the GNU Readline/History Library.
+</p><p>
+The function
+<em><A HREF="#readline">readline()</A></em>
+is a wrapper, which invokes the GNU
+<em>readline</em>, adds the line to the end of the History List,
+and then returns the line.  Usually you call
+<em><A HREF="#save_history">save_history()</A></em>
+before the program exits,
+so that the History List is saved to the <em>histfile</em>.
+</p><p>
+Various options can be changed using the
+<em><A HREF="#set_options">set_options{}</A></em>
+function.
+</p><p>
+The user can configure the GNU Readline
+(e.g. <em>vi</em> or <em>emacs</em> keystrokes ?)
+with their individual <em>~/.inputrc</em> file,
+see the <em>INITIALIZATION FILE</em> section of <em>man readline</em>.</p>
+</p><p>
+By default, the GNU <I>readline</I> library dialogues with the user
+by reading from <I>stdin</I> and writing to <I>stdout</I>;
+this fits badly with applications that want to
+use <I>stdin</I> and <I>stdout</I> to input and output data.
+Therefore, this Lua module dialogues with the user on the controlling-terminal
+of the process (typically <I>/dev/tty</I>) as returned by <I>ctermid()</I>.
+<p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2>
+<p>
+</p>
+<h3><a name="set_options">RL.set_options{ histfile='~/.myapp_history', keeplines=100 }</a></h3>
+<p>Returns the old options, so they can be restored later.
+The <em>auto_add</em> option controls whether the line entered will be
+added to the History List,
+The default options are:</p>
+<pre>
+ auto_add   = true,
+ histfile   = '~/.rl_lua_history',
+ keeplines  = 500,
+ completion = true,
+ ignoredups = true,
+ minlength  = 2,</pre>
+<p>Lines shorter than the <em>minlength</em> option will not be put on the
+History List.  Tilde expansion is performed on the <em>histfile</em> option.
+The <em>histfile</em> option must be a string, so don't set it to <em>nil</em>,
+if you want to avoid reading or writing your History List to the filesystem,
+set <em>histfile</em> to the empty string.
+If you want no history behaviour (Up or Down arrows etc.) at all, then set</p>
+<pre>
+ set_options{ histfile='', auto_add=false, }</pre>
+<p>
+</p>
+<h3><a name="readline">RL.readline( prompt )</a></h3>
+<p>Displays the <em>prompt</em> and returns the text of the line the
+user enters.  A blank line returns the empty string.
+If EOF is encountered while reading a line, and the line is empty,
+<em>nil</em> is returned;
+if an EOF is read with a non-empty line, it is treated as a newline.</p>
+<p>If the <em>auto_add</em> option is <em>true</em> (which is the default),
+the line the user enters will be added to the History List,
+unless it's shorter than <em>minlength</em>, or it's the same
+as the previous line and the <em>ignoredups</em> option is set.</p>
+<p>
+</p>
+<h3><a name="save_history">RL.save_history()</a></h3>
+<p>Normally, you should call this function before your program exits.
+It saves the lines the user has entered onto the end of the <em>histfile</em>
+file.  Then if necessary it truncates lines off the beginning of the
+<em>histfile</em> to confine it to <em>keeplines</em> long.</p>
+<p>
+</p>
+<h3><a name="add_history">RL.add_history( line )</a></h3>
+<p>Adds the <em>line</em> to the History List.
+You'll only need this function if you want to assume complete control
+over the strings that get added, in which case you:</p>
+<pre>
+ RL.set_options{ auto_add=false, }</pre>
+<p>and then after calling <em>readline(prompt)</em>
+you can process the <em>line</em> as you wish
+and call <em>add_history(line)</em> if appropriate.</p>
+<p>
+</p>
+<hr />
+<h2><a name="download">DOWNLOAD</a></h2>
+<p>This module is available as a LuaRock in
+<A HREF="http://rocks.moonscript.org/modules/peterbillam">
+rocks.moonscript.org/modules/peterbillam</A>
+so you should be able to install it with the command:</p>
+<pre>
+ $ su
+ Password:
+ # luarocks install --server=http://rocks.moonscript.org readline</pre>
+<p>or:</p>
+<pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/readline-1.5-0.rockspec</pre>
+<p>It depends on the <em>readline</em> library and its header-files;
+for example on Debian you may need:<BR>
+<CODE> &nbsp; # aptitude install libreadline6 libreadline6-dev</CODE>
+</P><P>
+or on Centos you may need:<BR>
+<CODE> &nbsp; # yum install readline-devel</CODE></P>
+<p>
+</p>
+<hr />
+<h2><a name="changes">CHANGES</a></h2>
+<pre>
+ 20140608 1.5 switch pod and doc over to using moonrocks
+ 20140519 1.4 installs as readline not Readline under luarocks 2.1.2
+ 20131031 1.3 readline erases final space if tab-completion is used
+ 20131020 1.2 set_options{histfile='~/d'} expands the tilde
+ 20130921 1.1 uses ctermid() (usually /dev/tty) to dialogue with the user
+ 20130918 1.0 first working version</pre>
+<p>
+</p>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter Billam, 
+<a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<pre>
+ man readline
+ <a href="http://www.gnu.org/s/readline">http://www.gnu.org/s/readline</a>
+ <a href="http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html">http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html</a>
+ <a href="http://cnswww.cns.cwru.edu/php/chet/readline/readline.html">http://cnswww.cns.cwru.edu/php/chet/readline/readline.html</a>
+ <a href="http://cnswww.cns.cwru.edu/php/chet/readline/history.html">http://cnswww.cns.cwru.edu/php/chet/readline/history.html</a>
+ <a href="file:/usr/share/readline/inputrc">/usr/share/readline/inputrc</A>
+ ~/.inputrc
+ <a href="http://lua-users.org/wiki/CompleteWithReadline">http://lua-users.org/wiki/CompleteWithReadline</a>
+ <A HREF="http://rocks.moonscript.org/modules/gvvaughan/luaposix">http://rocks.moonscript.org/modules/gvvaughan/luaposix</A>
+ <a href="http://www.pjb.com.au/comp/lua/terminfo.html">terminfo.lua</a>
+ <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
+ <a href="http://www.pjb.com.au/comp/index.html#lua">http://www.pjb.com.au/comp/index.html#lua</a>
+</pre>
+
+</DIV>
+</body>
+
+</html>

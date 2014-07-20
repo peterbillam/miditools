@@ -1,0 +1,485 @@
+<HTML><HEAD> <TITLE>Muscript: Changes</TITLE> </HEAD>
+<LINK rel=stylesheet type="text/css" href="styles.css" title="Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
+</HEAD><BODY LINK="#000066" VLINK="#000066" ALINK="#000066"><DIV>
+
+<H2><A NAME="top"><IMG SRC="logo.gif" ALT=" " WIDTH=81 HEIGHT=32></A>
+<FONT COLOR="#800000">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B><I>www.pjb.com.au/muscript/changes.html</I></B></FONT></H2>
+
+<P><B><A HREF="index.html">Muscript</A></B>
+is a language for typesetting music,
+and a <I>Perl</I> script which translates this language
+either into <I>PostScript</I>, or into <I>Encapsulated PostScript</I>,
+or into <I>MIDI</I>, or into
+<I><A HREF="http://www.musicxml.org/xml/software.html">MusicXML</A></I>,
+and there is a script <A HREF="index.html#ps_tools">muscriptps2svg</A>
+to translate <I>muscript</I> into <A HREF="http://www.svg.org">SVG</A>.
+<I>Muscript</I> was written by
+<A HREF="http://www.pjb.com.au">Peter Billam</A> to typeset his own
+<A HREF="http://www.pjb.com.au/mus/comp.html">compositions</A> and
+<A HREF="http://www.pjb.com.au/mus/arr.html">arrangements</A>.
+This page describes its History of Recent Changes.
+</P><P> 
+<BR><B>3.1y</B>, 16jul2014,
+workaround: ignore -gs options in xml
+<BR><B>3.1w</B>, 29jun2014,
+bug fixed:
+<A HREF="index.html#midi_in_a_stave">cc64=127</A>
+was incorrectly seen as "not a note"
+<BR><B>3.1v</B>, 16may2014,
+<A HREF="index.html#options">Sos pedal fixed</A>;
+stave2channel =&gt; stave2channels, allowing
+<A HREF="index.html#midi_in_a_stave">cha3+7+11</A>
+<BR><B>3.1u</B>, 14may2014, bugs fixed in
+<A HREF="index.html#cen">midi cents</A>
+which can now be more than a semitone; and 
+<A HREF="index.html#tra">the transpose option</A>
+allows transposition of all notes in a channel
+<BR><B>3.1t</B>, 06jul2014, StartedSlurs{istave}  not {istave,stemup}
+<BR><B>3.1s</B>, 05jul2013, round the starttime in sub midi_event
+<BR><B>3.1r</B>, 04jul2013, the
+<A HREF="index.html#titles">title</A> scales with the average maxstaveheight
+<BR><B>3.1q</B>, 01jun2013, midi-relevant
+<A HREF="index.html#options">options</A> work in midi on
+<A HREF="index.html#rests">rests</A>
+even when the rest is moved up or down with <B>'</B> or <B>,</B>
+<BR><B>3.1p</B>, 31may2013,
+<A HREF="index.html#options">Una</A> prints <I>Una Corda</I>,
+<A HREF="index.html#options">Tre</A> prints <I>Tre Corde</I>
+<BR><B>3.1o</B>, 20mar2013,
+<A HREF="index.html#rests">smq-s rests</A> are printed small
+<BR><B>3.1n</B>, 19mar2013,
+introduced
+<A HREF="index.html#options">Sos, *Sos, Una and Tre pedal-options</A>
+<BR><B>3.1m</B>, 13mar2013,
+try to adapt to perl 5.14
+<BR><B>3.1k</B>, 04mar2013,
+introduced patterns
+<A HREF="variables.html#generators">random</A> and
+<A HREF="variables.html#generators">aaba</A>
+<BR><B>3.1j</B>, 24jan2013,
+bug fixed in the height2cross mechanism (see 2.8p)
+<BR><B>3.1i</B>, 11dec2012,
+<A HREF="index.html#options">midi-options</A> are respected on rest and blank,
+e.g. "blank-P", and a bug-fix: variable-substitution in
+<A HREF="variables.html#generators">generators</A>
+no longer gets forced.
+<BR><B>3.1h</B>, 20oct2012,
+<A HREF="index.html#comments">#M</A> (if Midi) and
+<A HREF="index.html#comments">#P</A> (if PS or Xml)
+<BR><B>3.1g</B>, 13sep2012, check
+<A HREF="index.html#midi_global">midi bank msb,lsb</A> command
+for syntax, and make lsb optional
+<BR><B>3.1f</B>, 08mar2012,
+<A HREF="index.html#midi_global">midi barlines on</A> command,
+for use by
+<A HREF="../midi/midi2muscript.html">midi2muscript</A>
+<BR><B>3.1e</B>, 11feb2012,
+fix bug in
+<A HREF="variables.html#generators">rabbit;</A> missing my @list
+<BR><B>3.1d</B>, 09oct2011,
+<A HREF="index.html#rhythms">64th-notes</A>
+are correctly spaced in Postscript output, and the piano
+<A HREF="index.html#options">Pedal</A>
+is always printed beneath the note.
+
+<BR><B>3.1c</B>, 04sep2011,
+no
+<A HREF="variables.html#substitution">substitution</A>
+is attempted in comment-lines
+<BR><B>3.1b</B>, 03sep2011,
+back to the $VAR= syntax for
+<A HREF="variables.html#definition">variable definition</A>
+<BR><B>3.1a</B>, 02sep2011,
+<A HREF="variables.html">variables</A>,
+including recursively defined variables and
+<A HREF="variables.html#generators">generator functions</A>
+<BR><B>3.0i</B>, 23apr2011,
+command-line option -pp to do
+<A HREF="variables.html#preprocessor">pre-processor</A>
+only, with
+<A HREF="variables.html">variable-setting and substitution</A>,
+and producing muscript output
+<BR><B>3.0h</B>, 20apr2011,
+can invoke
+<A HREF="variables.html#generators">a generator</A>
+with a new argument-list
+<BR><B>3.0g</B>, 18apr2011,
+<A HREF="variables.html#definition">basic variable-setting</A>,
+including simple
+<A HREF="variables.html#generators">generator-functions</A>
+<BR><B>3.0f</B>, 22oct2010,
+the <CODE>ben55</CODE>
+<A HREF="index.html#midi_in_a_stave">midi-in-a-stave option</A>
+allows setting of pitch-bend
+<BR><B>3.0e</B>, 22jul2010,
+the <CODE>cc73=108</CODE>
+<A HREF="index.html#midi_in_a_stave">midi-in-a-stave option</A>
+allows setting of arbitrary
+<A HREF="gm.html#cc">MIDI Contollers</A>
+<BR><B>3.0d</B>, 14jun2010,
+warning if there seems to be a slur or tie inside a
+<A HREF="index.html#options">text-option</A>
+<BR><B>3.0c</B>, 13jun2010,
+comments within
+<A HREF="index.html#midi_global">midi-global commands</A> are introduced
+<BR><B>3.0b</B>, 02apr2010,
+the <A HREF="index.html#options">-P and -* midi-note-options</A> are introduced
+<BR><B>3.0a</B>, 05feb2010,
+<A HREF="index.html#rests">rests</A>
+can be shifted up or down more than three steps
+<BR><B>2.9z</B>, 28dec2009,
+handles unfinished
+<A HREF="index.html#beams">beams</A> more gracefully,
+and allows more space for fat
+<A HREF="index.html#timesigs">timesigs</A>
+<BR><B>2.9y</B>, 23nov2009,
+fix spacing of the lower voices with multiple voices with
+<A HREF="index.html#keysigs"><B>0</B> keysigs</A> on the same stave
+<BR><B>2.9x</B>, 9nov2009,
+at last, perldoc is introduced
+<BR><B>2.9w</B>, 17sep2009,
+bug in stem-down beam-stubs fixed
+<BR><B>2.9v</B>, 15sep2009,
+<A HREF="index.html#rhythms">64th-notes (hemidemisemiquavers)</A> introduced,
+and 32nd- and 64th-note beams keep clear also of their initial and final blobs
+<BR><B>2.9u</B>, 7sep2009,
+use <CODE>ps_tails_or_beams</CODE> to tidy 2.7v code
+keeping beams on-staff and clear of ledger-lines
+<BR><B>2.9t</B>, 6sep2009,
+<A HREF="index.html#beams">smq and dsq beams</A>
+avoid their note-blobs more carefully
+<BR><B>2.9s</B>, 1aug2009,
+<A HREF="index.html#midi_global">midi gm</A>,
+<A HREF="index.html#midi_global">midi temperament</A> and
+<A HREF="index.html#midi_global">midi cents</A> introduced; also the
+<A HREF="index.html#midi_in_a_stave">in-a-stave 'pan' command</A>
+<BR><B>2.9r</B>, 28jul2009,
+<A HREF="index.html#midi_global">midi bank msb,lsb</A>
+command introduced
+<BR><B>2.9p</B>, 3jul2009,
+multiple vertical-shift of
+<A HREF="index.html#ties">ties and slurs</A>
+<BR><B>2.9o</B>, 5jun2009,
+accidentals before small notes <A HREF="index.html#rhythms">(-s)</A>
+now get moved proportionately closer to their note
+<BR><B>2.9n</B>, 20may2009,
+<A HREF="index.html#rhythms">16-s</A>
+gets correctly mapped to smq-s, not to smb6-s
+<BR><B>2.9m</B>, 7may2009,
+<A HREF="index.html#systems">topmargin</A>
+is no longer ignored if there's just one system
+<BR><B>2.9l</B>, 4may2009,
+<A HREF="index.html#midi_global">global midi commands</A>
+are now ignored if $Midi_off
+<BR><B>2.9k</B>, 6apr2009,
+the tremolando code rewritten;
+now does <A HREF="index.html#beams">brille-bass minims</A>
+<BR><B>2.9j</B>, 29mar2009,
+warns about unrecognised syntax,
+and handles <CODE><B><A HREF="index.html#newbar">| =1...</A></B></CODE>
+in midi and xml as well as in PS
+<BR><B>2.9i</B>, 10mar2009,
+handles utf8 OE and oe-ligatures (fr)
+<BR><B>2.9h</B>, 28jan2009,
+bug fixed in total_chord_options
+<BR><B>2.9g</B>, 12jan2009,
+when running off the end of the first page.  the
+<A HREF="index.html#titles">
+title gets prepended to the innerheader</A>
+<BR><B>2.9f</B>, 8jan2009,
+new commands:
+<A HREF="index.html#midi_global">midi off and midi on</A>
+<BR><B>2.9e</B>, 6jan2009,
+<A HREF="index.html#footers">leftfoot</A> remembered correctly page-to-page
+<BR><B>2.9d</B>, 5jan2009, ps_note_options on beams gets correct $X argument
+<BR><B>2.9c</B>, 10nov2008, -blank-
+<A HREF="index.html#options">note-option</A> can be written -- again (see 2.7d)
+<BR><B>2.9b</B>, 2nov2008, handles utf8 encodings of the latin1 chars in
+<A HREF="index.html#systems">titles and headers</A>,
+<A HREF="index.html#words">words</A> and
+<A HREF="index.html#options">text-options</A>
+<BR><B>2.9a</B>, 1nov2008, international
+<A HREF="index.html#rhythms">rhythm</A> notation introduced
+<BR><B>2.8z</B>, 30oct2008, moved
+<A HREF="index.html#options">note-options</A>
+at the end of a stem, to being horizontally centered
+half-way between the stem and the centre of the blob
+<BR><B>2.8y</B>, 23sep2008, bug fixed; removed redundant barline calls
+<BR><B>2.8x</B>, 6sep2008, bug fixed in the code
+keeping beams within the stave-lines
+<BR><B>2.8w</B>, 19jul2008, fixed the -p option
+<BR><B>2.8v</B>, 18feb2008, subroutine xml_transpose introduced,
+and DOCYTPE specifies MusicXML version 1.1
+<BR><B>2.8u</B>, 13feb2008,
+<A HREF="index.html#midi_in_a_stave">xml transpose</A>
+uses &lt;transpose&gt; not &lt;alter&gt;
+<BR><B>2.8t</B>, 12feb2008, beam rendered more correctly in xml output
+<BR><B>2.8s</B>, 3feb2008, unfinished
+<A HREF="index.html#ties">ties</A> overhang the right margin
+<BR><B>2.8r</B>, 25jan2008, subroutine ps_is_stemless introduced
+<BR><B>2.8q</B>, 23jan2008, subroutine old_parse_note removed
+<BR><B>2.8p</B>, 22jan2008, much neater
+<A HREF="index.html#shift">leftward shifting of accidentals</A>
+on neighbouring notes
+<BR><B>2.8o</B>, 21jan2008, the
+<A HREF="index.html#keysigs">"0" keysig</A> now works after a clef
+<BR><B>2.8n</B>, 27nov2007, omit SpaceRightOfClef after
+<A HREF="index.html#clefs">a clef</A> at the end of a bar
+<BR><B>2.8m</B>, 19nov2007, brackets escaped in PostScript
+<A HREF="index.html#titles">titles, headers and footers</A>
+<BR><B>2.8l</B>, 18nov2007, <I>eval</I> eliminated from persistent
+<A HREF="index.html#headers">headers</A> to cure a bug with single-quotes
+<BR><B>2.8k</B>, 7nov2007, the
+<A HREF="index.html#boundarybox">boundarybox</A> command generates EPS
+<BR><B>2.8i</B>, 27oct2007, unite the PS <I>tieabove</I> and
+<I>tiebelow</I> routines into <I>tie</I>, and tidy the code
+<BR><B>2.8h</B>, 26oct2007, remove the useless PostScript <I>stroke</I>
+from <I>fill stroke</I> in the quaver rest routines, and regularise the
+argument order in the stave routine.
+<BR><B>2.8g</B>, 6oct2007, midi volume never falls below 1,
+and consistent indication of line-numbers in error-messages
+<BR><B>2.8f</B>, 22sep2007, in midi, append a "final_barline" marker
+to express any terminating rest
+<BR><B>2.8e</B>, 20sep2007, correct line-number displayed in error messages
+<BR><B>2.8d</B>, 14sep2007, removed spurious "reset 0" debug message
+<BR><B>2.8c</B>, 12sep2007, introduce the
+<A HREF="index.html#keysigs">keysig</A> "0", to return to Cmaj
+<BR><B>2.8b</B>, 10sep2007, double-bars and repeat-marks
+scale properly with staveheight
+<BR><B>2.8a</B>, 27aug2007, new stricter
+<A HREF="index.html#notes">note-format</A>;
+e.g. allows brackets in text-note-options
+<BR><B>2.7y</B>, 10aug2007, bug fixed in persistence of headers and footers
+<BR><B>2.7x</B>, 9aug2007, bug fixed in smq and dsq beams in stem-down notes;
+and in beam gradients when beams are moved clear of ledger-lines
+<BR><B>2.7w</B>, 2aug2007, vertical spacing of
+<A HREF="index.html#rests">rests</A> (e.g. rest'' and rest,,) is respected within chords
+<BR><B>2.7v</B>, 29jul2007, beams stay on the staff and clear of ledger-lines
+for better clarity
+<BR><B>2.7u</B>, 26jul2007, stem-down smq-s and dsq-s beams spaced correctly
+<BR><B>2.7t</B>, 21jul2007, smb and min rests get ledger lines when they're
+outside their stave
+<BR><B>2.7s</B>, 7jul2007, bracket thickness fixed, double-bar neater
+<BR><B>2.7r</B>, 6jul2007, barline thickness reduced slightly
+<BR><B>2.7q</B>, 3jul2007, barline thickness non-zero in page 1 system 1
+<BR><B>2.7p</B>, 30jun2007, dim and cre note-options take no space
+<BR><B>2.7o</B>, 21jun2007, barline notestem and bracket scale
+with staveheight; and cut out a superfluous zero-length beam.
+<BR><B>2.7n</B>, 19jun2007, duplets, quadruplets, quintuplets and sextuplets
+<BR><B>2.7m</B>, 1jun2007, naming of subs xml*timesig improved,
+<CODE>-i"s"</CODE> note-options handled correctly,
+and <CODE>-i"s&nbsp;&nbsp;"</CODE> note-options placed correctly.
+<BR><B>2.7k</B>, 26may2007, dsq rest at last!
+and a bug fixed: &amp;ps_pagenum not &amp;pagenum
+<BR><B>2.7j</B>, 21may2007, sub ps_finish_ties finishes slurs also
+<BR><B>2.7i</B>, 18may2007, subroutines all renamed midi_* or xml_* or ps_*,
+and &amp;round used instead of int(0.5+
+<BR><B>2.7h</B>, 16may2007, subroutines grouped by Midi/Xml/PostScript,
+and several renamed midi_* or xml_* or ps_*
+<BR><B>2.7g</B>, 15may2007, the final barline can be absent, eg
+<CODE>bars&nbsp;|16|16|8</CODE>
+<BR><B>2.7f</B>, 12may2007, <I>Helvetica-Bold</I> not <I>HelveticaBold</I>
+in the PostScript of the -gs note-option
+<BR><B>2.7e</B>, 10may2007, fix missing <I>newpath</I>
+in the PostScript of the -gs note-option
+<BR><B>2.7d</B>, 8may2007, -blank- note-option can be written --
+<BR><B>2.7c</B>, 29apr2007, fixed bugs in linenum after \,
+and in midi rendering of ties changing from above to below, e.g. )1(2
+<BR><B>2.7b</B>, 23apr2007, -gs note-option for printing the
+guitar-string number in a circle
+<BR><B>2.7a</B>, 16apr2007, -cre and -dim note-options
+allow crescendo and diminuendo within a note
+<BR><B>2.6v</B>, 15apr2007, fixed bug in midi note-options
+<BR><B>2.6u</B>, 10apr2007, fixed cache-clobber bug in note-options
+<BR><B>2.6t</B>, 3mar2007, fixed spurious-warning bug in xml midi-new-bar
+<BR><B>2.6s</B>, 23feb2007, the
+<A HREF="index.html#midi_in_a_stave">tra midi-in-stave command</A>
+is expressed in the xml &lt;alter&gt; element
+<BR><B>2.6r</B>, 18feb2007, blanks are expressed by xml &lt;forward&gt;,
+and a bug fixed in the multiple-tempi-within-a-bar handling
+<BR><B>2.6q</B>, 17feb2007, xml handles multiple tempi within a bar
+<BR><B>2.6p</B>, 16feb2007, newsys cmd "/" doesn't need a following bars cmd
+<BR><B>2.6o</B>, 15feb2007, xml release note-attribute rounded to integer
+<BR><B>2.6n</B>, 15feb2007, xml dynamics note-attribute expresses
+the emphasis option
+<BR><B>2.6m</B>, 15feb2007, xml transpose attribute expresses
+the midi-in-stave transpose command
+<BR><B>2.6k</B>, 15feb2007, xml dynamics note-attribute expresses
+the midi-in-stave volume command
+<BR><B>2.6j</B>, 15feb2007, xml tie element (for sound) as well as tied
+(for notation), and the release note-attribute expresses the staccato option
+<BR><B>2.6i</B>, 14feb2007, xml release note-attribute expresses the
+midi-in-stave legato command
+<BR><B>2.6h</B>, 11feb2007, xml title and credit (= leftfoot)
+<BR><B>2.6g</B>, 10feb2007, xml font-style adds italic to sub xml_text
+<BR><B>2.6f</B>, 9feb2007, xml tempo, and channels using &lt;instrument&gt;
+<BR><B>2.6e</B>, 6feb2007, xml midi channels, patches and pan
+<BR><B>2.6d</B>, 4feb2007, xml triplets, and beam number attribute,
+and vertical positioning of rests with rest' and rest,
+<BR><B>2.6c</B>, 2feb2007, xml_text specifies default-y
+<BR><B>2.6b</B>, 1feb2007, xml_text uses @xml_cache, not just print,
+and &lt;staves&gt; output only once unless it changes
+<BR><B>2.6a</B>, 1feb2007, xml{voice} re-zeroed every bar
+<BR><B>2.5z</B>, 31jan2007, xml barlines and repeats
+<BR><B>2.5y</B>, 30jan2007, xml timesig and keysig only specified once per stave
+<BR><B>2.5x</B>, 30jan2007, xml attributes output in correct DTD order
+<BR><B>2.5w</B>, 19jan2007, xml null keysig only output once per stave,
+and display-step and display-octave for <CODE>rest''</CODE>
+<BR><B>2.5v</B>, 18jan2007, xml accidental introduced
+<BR><B>2.5u</B>, 18jan2007, xml spurious null keysig bug fixed,
+tautologous clefs and keysigs suppressed at new-system time,
+and display-step and display-octave for <CODE>rest''</CODE>
+<BR><B>2.5t</B>, 17jan2007,
+xml &lt;clef&gt; specifies sign, for alto &amp; tenor clefs
+<BR><B>2.5s</B>, 16jan2007,
+for <I>musicxml2ly</I>'s sake, xml &lt;voice&gt; specified for every note,
+and a &lt;key&gt; specified even when there isn't one.
+<BR><B>2.5r</B>, 16jan2007, bad bug fixed in %xpart in PostScript output
+<BR><B>2.5q</B>, 16jan2007, xml text
+<BR><B>2.5p</B>, 13jan2007, xml note-options, clefs, timesigs, keysigs
+<BR><B>2.5n</B>, 12jan2007, first working
+<A HREF="http://www.musicxml.org/xml/software.html">MusicXML</A> output
+<BR><B>2.5m</B>, 24dec2006, in PostScript, the note kept as a hashref after
+its 1st parse; 10% speed improvement
+<BR><B>2.5k</B>, 22dec2006, sophisticated vertical slur-and-tie-spacing
+<BR><B>2.5j</B>, 21dec2006, subs start_thing and end_thing allow a slur and
+a tie to begin (or end) at the same note
+<BR><B>2.5i</B>, 18dec2006, sub parse_note now returns an assocary_ref
+<BR><B>2.5h</B>, 27nov2006, bug fixed with -s0 option
+<BR><B>2.5g</B>, 11oct2006, useless regexps removed from dypitch, ypitch
+<BR><B>2.5f</B>, 11oct2006, cacheing parse_line on
+option strings saves several percent execution time
+<BR><B>2.5e</B>, 10oct2006, regexps involving \/ changed to m{}
+<BR><B>2.5d</B>, 7oct2006, fixed bug with a comma at the end of a text-option
+<BR><B>2.5c</B>, 17sep2006, more PerlBestPractices-conformant
+<BR><B>2.5b</B>, 17sep2006, fixed bug in the -blank option
+<BR><B>2.5a</B>, 12sep2006, vertical slur-and-tie-spacing with {'1 etc,
+and more sophisticated vertical spacing of multiple options on a single note.
+<BR><B>2.4p</B>, sep2006, -up and -down note-options for up-bow, down-bow
+<BR><B>2.4n</B>, sep2006, adjustable chorus effect on MIDI channels
+<BR><B>2.4m</B>, sep2006, adjustable vibrato on MIDI channels and in stave
+<BR><B>2.4k</B>, sep2006, adjustable reverb on MIDI channels
+<BR><B>2.4j</B>, aug2006, fixed bug to <I>really</I> allow
+spurious MIDI timesig events to be suppressed
+<BR><B>2.4i</B>, aug2006, comment appears as "marker" in MIDI mode
+<BR><B>2.4h</B>, jul2006, fixed spurious MIDI timesig events every newline,
+and a bug with "midi channel 0" or "patch 0"
+<BR><B>2.4g</B>, jul2006, stereo panning of MIDI channels
+<BR><B>2.4f</B>, jun2006, fix longstanding PS stack leak in f_clef and g_clef
+<BR><B>2.4e</B>, apr2006, fix midi bug in multiply-tied notes e.g.
+A(2&nbsp;A)2(2&nbsp;A)2
+<BR><B>2.4d</B>, apr2006, fix midi Segno bug
+<BR><B>2.4c</B>, mar2006, horizontal proportions take account of
+SpaceAtBeginningOfBar
+<BR><B>2.4b</B>, jan2006, fix bug with ' in later-than-1st chord notes
+<BR><B>2.4a</B>, jan2006, new ".." syntax for text options,
+and new {1 }1 syntax for slurs,
+with the previous (1 )1 now being used only for ties.
+<BR><B>2.3i</B>, jan2006, fix midi startedslurs bug 
+<BR><B>2.3h</B>, nov2005, more sophisticated beam gradient algorithm
+<BR><B>2.3g</B>, may2005, midi handles endslur and starttieorslur
+on the same note
+<BR><B>2.3f</B>, may2005, midi handles minim beat in alla breve timesigs,
+and accidentals persist if tied over from previous bar
+<BR><B>2.3e</B>, may2005, explicit clef with no keysig nulls the keysig,
+and %ytable is needed in Midi to keep track of slurs
+<BR><B>2.3d</B>, may2005, fix div/0 bugs on empty stave (=1) lines
+<BR><B>2.3c</B>, apr2005, index.html not manual.html
+<BR><B>2.3b</B>, apr2005, leg &amp; vol abbreviations; vol+ and vol- increments
+<BR><B>2.3a</B>, apr2005, -midi uses MIDI::Score to generate MIDI output
+<BR><B>2.2g</B>, mar2005, small notes handle 'x' and dot positioning
+<BR><B>2.2f</B>, mar2004, un-ended slurs end at nearest :|| , else EOL
+<BR><B>2.2e</B>, aug2003, bug fix in clef placement at BOL with a repeat mark
+<BR><B>2.2d</B>, aug2003, clef at start of bar respects repeat-mark
+and double-bar
+<BR><B>2.2c</B>, aug2003, doubleflat bug fixed, and doublesharp introduced
+<BR><B>2.2b</B>, aug2003, un-begun slurs start at nearest double-bar, else BOL
+<BR><B>2.2a</B>, jul2003, segno now supported
+<BR><B>2.1k</B>, may2003, clefspace 'not a note' bug fixed
+<BR><B>2.1j</B>, mar2003, compromise &amp; auto PageSizes introduced;
+default now a4 again
+<BR><B>2.1h</B>, feb2003, bug fixed with spaceatstart{1} being double-counted
+<BR><B>2.1g</B>, feb2003, by default will autodetect US Letter pagesize
+<BR><B>2.1f</B>, jan2003, barline spacing respects timesigs and keysigs
+<BR><B>2.1e</B>, dec2002, horiz spacing above first stave in system now fixed
+<BR><B>2.1d</B>, nov2002, smb-s supported; smb can be small
+<BR><B>2.1c</B>, sep2002, breve rests are now supported
+<BR><B>2.1b</B>, sep2002, "bre" breves are now supported
+<BR><B>2.1a</B>, jul2002, "r0.4 gloop .75 gleep" horizontal spacing of text
+<BR><B>2.0p</B>, jul2002, rest,,, and rest''' and min-s; 8va rewritten
+<BR><B>2.0n</B>, may2002, infinite loop bug fixed if a &#60; bracket
+   is left open, and "x" in a text option is now handled correctly
+<BR><B>2.0m</B>, apr2002, -I{some text} option introduced
+<BR><B>2.0k</B>, mar2002, clefspace at BOL, & keysig memory bug fixed,
+   options work on rest and blank which now use print_event like notes do
+<BR><B>2.0j</B>, sep2001, retain previous clef and keysig on new systems,
+    regenerates bars, systems and headers, add mordent option,
+    centreshow adjusts y as well (needed for options)
+<BR><B>2.0g</B>, sep2001, expand also 6 bars |8|
+<BR><B>2.0f</B>, sep2001, autoincrement pagenums, and systems expansion
+<BR><B>2.0e</B>, sep2001, ties at eol improved,
+    text options added, x and r on smbs consistent with other notes
+<BR><B>2.0d</B>, aug2001, bugs fixed with smb//, with &y_below_note,
+    with tremolando on stemup chords, and with ( or ) first char in a string
+<BR><B>2.0c</B>, aug2001, smb &#60;ar g&#62; works
+<BR><B>2.0b</B>, aug2001, fermata printed upside down if beneath stave
+<BR><B>2.0a</B>, aug2001,
+    top gaps can be reserved above the first system;
+    ties go to midline of notes by default,
+    have a maximum gradient and are neater when squeezed;
+   small notes have small stems and beams; the blank option is available.
+
+<BR><B>1.8n</B>, 3aug2001,
+bugs fixed in dsq beams and small stems
+<BR><B>1.8m</B>, 1aug2001,
+refine spacing of keysig
+<BR><B>1.8l</B>, 3jul2001,
+attach stems to small crochets
+<BR><B>1.8j</B>, 6apr2001,
+options below staff seem to work,
+fix bug with smq. [d dsq c qua B] beams,
+first try at -s small notes,
+-s makes accidentals small too,
+fix keysig spacing in midline
+<BR><B>1.8i</B>, 4apr2001,
+highestsmb calculated correctly,
+first try at options beneath note,
+try to get options below beams working
+<BR><B>1.8h</B>, 5mar2001,
+does -emph note option,
+fix hangover repeat at BOL bug
+<BR><B>1.8g</B>, 4jan2001,
+allows f~~ .. A__ pitches,
+add -ten tenuto option,
+fix bug with barcount if || doublebar
+<BR><B>1.8f</B>, 20aug2000,
+x shifts accidental, multiple r rightshifts
+<BR><B>1.8e</B>, 2may2000,
+does -p and -s, beginning of sub words,
+beginning of tremolandi, eg smb//,
+tremolandi seem to be working
+<BR><B>1.8d</B>, 1mar2000,
+does start-repeat marks at BOL
+<BR><B>1.8c</B>, 7feb2000,
+trn, [< can intermingle, ties can be at end
+<BR><B>1.8b</B>, 15jan2000,
+add tr# and trb options
+<BR><B>1.8</B>, 16nov1999,
+spaces multiple options vertically,
+options printed correctly over stemup beams,
+"r" correctly shifts blob as well as stem
+
+</P>
+
+<P>Back <A HREF="#top">to the top</A> . . .</P>
+
+<HR>
+
+<CENTER>
+<P><I>Peter Billam, GPO Box 669, Hobart TAS 7001, Australia</I>
+<A HREF="http://www.pjb.com.au"><I>http://www.pjb.com.au</I></A></P>
+</CENTER>
+</DIV></BODY></HTML>

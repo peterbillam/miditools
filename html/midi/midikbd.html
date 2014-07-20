@@ -1,0 +1,455 @@
+<HTML><HEAD><TITLE>midikbd</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midikbd</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#channelspec">CHANNELSPEC</a></li>
+	<li><a href="#superseded">SUPERSEDED OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#requirements">REQUIREMENTS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>midikbd - a simple monophonic ascii-midi-keyboard
+</p>
+
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ &nbsp; midikbd [-o output] [-ka|-kd|-kh|-kp|-kw] [-q] &lt;ChannelSpec&gt;...
+ &nbsp; midikbd -o 128:0       # plays to ALSA-port 128:0
+ &nbsp; midikbd 3              # plays to MIDI-Channel 3 (out of 0..15)
+ &nbsp; midikbd 3:0:80 0:73:20     # sets Channel:Patch:Pan, plays to 0
+ &nbsp; midikbd 3:92:x10:y1 # mouse X-motion controls pan; Y modulation
+ &nbsp; midikbd -ka                # selects the "augmented" keymapping
+ &nbsp; midikbd -q         # Quiet mode: doesn't display keystroke help
+ &nbsp; xterm -geometry 72x18-1-1 -exec 'midikbd -kd' &amp;
+ &nbsp; xterm -geometry 72x24-1-1 -exec 'midikbd -ka' &amp;
+ &nbsp; perldoc midikbd
+
+ the "piano" keymap (bottom 2 rows round middleC, top 2 treble clef):
+    1    2    3        5    6       8    9    0        =   Back
+ F  F# G G# A Bb B   C C# D Eb E  F F# G G# A Bb B   c c# d eb e
+ Tab   q    w    e   r    t    y  u    i    o    p   [    ]    \
+              s    d        g    h    j       l    ; 
+            C C# D Eb  E  F F# G G# A Bb B  C C# D Eb E
+            z    x     c  v    b    n    m  ,    .    /
+
+ Q = Quit        C = new Channel        P = new Patch        A = ALSA
+ U/D = Up/Down a semitone      PageUp/Down  = Up/Down an octave
+ UpArrow    = Volume +10       DownArrow = Volume -10
+ RightArrow = Pan +16          LeftArrow = Pan -16
+ F1,F2  = take new pedal       F3,F4     = remove pedal
+ M    = set a MIDI-Controller  X/Y = govern a Controller by mouse X/Y
+ Home = reset all controllers  End = all sounds off
+
+</pre>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>
+<I>Midikbd</I> allows the use of the computer keyboard
+as a simple monophonic MIDI keyboard.
+</p><p>
+<I>Midikbd</I> is monophonic because of the impracticality of detecting
+<I>KeyUp</I> and <I>KeyDown</I> events in an <I>xterm</I>.
+If the <B>Space</B>-bar is pressed
+(or any other ascii-key which does not map to a note),
+then the current note is stopped;
+otherwise, each note lasts until the next note is played.
+</p><p>
+This also means that if you hold a key down (as you would on,
+say, an organ keyboard) the key-repeat mechanism will start up;
+this may sound, er, unexpected.
+</p><p>
+Different
+<A HREF="#option_k">key-to-note mappings are available</A>.
+The default mapping (<I>piano</I>) gives a range of just over three octaves.
+The lower two rows get the notes round Middle-C, so that <B>z</B> is the C
+below Middle-C and <B>/</B> is the E above it.  Then the upper two rows
+get the treble-clef notes, so that <B>Tab</B> is the E above Middle-C
+and <B>]</B> is the d above the treble-clef.
+</p><p>
+If <A HREF="#option_o">the <B>-o</B> option</A> is not given
+then <I>midikbd</I> writes to the port specified by the 
+<I>ALSA_OUTPUT_PORTS</I> environment variable.
+<!--
+If that is not set,
+it writes directly to an ALSA raw-MIDI device (<I>midiC?D?</I>)
+that it finds in <I>/dev/snd/</I> &nbsp;
+If it finds more than one such device
+it uses <I>Term::Clui</I> to let the user choose between them.
+The only devices that appear there
+are the hardware-synths and the Virtual-MIDI ports;
+other ALSA-clients (e.g. <I>timidity</I>) do not appear in <I>/dev/snd/</I>;
+they can be accessed by using <I>aconnect</I> to connect
+a Virtual-MIDI port to the chosen ALSA-client, then using <I>midikbd</I>
+to play into the corresponding <I>/dev/snd/midiC?D?</I> device.
+This is what <A HREF="#option_o">the <B>-o</B> option</A> does for you.
+</p><p>
+If <I>aconnect&nbsp;-oil</I> doesn't reveal any Virtual-MIDI ports,
+you'll need to do <I>modprobe&nbsp;snd-virmidi</I>
+(or perhaps <I>modprobe&nbsp;snd-card-virmidi</I>) on startup.
+If you run out of free Virtual-MIDI ports, then you need to reload the
+<I>snd-virmidi</I> kernel-module
+with more virtual sound-cards enabled, e.g.:<BR>
+ &nbsp; <CODE>modprobe -r snd-virmidi</CODE><BR>
+ &nbsp; <CODE> modprobe snd-virmidi enable=1,1</CODE>
+-->
+</p>
+
+<hr />
+<h3><a name="options">OPTIONS</a></h3>
+<dl>
+
+<dt>
+<strong><a name="option_o"><em>-o 128:0</em></a>
+&nbsp; or &nbsp;<em>-o TiMidity</em></strong>
+</dt><dd>
+<p>
+These examples plays into the ALSA port <I>128:0</I>,
+or into the <I>TiMidity</I> client.
+They do this by using
+<A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">the MIDI::ALSA Perl
+CPAN module</A>.
+When <I>midikbd</I> exits the connection is automatically deleted.
+</p><p>
+This option allows <I>midikbd</I> to use the same port-specification
+as the other alsa-utils, e.g. <I>aplaymidi</I> and <I>aconnect</I>.
+An ALSA-port is specified by its number; for port 0 of a client,
+the ":0" part of the port specification can be omitted.
+The outout port is taken from the <I>ALSA_OUTPUT_PORTS</I>
+environment variable if none is given on the command line.
+<BR>
+Since <A HREF="#changes">Version 5.0</A>,
+you may supply a comma-separated list of ports, e.g. <I>-o&nbsp;20,128:1</I>
+<BR>
+Since <A HREF="#changes">Version 5.4</A>,
+the particular port value zero e.g. <I>-o&nbsp;0</I> is taken
+as an instruction to not connect to anything at all.
+This is useful if you want the output to go into another program like
+<I><A HREF="midiecho.html">midiecho</A></I> or
+<I><A HREF="midichord.html">midichord</A></I>;
+you no longer have to go through a MIDI-Through client.
+In separate <I>xterm</I>s:
+<BR><CODE>
+ &nbsp; midikbd -o 0</CODE><BR>
+and then<BR><CODE>
+ &nbsp; midiecho -i midikbd -c 0 -d 250,450 -s 45 -e 1,2</CODE>
+</p>
+</dd>
+
+
+<dt>
+<strong><a name="option_k"><em>-ka</em></a></strong> &nbsp; or &nbsp;
+<strong><em>-kd</em></strong> &nbsp; or &nbsp;
+<strong><em>-kh</em></strong> &nbsp; or &nbsp;
+<strong><em>-kp</em></strong> &nbsp; or &nbsp;
+<strong><em>-kw</em></strong><BR>
+<strong><em>-k augmented</em></strong> or
+<strong><em>-k drumkit</em></strong> or
+<strong><em>-k harmonic</em></strong> or
+<strong><em>-k piano</em></strong> or
+<strong><em>-k wholetone</em></strong>
+</dt><dd>
+<p>
+Selects the <B>k</B>eymap: possible keymaps are <I>augmented</I>,
+<I>drumkit</I>, <I>harmonic</I>,
+<I>piano</I> (the default), and <I>wholetone</I>.
+All keymappings are aimed at the US-keyboard; this could be seen as a bug.
+The <I>augmented</I> keymap is particularly good for improvisation.
+The <I>drumkit</I> keymap preselects Channel 9; in this mode,
+it is better not to change the Patch or the Transposition.
+The <I>harmonic</I> keymap is sort of inspired by accordion buttons,
+and makes it very easy to play major and minor triads;
+this is unfortunately not very useful as <I>midikbd</I> is only monophonic,
+which could also be seen as a bug.
+The <I>piano</I> keymap is the default.
+</p>
+<PRE>
+ the "piano" keymap (bottom 2 rows round middleC, top 2 treble clef):
+    1    2    3        5    6       8    9    0        =   Back
+ F  F# G G# A Bb B   C C# D Eb E  F F# G G# A Bb B   c c# d eb e
+ Tab   q    w    e   r    t    y  u    i    o    p   [    ]    \
+              s    d        g    h    j       l    ; 
+            C C# D Eb  E  F F# G G# A Bb B  C C# D Eb E
+            z    x     c  v    b    n    m  ,    .    /
+
+ the "wholetone" keymap (bottom 2 rows bass, top 2 treble):
+ `    1    2   3    4    5    6    7    8    9    0    -    =   Back
+ G G# A Bb B C C# D Eb E F F# G G# A Bb B c c# d  eb e f f# g g# a bb
+   Tab  q    w    e    r   t    y    u    i    o     p   [    ]    \
+          a    s    d    f    g    h    j   k    l    ;    '
+          B_ C C# D Eb E F F# G G# A Bb B C C# D Eb E F F# G
+             z    x    c   v    b    n    m    ,    .   /
+
+ the "augmented" keymap (all 4 rows, starting from top left):
+ `    1    2   3    4    5    6    7    8    9    0    -    =   Back
+ Bb   C    E   G#   C    E    G#   c    e    g#   c    e    g    a
+   Tab  q    w    e    r   t    y    u    i    o     p   [    ]    \
+    B   C#   F    A    C#  F    A    c#   f    a     c#  f    g#   bb
+          a    s    d    f    g    h    j   k    l    ;    '
+          D    F#   Bb   D    F#   Bb   d   f#   bb   d    f#
+             z    x    c   v    b    n    m    ,    .   /
+             Eb   G    B   Eb   G    B    eb   g    b   eb
+
+ the "harmonic" keymap (rightwards, alternate maj and min 3rds):
+   1     2   3    4   5   6   7    8    9     0    -     =    Back
+   Eb Bb G D Bb F D A F C A E C G  E B  G  D  B F# D  A  F# C# A
+      q    w    e   r   t   y   u    i     o    p     [     ]
+         a    s   d   f   g   h    j    k     l    ;     '
+         F  C A E C G E B G D B F# D A  F# C# A E  C# G# E
+            z   x   c   v   b   n    m     ,    .     /
+
+ the "drumkit" keymap (for General-MIDI channel 9):
+ Perc  1   2   3   4   5   6   7   8   9   0   -   =    Congas
+ HiHat   q   w   e   r   t   y   u   i   o   p   [     Cymbals
+ Snare     a   s   d   f   g   h   j   k   l   ;   '   TomToms
+ Metronome   z   x   c   v   b   n   m   ,   .   /  Bass-Drums
+
+</PRE>
+</dd>
+
+<dt><strong><a name="option_q"><em>-q</em></a></strong>
+</dt><dd>
+<p><strong>q</strong>uiet mode: doesn't display keystroke help</p>
+</dd>
+
+<dt><strong><a name="option_h"><em>-h</em></a></strong>
+</dt><dd>
+<p>Shows <strong>h</strong>elpful usage information</p>
+</dd>
+
+<dt><strong><a name="option_v"><em>-v</em></a></strong>
+</dt><dd>
+<p>
+Displays the <strong>v</strong>ersion number.
+</p>
+</dd>
+</dl>
+
+<hr />
+<h3><a name="channelspec">CHANNELSPEC</a></h3>
+<P>
+After the options, the remaining command-line arguments are ChannelSpecs,
+which specify how the MIDI-Channels are to be set up. For example:
+</P><DL><DT>
+<B>5</B>
+</DT><DD><P>
+This first example preselects Channel number 5 (out of 0..15).
+</P></DD><DT><B>
+5:91:120 4:14:120 3:91:8 2:14:8 1:91:64 0:14:64
+</B></DT><DD><P>
+The second example sets up <I>Channel:Patch:Pan</I> on a number of channels,
+and leaves <I>midikbd</I> playing on the last channel mentioned.
+A list of General-MIDI Patch-numbers is at
+<A HREF="../muscript/gm.html#patch">../muscript/gm.html#patch</A>.<BR>
+E.g. (assuming ALSA-client 14 is a Midi-Through,
+see <I>aconnect&nbsp;-oil</I>) in separate <I>xterm</I>s:<BR><CODE>
+ &nbsp; <A HREF="midiecho.html">midiecho -i 14 -d 1,2200,2201,4400,4401 -s 5 -e 1,2,3,4,5</A></CODE><BR>
+</CODE>and<CODE><BR>
+ &nbsp; midikbd -o 14 5:91:120 4:14:120 3:91:8 2:14:8 1:29:64 0:14:64
+</P></DD><DT><B>
+3:91:y0 2:92:y-0 1:93:x-10 0:94:x10
+</B></DT><DD><P>
+The third example uses mouse movement X,Y
+within its window to drive MIDI-controllers, with an <B>x</B> or a <B>y</B>
+followed by a Controller-number.
+A list of MIDI-Controller numbers is at
+<A HREF="../muscript/gm.html#cc">/muscript/gm.html#cc</A>
+and if the number is preceded by a minus sign then <I>midikbd</I> reverses the
+direction of drive, so that right- or up-motions decrease the parameter
+rather than increase it as they do normally.
+</P><P>
+Controller number zero is re-interpreted by <I>midikbd</I> to mean Pitch-Bend,
+which is not technically a real MIDI-controller, but is very useful.
+(The real MIDI-controller number zero is a Bank-Select, which is a
+slow and discontinuous operation not useful under a mouse.)
+
+</DD><DT><B>
+midikbd -o 14 3:91:y0 2:92:y-0 1:93:x-11 0:94:x11
+</B></DT><DD><P>
+This fourth example leaves <I>midikbd</I> transmitting
+to patch 94 on channel 0, after having set patch 91 on channel 3, and 92 on 2,
+and 93 on channel 1;
+and the X-motions of the mouse cross-fade from patch 93 to 94,
+and the Y-motions raise and lower patches 91 and 92 in opposite directions
+</P><P>
+And then, in a different <I>xterm</I>, you run:<BR><CODE>
+ &nbsp; <A HREF="midiecho.html">midiecho -i 14 -d 1,1,1 -s 1,1,1 -e 1,2,3</A>
+</CODE><BR>
+(very wild :-).
+</DD></DL><P>
+<I>Midikbd</I> detects mouse-motion events from the <I>xterm</I>,
+by using the <I>DECSET SET_ANY_EVENT_MOUSE</I> command: <CODE>\e[?1003h</CODE>
+&nbsp; (An earlier version ran <I>xev</I> and parsed its output).
+</P>
+
+<hr />
+<h3><a name="superseded">SUPERSEDED OPTIONS</a></h3>
+<dl>
+
+<dt><strong><a name="option_p">
+<em>-p 128:0</em></a></strong>
+</dt><dd>
+<P>
+Specifies the output ALSA-port.  Just use
+<A HREF="#option_o">use <B>-o</B> instead</A>.
+</P></dd>
+
+<dt><strong><a name="option_C"><em>-C 5</a> </em></strong>
+</dt><dd>
+<p>
+As of version 4.0, the -C option is superseded.
+Just specify <A HREF="#channelspec">the <I>ChannelSpec</I> arguments</A>
+after the options on the command-line.
+</p>
+</dd>
+
+<dt><strong><a name="option_P"><em>-P 32</em></a></strong>
+</dt><dd>
+<p>
+Preselects <B>P</B>atch number 32 (out of 0..127)
+on whatever the current channel is.
+This option is superseded by the
+<A HREF="#channelspec">the <I>ChannelSpec</I> arguments</A>.
+</p>
+</dd>
+
+</dl>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>midikbd</i> is available by http at
+<A HREF="free/midikbd">www.pjb.com.au/midi/free/midikbd</A><BR>
+To install it, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+You will also need to install the
+<I><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?Term::ReadKey">Term::ReadKey</A></I>
+CPAN modules
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<BR><B>5.4</B>, 20130225, -o 0 doesn't connect to anything
+<BR><B>5.3</B>, 20120407, the Y-controller works correctly
+<BR><B>5.2</B>, 20120401, changing the X- or Y-controller displays correctly
+<BR><B>5.1</B>, 20111103, uses
+<A HREF="../comp/lua/midialsa.html#parse_address">the new MIDI-ALSA 1.11</A>
+to handle ALSA-ports by their names
+<BR><B>5.0</B>, 20111028, OutputPort can be a comma-separated list
+<BR><B>4.9</B>, 20110917, if X and Y are set at the command line,
+the ccNN=X and ccNN=Y are displayed,
+and "Pan is controlled by mouse" not falsely displayed
+<BR><B>4.8</B>, 20110620, drumkit offers z,x = metronome
+<BR><B>4.7</B>, 20110509, quit from drumkit mode cleans up screen properly
+<BR><B>4.6</B>, 20110414, keystroke A changes ALSA connections
+<BR><B>4.5</B>, 20110321, now uses MIDI::ALSA,
+not aconnect and writing to /dev/snd/midi*
+<BR><B>4.4</B>, 20101214, display more compact; Controllers now displayed
+<BR><B>4.3</B>, 20101117,
+keystrokes X and Y map X and Y mouse movements at run-time
+<BR><B>4.2</B>, 20101017, AutoPan is cancelled by Pan,
+but is still unimplemented; keystroke M sets a MIDI-Controller
+<BR><B>4.1</B>, 20100819, CursorRow set correctly for drumkit keymap
+<BR><B>4.0</B>, 20100419, -C deprecated, -p and -d subsumed into -o
+<BR><B>3.6</B>, 20100417, X and Y mouse movements govern controllers
+<BR><B>3.5</B>, 20100402, F1,F2 take new pedal; F3,F4 remove pedal
+<BR><B>3.4</B>, 20100326, <A HREF="#option_C">the -C option</A>
+accepts the Channel:Patch:Pan format
+<BR><B>3.3</B>, 20100325, handles multiple
+<A HREF="#option_C">-C nn</A> <A HREF="#option_P">-P nn</A>
+<A HREF="#option_C">-C nn</A> <A HREF="#option_P">-P nn</A>
+settings
+<BR><B>3.2</B>, 20100325, Left and Right pan;
+Up and Down adjust volume; U and D transpose
+<BR><B>3.1</B>, 20100318, <A HREF="#option_d">-d -</A>  outputs to stdout,
+e.g. to pipe into <A HREF="midiecho.html">midiecho -i -</A>
+<BR><B>3.0</B>, 20100215, <A HREF="#option_C">-C</A> and
+<A HREF="#option_P">-P</A>, and <A HREF="#option_p">-p</A> now means ALSA-port
+<BR><B>2.9</B>, 20100206, augmented keymapping
+<BR><B>2.8</B>, 20100202, uses aconnect to show "connected to" info for virmidi
+<BR><B>2.7</B>, 20100202, <A HREF="#option_d">-d</A> option
+<BR><B>2.6</B>, 20100130, in drumkit mode, no Channel, Patch or Transpose
+<BR><B>2.5</B>, 20100130, fixed <A HREF="#option_h">-h option</A>
+<BR><B>2.4</B>, 20100130, drumkit keymapping
+<BR><B>2.3</B>, 20100129, piano, wholetone and harmonic keymappings;
+<A HREF="#option_k">-k option</A>
+<BR><B>2.2</B>, 20100128, displays keystroke help (and cleans it up on Quit)
+<BR><B>2.1</B>, 20100127, display_note()
+<BR><B>2.0</B>, 20100127, different key2note mapping, starting from z=C
+<BR><B>1.9</B>, 20100126, bug fixed with note-off for bass c
+<BR><B>1.8</B>, 20100126, End = all sounds off,  Home = reset all controllers
+<BR><B>1.7</B>, 20100126, looks through /dev/snd for midiC* files
+<BR><B>1.6</B>, 20100126, remembers Patch per Channel
+<BR><B>1.5</B>, 20100125, proper little Clui-style state display
+<BR><B>1.4</B>, 20100125, Left and Right arrows change volume
+<BR><B>1.3</B>, 20100125, <A HREF="#option_p">the -p option</A> works
+<BR><B>1.2</B>, 20100125, sub note_off; channel change stops last note
+<BR><B>1.1</B>, 20100125, PageUp,PageDown,Up,Down change transpose;
+P changes patch, C changes channel
+<BR><B>1.0</B>, 20100124, first working version
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="requirements">REQUIREMENTS</a></h3>
+<ul><li>
+<A HREF="http://alsa.opensrc.org/Main_Page">ALSA</A>
+</li><li>
+<I><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></I>
+</li><li>
+<I><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></I>
+</li><li>
+<I><A HREF="http://search.cpan.org/perldoc?Term::ReadKey">Term::ReadKey</A></I>
+</li></ul>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">
+search.cpan.org/perldoc?MIDI::ALSA</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Term::Clui">
+search.cpan.org/perldoc?Term::Clui</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Term::ReadKey">
+search.cpan.org/perldoc?Term::ReadKey</A><BR>
+<A HREF="index.html">www.pjb.com.au/midi</A><BR>
+<a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
+<A HREF="../muscript/gm.html">www.pjb.com.au/muscript/gm.html</A><BR>
+<A HREF="http://vmpk.sourceforge.net">vmpk.sourceforge.net</A><BR>
+</p>
+
+</body>
+
+</html>

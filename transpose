@@ -1,0 +1,788 @@
+#! /usr/bin/perl
+#########################################################################
+#        This Perl script is Copyright (c) 2006, Peter J Billam         #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+#
+# 20140517 3.1 use a# if key>4# and use gb if key>4b
+# 20140116 3.0 0+$istave no longer works; use int($istave)
+# 20131215 2.9 add sub newsystem
+# 20130608 2.8 handles also bb and ##
+# 20130518 2.7 avoid two warnings to accomodate perl 5.14
+# 20130311 2.6 -f option to transpose lines not starting with =\d
+# 20101207 2.5 cc87=60 commands recognised as midi_in_stave
+# 20091207 2.4 -A option uses accidentals on all notes
+# 20091107 2.3 -A doesn't generate spurious new keysig if old keysig present
+# 20091106 2.2 -A option uses accidentals on all notes
+# 20090703 2.1 multiple vertical-shift of ties and slurs
+# 20090625 2.0 doesn't translate international rhythm notation into english
+# 20090311 1.9 handles international-style rhythm notation
+# 20061228 1.8 -a option forces accidentals not keysig
+# 20061227 1.7 accidental preserved in notes tied from bar to bar
+# 20061216 1.6 fixed bug in midi tempo command e.g. | 2/2 1.73
+# 20061216 1.5 fixed bugs if old_keysig = 0
+# 20061215 1.4 -k option works, and -s option introduced
+# 20061214 1.3 sub note_text gives better transposition into remote keys
+# 20061214 1.2 sub new_keysig gives mod-12 arithmetic to keysig transposition
+# 20061214 1.1 huge rewrite handles keysigs and presistence of accidentals
+# 20030508 copes with wider range C__ .. b~~
+# 20020722 kludged together from 8ba and ~/mus/bin/transpose
+my $Version       = '3.1'; # use a# if key>4# and use gb if key>4b
+my $VersionDate   = '17may2014';
+use Text::ParseWords;
+
+my $amount = 0;
+my $old_keysig;       # for -k keysig option
+my $only_stave;       # for -s stave  option
+my $use_accidentals;  # for -a use accidentals and not a keysig
+my $all_accidentals;  # for -A use accidentals on all notes
+my $Force = 0;        # 2.6 for -f force-transpose (not just =\d lines)
+my %old_accidentalled;
+my %new_accidentalled;
+my %old_started_tie;  # HOH, for accidentals tied over across barlines
+my %new_started_tie;
+my %clef;
+OPTION:
+while ($ARGV[$[] =~ /^[-+]([\da-zA-Z])/) {
+	my $opt = $1;
+	if ($ARGV[$[] =~ /[+-]?\d+/) {
+		$amount = 0 + $ARGV[$[];
+		shift;
+		if ($amount < -20 || $amount > +20) {
+			die "improbable transposition by $amount semitones\n";
+		}
+		next OPTION;
+	} elsif ($opt eq 'v')      { shift;
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+		print "$n version $Version $VersionDate\n";
+		exit 0;
+	} elsif ($opt eq 'k') {
+		shift; $old_keysig = shift; $old_keysig =~ s/s$/#/;
+	} elsif ($opt eq 's') { shift; $only_stave = shift;
+	} elsif ($opt eq 'f') { shift; $Force = 1;   # 2.6
+	} elsif ($opt eq 'a') { shift; $use_accidentals = 1;
+	} elsif ($opt eq 'A') { shift; $all_accidentals = 1;
+	} else {
+		print "usage:\n";  my $synopsis = 0;
+		while (<DATA>) {
+			if (/^=head1 SYNOPSIS/)     { $synopsis = 1; next; }
+			if ($synopsis && /^=head1/) { last; }
+			if ($synopsis && /\S/)      { print $_; next; }
+		}
+		exit 0;
+	}
+}
+
+my $newline_was_escaped = 0;
+my @words;
+my $ibar = 0;
+
+# ---------- data needed to transpose by non-octave amounts ----------
+my %st; my %note;
+%st = (
+	'C__',0,'Cn__',0,'C__n',0,'C#__',1,'C__#',1,'Db__',1,'D__b',1,
+	'D__',2,'Dn__',2,'D__n',2,'D#__',3,'D__#',3,'Eb__',3,'E__b',3,
+	'E__',4,'En__',4,'E__n',4,'Fb__',4,'F__b',4,
+	'F__',5,'Fn__',5,'F__n',5,'E#__',5,'E__#',5,
+	'F__#',6,'F#__',6,'Gb__',6,'G__b',6,'G__',7,'Gn__',7,'G__n',7,
+	'G#__',8,'G__#',8,'Ab__',8,'A__b',8,'A__',9,'An__',9,'A__n',9,
+	'A#__',10,'A__#',10,'Bb__',10,'B__b',10,
+	'B__',11,'Bn__','11','B__n',11,'Cb_',11,'C_b',11,
+	'B#__',12,'B__#',12,
+	'C_',12,'Cn_',12,'C_n',12,'C#_',13,'C_#',13,'Db_',13,'D_b',13,
+	'D_',14,'Dn_',14,'D_n',14, 'D#_',15,'D_#',15,'Eb_',15,'E_b',15,
+	'E_',16,'En_',16,'E_n',16,'Fb_',16,'F_b',16,
+	'F_',17,'Fn_',17,'F_n',17,'E#_',17,'E_#',17,
+	'F_#',18,'F#_',18,'Gb_',18,'G_b',18,'G_',19,'Gn_',19,'G_n',19,
+	'G#_',20,'G_#',20,'Ab_',20,'A_b',20,'A_',21,'An_',21,'A_n',21,
+	'A#_',22,'A_#',22,'Bb_',22,'B_b',22,'B_',23,'Bn_','23','B_n',23,'Cb',23,
+	'B#_',24,'B_#',24,'C',24,'Cn',24,'C#',25,'Db',25,'D',26,'Dn',26,
+	'D#',27,'Eb',27,'E',28,'En',28,'Fb',28,
+	'F',29,'Fn',29,'E#',29,'F#',30,'Gb',30,'G',31,'Gn',31,
+	'G#',32,'Ab',32,'A',33,'An',33,
+	'A#',34,'Bb',34,'B',35,'Bn',35,'cb',35,'B#',36,
+	'c',36,'cn',36,'c#',37,'db',37,'d',38,'dn',38,
+	'd#',39,'eb',39,'e',40,'en',40,'fb',40,
+	'f',41,'fn',41,'e#',41,'f#',42,'gb',42,'g',43,'gn',43,
+	'g#',44,'ab',44,'a',45,'an',45,
+	'a#',46,'bb',46,'b',47,'bn',47,'c~b',47,'cb~',47,'b#',48,
+	'c~',48,'cn~',48,'c~n',48,
+	'c#~',49,'c~#',49,'db~',49,'d~b',49,'d~',50,'dn~',50,'d~n',50,
+	'd#~',51,'d~#',51,'eb~',51,'e~b',51,
+	'e~',52,'en~',52,'e~n',52,'fb~',52,'f~b',52,
+	'f~',53,'fn~',53,'f~n',53,'e#~',53,'e~#',53,
+	'f~#',54,'f#~',54,'gb~',54,'g~b',54,'g~',55,'gn~',55,'g~n',55,
+	'g#~',56,'g~#',56,'ab~',56,'a~b',56,'a~',57,'an~',57,'a~n',57,
+	'a#~',58,'a~#',58,'bb~',58,'b~b',58,'b~',59,'bn~',59,'b~n',59,
+	'b#~',60,'b~#',60,
+	'c~~',60,'cn~~',60,'c~~n',60,
+	'c#~~',61,'c~~#',61,'db~~',61,'d~~b',61,'d~~',62,'dn~~',62,'d~~n',62,
+	'd#~~',63,'d~~#',63,'eb~~',63,'e~~b',63,
+	'e~~',64,'en~~',64,'e~~n',64,'fb~~',64,'f~~b',64,
+	'f~~',65,'fn~~',65,'f~~n',65,'e#~~',65,'e~~#',65,
+	'f~~#',66,'f#~~',66,'gb~~',66,'g~~b',66,'g~~',67,'gn~~',67,'g~~n',67,
+	'g#~~',68,'g~~#',68,'ab~~',68,'a~~b',68,'a~~',69,'an~~',69,'a~~n',69,
+	'a#~~',70,'a~~#',70,'bb~~',70,'b~~b',70,'b~~',71,'bn~~',71,'b~~n',71,
+	'b#~~',72,'b~~#',72,
+);
+# add bb and ##
+foreach my $k (keys %st) {   # 2.8
+	if ($k =~ /#$/) {
+		$st{$k.'#'} = $st{$k} + 1;
+	} elsif ($k =~ /.b$/) {
+		$st{$k.'b'} = $st{$k} - 1;
+	}
+}
+
+%keysig2pitch = (
+	'' =>0,  '5b'=>1, '7#'=>1,  '2#'=>2, '3b'=>3,
+	'4#'=>4, '1b'=>5, '6b'=>6,  '6#'=>6, '1#'=>7,
+	'4b'=>8, '3#'=>9, '2b'=>10, '5#'=>11,
+);
+%pitch2keysig = reverse %keysig2pitch;
+$pitch2keysig{1} = '5b';
+
+# note durations, taken from muscript ...
+%en=( dsq=>.125,smq=>.25,qua=>.5,cro=>1.0,min=>2.0,smb=>4.0,bre=>8.0);
+foreach my $key (keys %en) {
+    $nbeats{$key}     = $en{$key};
+    $nbeats{$key.'2'} = $en{$key}*0.75;     # duplet
+    $nbeats{$key.'3'} = $en{$key}*0.66667;  # triplet
+    $nbeats{$key.'4'} = $en{$key}*0.75;     # quadruplet
+    $nbeats{$key.'5'} = $en{$key}*0.8;      # quintuplet
+    $nbeats{$key.'6'} = $en{$key}*0.66667;  # sextuplet
+}
+foreach $key (keys %nbeats) {   # dotted notes
+	$nbeats{$key . '.'  } = $nbeats{$key} * 1.5;
+	$nbeats{$key . '..' } = $nbeats{$key} * 1.75;
+	$nbeats{$key . '...'} = $nbeats{$key} * 1.875;
+}
+foreach $key (grep (/^cro|^min|^smb/, keys %nbeats)) { # tremolandi
+	$nbeats{$key . '/'  } = $nbeats{$key};
+	$nbeats{$key . '//' } = $nbeats{$key};
+	$nbeats{$key . '///'} = $nbeats{$key};
+}
+foreach $key (keys %nbeats) {
+	$nbeats{$key . '-s'}  = $nbeats{$key};   # small notes
+}
+my %en2intl=(dsq=>'32',smq=>'16',qua=>'8',cro=>'4',min=>'2',smb=>'1');
+foreach my $key (keys %nbeats) {   # International-style rhythm notation
+	if ($key =~ /^([a-u][a-u][a-u])([2-6].*)$/) {
+		my $intl = $en2intl{$1};
+		next unless $intl;
+		$intl2en{"$intl$2"} = $key;
+		next;
+	} elsif ($key =~ /^([a-u][a-u][a-u])(.*)$/) {
+		my $intl = $en2intl{$1};
+		next unless $intl;
+		$intl2en{"$intl$2"} = $key;
+		next;
+	}
+}
+
+my $new_keysig = '';
+if (!$all_accidentals || (!$use_accidentals && !$old_keysig)) {
+	$new_keysig = &new_keysig($old_keysig,$amount);
+}
+
+# ---------------- the main loop ------------------
+
+while (<>) {
+	$linenum++;
+	my $nextline;
+	if (s{\\\n$}{} and $nextline = <>) { $_ .= $nextline; redo; }
+	chop;
+	s{^\s+}{};  # strip leading space
+	if      (/^%\s*(.*)/)     { print "$_\n";
+	} elsif (/^midi\s*(.*)/)  { print "$_\n";
+	} elsif (/^rightfoot.*$/) { print "$_\n";
+	} elsif (/^leftfoot.*$/)  { print "$_\n";
+	} elsif (/^title.*$/)     { print "$_\n";
+	} elsif (/^pagenum.*$/)   { print "$_\n";
+	} elsif (/^innerhead.*$/) { print "$_\n";
+	} elsif (/^righthead.*$/) { print "$_\n";
+	} elsif (/^lefthead.*$/)  { print "$_\n";
+	} elsif (/^([1-9][0-9]*)\s+systems?\s+(.*)$/) { print "$_\n";
+	} elsif (m{^/\s*$})       { print "$_\n";
+	} elsif (m{^/\s*([1-9][0-9]*)\s*bars?\s*(.*)$}) {
+		&newsystem('/'); &bars($1, $2); $ibar=0;
+	} elsif (/^([1-9][0-9]*)\s*bars?\s*(.*)$/) { &bars($1, $2); $ibar=0;
+	} elsif (/^\|\s*[.\d]/)   { $ibar++; print "$_\n";   # 2.9
+	} else {
+		if (s/^\|\s*//)        { $ibar++; print "|\n"; }
+		if (/^([rbiI])([ls]?)(\d?\.?\d*)\s(.*)$/) { print "$_\n";
+		} elsif (s/^(stave|=)\s*// or $Force) { &newstave($_);
+		}
+	}
+}
+exit;
+
+# ------------------------- infrastructure -------------------------
+sub transpose { my $symbol = $_[$[];
+	if ($symbol =~ /^blank|^rest/) { return $symbol; }
+	my $note_ref = &parse_note($symbol);
+	if (!$note_ref) { return $symbol; }
+
+	my $newpitch;  # numeric, midi-style pitch
+	my $pitch = $note_ref->{pitch};
+	my ($raw_pitch, $octave) = $pitch =~ /([A-Ga-g])([_~]*)/;
+	if ($amount == -12) {
+		if ($octave =~ /~/) { $octave =~ s/~//;
+		} elsif ($raw_pitch =~ /^[a-g]$/) { $raw_pitch =~ tr/[a-g]/[A-G]/;
+		} else { $octave = "_$octave";
+		}
+	} elsif ($amount == 12) {
+		if ($octave =~ /_/) { $octave =~ s/_//;
+		} elsif ($raw_pitch =~ /^[A-G]$/) { $raw_pitch =~ tr/[A-G]/[a-g]/;
+		} else { $octave = "~$octave";
+		}
+	} elsif ($amount == 0) {
+		# unison
+	} else {
+		my $accidental = $note_ref->{accidental};
+		if ($accidental) {
+			$old_accidentalled{$pitch} = $accidental;
+		} elsif ($old_accidentalled{$pitch}) {
+			$accidental = $old_accidentalled{$pitch};
+		}
+
+		$newpitch = $st{"$pitch$accidental"} + $amount;
+		if ($newpitch < 0)  { $newpitch += 12;
+		} elsif ($newpitch > 70) { $newpitch -= 12;
+		}
+
+		if ($note_ref->{starttie}) {
+			$old_started_tie{$istave}{$pitch} = $accidental; # XXX
+		}
+		if ($note_ref->{endtie}) {
+			delete $old_started_tie{$istave}{$pitch};
+		}
+		$new_pitch = &note_text($newpitch, $new_keysig{$istave});
+		if ($new_pitch =~ /([A-Ga-g])([_~b#n]*)/) {
+			my $bare_note  = $1;
+			my $octaves    = $2;
+			my $accidental = $2;
+			$octaves    =~ tr/b#n//d;
+			$accidental =~ tr/_~//d;
+			if ($all_accidentals) {   # 2.2 -A
+				if ($accidental and $accidental ne 'n') {
+					$new_accidentalled{"$bare_note$octaves"} = $accidental;
+				} else {
+					if ($new_accidentalled{"$bare_note$octaves"}) {
+						$new_pitch = "$bare_note${octaves}n";
+						$new_accidentalled{"$bare_note$octaves"} = '';
+					} else {
+						$new_pitch = "$bare_note$octaves";
+					}
+				}
+			} else {
+				if ($new_accidentalled{"$bare_note$octaves"} eq $accidental) {
+					$new_pitch = "$bare_note$octaves";
+				} else {
+					if ($accidental) {
+						$new_accidentalled{"$bare_note$octaves"} = $accidental;
+					} else {
+						$new_pitch = "$bare_note${octaves}n";
+						$new_accidentalled{"$bare_note$octaves"} = '';
+					}
+				}
+			}
+		}
+	}
+
+	# re-assemble the new note in string form
+	my $new_note = $note_ref->{startbeam}.$note_ref->{startchord}.$new_pitch;
+	$new_note .= $note_ref->{cross};
+	$new_note .= q{l} x $note_ref->{accidentalshift};
+	$new_note .= q{r} x $note_ref->{rightshift};
+	$new_note .= $note_ref->{stem};
+	if ($note_ref->{endtie}) {
+		$new_note .= ')';
+		if ($note_ref->{endtieshift} >= 1) {
+			$new_note .= q{'} x $note_ref->{endtieshift};
+		} elsif ($note_ref->{endtieshift} <= -1) {
+			$new_note .= q{,} x -$note_ref->{endtieshift};
+		}
+		$new_note .= $note_ref->{endtie};
+	}
+	if ($note_ref->{endslur}) {
+		$new_note .= '}';
+		if ($note_ref->{endslurshift} >= 1) {
+			$new_note .= q{'} x $note_ref->{endslurshift};
+		} elsif ($note_ref->{endslurshift} <= -1) {
+			$new_note .= q{,} x -$note_ref->{endslurshift};
+		}
+		$new_note .= $note_ref->{endslur};
+	}
+	if ($note_ref->{starttie}) {
+		$new_note .= '(';
+		if ($note_ref->{starttieshift} >= 1) {
+			$new_note .= q{'} x $note_ref->{starttieshift};
+		} elsif ($note_ref->{starttieshift} <= -1) {
+			$new_note .= q{,} x -$note_ref->{starttieshift};
+		}
+		$new_note .= $note_ref->{starttie};
+	}
+	if ($note_ref->{startslur}) {
+		$new_note .= '{';
+		if ($note_ref->{startslurshift} >= 1) {
+			$new_note .= q{'} x $note_ref->{startslurshift};
+		} elsif ($note_ref->{startslurshift} <= -1) {
+			$new_note .= q{,} x -$note_ref->{startslurshift};
+		}
+		$new_note .= $note_ref->{startslur};
+	}
+	if ($note_ref->{options}) { $new_note .= '-'.$note_ref->{options}; }
+	$new_note .= $note_ref->{endchord};
+	$new_note .= $note_ref->{endbeam};
+	return $new_note;
+}
+sub note_text { my ($pitch, $keysig) = @_;
+	if (! defined $keysig) { $keysig = $new_keysig; }  # necessary ?
+	$keysig =~ /^(\d)([#bn])$/;
+	my $keysig_num = $1; my $keysig_sym = $2;
+	my %a;
+	# 2.4 XXX should be sensitive also to previous and perhaps
+	# even following notes ? e.g f# fn should be gb f ideally
+    if ($keysig_sym eq '#' && $keysig_num >= 2) {
+        %a = (
+            0,'C__',1,'C__#',2,'D__',3,'D__#',4,'E__',5,'F__',
+            6,'F__#',7,'G__',8,'G__#',9,'A__',10,'B__b',11,'B__',
+            12,'C_',13,'C_#',14,'D_',15,'D_#',16,'E_',17,'F_',
+            18,'F_#',19,'G_',20,'G_#',21,'A_',22,'B_b',23,'B_',
+            24,'C',25,'C#',26,'D',27,'D#',28,'E',29,'F',
+            30,'F#',31,'G',32,'G#',33,'A',34,'Bb',35,'B',
+            36,'c',37,'c#',38,'d',39,'d#',40,'e',41,'f',
+            42,'f#',43,'g',44,'g#',45,'a',46,'bb',47,'b',
+            48,'c~',49,'c~#',50,'d~',51,'d~#',52,'e~',53,'f~',
+            54,'f~#',55,'g~',56,'g~#',57,'a~',58,'b~b',59,'b~',
+            60,'c~~',61,'c~~#',62,'d~~',63,'d~~#',64,'e~~',65,'f~~',
+            66,'f~~#',67,'g~~',68,'g~~#',69,'a~~',70,'b~~b',71,'b~~',
+        );
+		if ($keysig_num >= 4) {
+			$a{10} = 'A__#'; $a{22} = 'A_#'; $a{34} = 'A#';
+			$a{46} = 'a#'; $a{58} = 'a~#'; $a{70} = 'a~~#';
+		}
+	} elsif ($keysig_sym eq 'b' && $keysig_num >= 2) {
+		%a = (
+			0,'C__',1,'D__b',2,'D__',3,'E__b',4,'E__',5,'F__',
+			6,'F__#',7,'G__',8,'A__b',9,'A__',10,'B__b',11,'B__',
+			12,'C_',13,'D_b',14,'D_',15,'E_b',16,'E_',17,'F_',
+			18,'F_#',19,'G_',20,'A_b',21,'A_',22,'B_b',23,'B_',
+			24,'C',25,'Db',26,'D',27,'Eb',28,'E',29,'F',
+			30,'F#',31,'G',32,'Ab',33,'A',34,'Bb',35,'B',
+			36,'c',37,'db',38,'d',39,'eb',40,'e',41,'f',
+			42,'f#',43,'g',44,'ab',45,'a',46,'bb',47,'b',
+			48,'c~',49,'d~b',50,'d~',51,'e~b',52,'e~',53,'f~',
+			54,'f~#',55,'g~',56,'a~b',57,'a~',58,'b~b',59,'b~',
+			60,'c~~',61,'d~~b',62,'d~~',63,'e~~b',64,'e~~',65,'f~~',
+			66,'f~~#',67,'g~~',68,'a~~b',69,'a~~',70,'b~~b',71,'b~~',
+		);
+		if ($keysig_num >= 4) {
+			$a{6}  = 'G__b'; $a{18} = 'G_b'; $a{30} = 'Gb';
+			$a{42} = 'gb'; $a{54} = 'g~b'; $a{66} = 'g~~b';
+		}
+	} else {
+		%a = (
+			0,'C__',1,'C__#',2,'D__',3,'E__b',4,'E__',5,'F__',
+			6,'F__#',7,'G__',8,'G__#',9,'A__',10,'B__b',11,'B__',
+			12,'C_',13,'C_#',14,'D_',15,'E_b',16,'E_',17,'F_',
+			18,'F_#',19,'G_',20,'G_#',21,'A_',22,'B_b',23,'B_',
+			24,'C',25,'C#',26,'D',27,'Eb',28,'E',29,'F',
+			30,'F#',31,'G',32,'G#',33,'A',34,'Bb',35,'B',
+			36,'c',37,'c#',38,'d',39,'eb',40,'e',41,'f',
+			42,'f#',43,'g',44,'g#',45,'a',46,'bb',47,'b',
+			48,'c~',49,'c~#',50,'d~',51,'e~b',52,'e~',53,'f~',
+			54,'f~#',55,'g~',56,'g~#',57,'a~',58,'b~b',59,'b~',
+			60,'c~~',61,'c~~#',62,'d~~',63,'e~~b',64,'e~~',65,'f~~',
+			66,'f~~#',67,'g~~',68,'g~~#',69,'a~~',70,'b~~b',71,'b~~',
+		);
+	}
+	return $a{$pitch};
+}
+
+# ------ subroutines modified from their muscript equivalents -------
+sub newstave {
+	no warnings; $[=1; use warnings;
+	my ($newstave,$remainder);
+	if ($Force) {
+		$newstave = '1';
+		$remainder = $_[$[];   # 2.6
+	} else { ($newstave,$remainder) = $_[$[] =~ /^(\d+[,']?)(.*)$/;
+	}
+	my $currentstave = "$newstave";
+	$istave = $currentstave; $istave =~ tr/,'//d;
+	$istave = int($istave);   # 2.8, 3.0
+	if (defined $only_stave && ($istave ne $only_stave)) {
+		print "=$newstave$remainder\n";
+		return;
+	}
+	if (defined $old_keysig{$istave}) {
+		&reset_old_accidentalled($old_keysig{$istave});
+		&reset_new_accidentalled($new_keysig{$istave});
+	} else {
+		&reset_old_accidentalled($old_keysig);
+		&reset_new_accidentalled($new_keysig);
+	}
+	&reset_new_accidentalled($new_keysig{$istave});   # ???
+	$remainder =~ s/^\s+//; $remainder =~ s/\s+$//; $remainder =~ s/'/\\'/g;
+	@array = &parse_line('\s+', 1, $remainder);
+	foreach (@array) {
+		s/\\'/'/g;
+		# if (defined $intl2en{$_}) { $_ = $intl2en{$_}; }   # 2.9a # 2.0 :-)
+	}
+	my $should_insert_keysig = 0;
+	my $i = $[;
+	
+	if (&is_a_clef($array[$i])) {    # clef
+		$old_keysig{$istave} = $old_keysig || q{};   # ???
+		%old_accidentalled = ();
+		$new_keysig{$istave} = $new_keysig || q{};   # ???
+		%new_accidentalled = ();
+		$should_insert_keysig = 1;
+		$clef{$istave} = $array[$i];
+		$i++;
+	} elsif ($array[$i] eq 'clefspace') { $i++;
+	}
+	if (&midi_in_stave($array[$i])) { $i++; }
+	if ($array[$i] =~ /^([1-7])([#bn])$/) {  # new keysig, eg 1# or 5b
+		$old_keysig{$istave} = $array[$i];
+		&reset_old_accidentalled($array[$i]);
+		$array[$i] = &new_keysig($array[$i],$amount);
+		&reset_new_accidentalled($array[$i]);
+		if (!$all_accidentals && (!$use_accidentals || $old_keysig{$istave})) {
+			$new_keysig{$istave} = $array[$i];
+		} else {
+			$new_keysig{$istave} = q{};
+		}
+		if (!$array[$i] && !$should_insert_keysig) {
+			# moving into Cmaj; must have explicit clef
+			$array[$i] = $clef{$istave};
+		}
+		$should_insert_keysig = 0;
+		$i++;
+	} elsif (!$old_keysig{$istave}) {
+		# It was in Cmaj; it isn't any more (barring a -a or -A option)
+		$old_keysig{$istave} = q{};
+		&reset_old_accidentalled(q{});
+		my $nk = '';
+		if (!$use_accidentals and !$all_accidentals) {  # 2.3
+			$nk = &new_keysig(q{},$amount);
+		}
+		&reset_new_accidentalled($nk);
+		$new_keysig{$istave} = $nk;
+		if ($ibar == 1 || $should_insert_keysig) {
+			splice @array, $i, 0, $nk;
+			$i++;
+		}
+	}
+	if (&midi_in_stave($array[$i])) { $i++; }
+	if ($array[$i] =~ m{\d+/\d+}) { # new time signature, eg 6/4 or 15/8
+		$i++;
+	}
+
+	$nfields = $#array;  # or scalar @array ? awk legacy problem
+	for (; $i <= $nfields; $i++) {                    # for all fields
+		$symbol = $array[$i];
+		if ($symbol =~ /</) {   # start of bracketed simultaneous notes
+			my $is_end_of_bracket = 0;
+			while (1) {
+				if ($i > $#array) { last; }
+				if ($array[$i] =~ />/) { $is_end_of_bracket = 1; }
+				$array[$i] = &transpose($array[$i]);
+				if ($is_end_of_bracket) { $is_end_of_bracket = 0; last; }
+				$i++;
+			}
+		} elsif (defined $nbeats{$symbol}) {    # it's smq, min, cro, qua etc
+		} elsif (defined $intl2en{$symbol}) {   # it's 1, 2, 4, 8 etc # 2.0
+		} elsif (&is_a_clef($symbol)) { # clef
+		} elsif ($symbol eq 'clefspace') {
+		} elsif ($symbol =~ /^=(\d+[,']?)$/) { # &changestave($1);
+		} elsif (&midi_in_stave($symbol)) {
+		} else  { # is a note, blank or rest
+			if ($symbol =~ /^blank|^rest/) {
+			} elsif (&is_a_note($symbol)) {
+				$array[$i] = &transpose($symbol);
+			} elsif (! $Force) {  # 3.0
+				warn "\nline $linenum; not a note: $symbol\n";
+			}
+		}
+	}
+	#  BUG: -f adds a unwanted  =1  to BOL if $Force and not a normal =\d line
+	print "=$newstave ", join(' ', @array), "\n";
+}
+sub newsystem {  # 2.9
+	print "/\n";
+}
+sub bars {
+	my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
+	$str =~ s/\b([1-7][#b])\b/&new_keysig($1,$amount)/eg;
+	print "$nbars bars $str\n";
+}
+sub new_keysig { my ($old_keysig, $amount) = @_;
+	my $i = $keysig2pitch{$old_keysig} + $amount;
+	$i = ($i + 48) % 12;
+	return $pitch2keysig{$i};
+}
+sub midi_in_stave { my $str = $_[$[];
+	if ($str =~ /^vol/) {
+		if ($str =~ /^volu?m?e?(\d+)$/) {
+			return 1;
+		} elsif ($str =~ /^volu?m?e?\+(\d+)$/) {
+			return 1;
+		} elsif ($str =~ /^volu?m?e?-(\d+)$/) {
+			return 1;
+		} else {
+			return 0;
+		}
+	} elsif ($str =~ /^lega?t?o?(\d+)$/) {
+		return 1;
+	} elsif ($str =~ /^chan?n?e?l?(\d+)$/) {
+		return 1;
+	} elsif ($str =~ /^tran?s?p?o?s?e?([-+]?\d+)$/) {
+		return 1;
+	} elsif ($str =~ /^vibr?a?t?o?(\d+)$/)    {
+		return 1;
+	} elsif ($str =~ /^cc\d+=\d+$/)    {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+sub reset_old_accidentalled { my ($num,$sign) = $_[$[]=~/^([1-7])([#bn])$/;
+	if ($sign eq '#') {     @pitches = ('F','C','G','D','A','E','B');
+	} elsif ($sign eq 'b') { @pitches = ('B','E','A','D','G','C','F');
+	}
+	%old_accidentalled = ();
+	my $i = 0.5; while ($i < $num) {
+		my $letter = shift @pitches;
+		$old_accidentalled{"${letter}__"} = $sign;
+		$old_accidentalled{"${letter}_"}  = $sign;
+		$old_accidentalled{"${letter}"}   = $sign;
+		$letter = lc $letter;
+		$old_accidentalled{"${letter}"}   = $sign;
+		$old_accidentalled{"${letter}~"}  = $sign;
+		$old_accidentalled{"${letter}~~"} = $sign;
+		$i+=1;
+	}
+	foreach (keys %{$old_started_tie{$istave}}) {
+		$old_accidentalled{$_} = $old_started_tie{$istave}{$_};
+	}
+}
+sub reset_new_accidentalled { my ($num,$sign) = $_[$[]=~/^([1-7])([#bn])$/;
+	if ($all_accidentals) {   # 2.2 -A
+		%new_accidentalled = ();
+		return;
+	}
+	if ($sign eq '#') {     @pitches = ('F','C','G','D','A','E','B');
+	} elsif ($sign eq 'b') { @pitches = ('B','E','A','D','G','C','F');
+	}
+	%new_accidentalled = ();
+	my $i = 0.5; while ($i < $num) {
+		my $letter = shift @pitches;
+		$new_accidentalled{"${letter}__"} = $sign;
+		$new_accidentalled{"${letter}_"}  = $sign;
+		$new_accidentalled{"${letter}"}   = $sign;
+		$letter = lc $letter;
+		$new_accidentalled{"${letter}"}   = $sign;
+		$new_accidentalled{"${letter}~"}  = $sign;
+		$new_accidentalled{"${letter}~~"} = $sign;
+		$i+=1;
+	}
+	foreach (keys %{$new_started_tie{$istave}}) {
+		$new_accidentalled{$_} = $new_started_tie{$istave}{$_};
+	}
+}
+
+# -------------- subroutines pinched from muscript -----------------
+# ---- These should be updated from the latest muscript version ----
+sub is_a_clef { my $s = $_[$[];
+	if ($s eq 'treble' || $s eq 'treble8va' || $s eq 'treble8vab' ||
+		 $s eq 'alto' || $s eq 'tenor' ||
+		 $s eq 'bass' || $s eq 'bass8va' || $s eq 'bass8vab' ) { return 1;
+	} else { return 0;
+	}
+}
+sub is_a_note { my $s = $_[$[];
+	$s =~ s/[{}()][',]*\d?//g; # strip {1 {1 (1 )1 slurs and ties off
+	$s =~ s/[\[\]]\d?//;       # strip [ ] [1 [1 beam characters off
+	$s =~ tr/<>//d;            # strip < and > chord characters off
+	$s =~ s/-.*$//;            # strip -xxx options off
+	$s =~ /^[A-Ga-g][~_nbrl#,'x+]*$/;
+}
+sub parse_note { my $s = $_[$[];
+	# parse the note-string ... not intended for blanks, rests, clefs etc.
+	# Would be faster with /gc, but then the order would become fixed :-(
+	return unless $s;
+	my %r;   # return hash_ref
+	if ($s =~ tr/<//d)     { $r{startchord} = '<'; }
+	if ($s =~ tr/>//d)     { $r{endchord}   = '>'; }
+	if ($s =~ s/\[X//)     { $r{startbeam}  = '[X';  # start crossbeam
+	} elsif ($s =~ s/\[//) { $r{startbeam}  = '[';   # start up or down beam
+	}
+	if ($s =~ s/]X//)      { $r{endbeam}    = ']X';  # end crossbeam
+	} elsif ($s =~ s/]//)  { $r{endbeam}    = ']';   # end up or down beam
+	}
+	if ($s =~ s/\(('*)(\d)//) {
+		$r{starttie}  = $2; $r{starttieshift}  = length $1;
+	} elsif ($s =~ s/\((,*)(\d)//) {
+		$r{starttie}  = $2; $r{starttieshift}  = 0 - length $1;
+	} elsif ($s =~ s/\(//)       { $r{starttie} = 1;
+	}
+	if ($s =~ s/\)('*)(\d)//) {
+		$r{endtie}    = $2; $r{endtieshift}    = length $1;
+	} elsif ($s =~ s/\)(,*)(\d)//) {
+		$r{endtie}    = $2; $r{endtieshift}    = 0 - length $1;
+	} elsif ($s =~ s/\)//)       { $r{endtie}    = 1;
+	}
+	if ($s =~ s/{('*)(\d)//)  {
+		$r{startslur} = $2; $r{startslurshift} = length $1;
+	} elsif ($s =~ s/{(,*)(\d)//)  {
+		$r{startslur} = $2; $r{startslurshift} = 0 - length $1;
+	} elsif ($s =~ s/{//)        { $r{startslur} = 1;
+	}
+	if ($s =~ s/}('*)(\d)//)  {
+		$r{endslur}   = $2; $r{endslurshift}   = length $1;
+	} elsif ($s =~ s/}(,*)(\d)//)  {
+		$r{endslur}   = $2; $r{endslurshift}   = 0 - length $1;
+	} elsif ($s =~ s/}//)        { $r{endslur}   = 1;
+	}
+	my ($notebit,$options) = split (/-/, $s, 2);
+	$r{notebit} = $notebit;
+	$r{options} = $options;
+	if ($notebit =~ s/^([A-Ga-g][_~]*)([#bn]*)([_~]*)//) {
+		$r{pitch} = "$1$3";  $r{accidental} = $2;
+	}
+	if ($notebit =~ s/([',])//) { $r{stem}            = $1; }
+	if ($notebit =~ s/(l+)//)   { $r{accidentalshift} = length $1; }
+	if ($notebit =~ s/(r+)//)   { $r{rightshift}      = length $1; }
+	if ($notebit =~ s/x//)      { $r{cross}           = 'x'; }
+	return \%r;
+}
+
+__END__
+
+=pod
+
+=head1 transpose
+
+transpose - Transposes muscript text
+
+=head1 SYNOPSIS
+
+ transpose +7          # up seven semitones.
+ transpose -1 -k 3b    # down one semitone from Eb into D major, even
+                       # if the 3b keysig isn't explicit in the text.
+ transpose +1 -k 4s    # synonym for -k 4#, for vi users
+ transpose +2 -s 1     # stave one (=1) transposed up two semitones.
+ transpose +2 -a       # if input has no keysig, output gets no keysig
+ transpose +2 -A       # All notes get accidentals. No keysig used.
+ transpose -5 filename | muscript -midi | aplaymidi -
+ 
+ Or, from within an editor; for example from within vi :
+ !}transpose -3        # this paragraph down 3 semitones.
+ !!transpose +4 -k 4b  # current line up 4 semitones, considering
+                       # it to  have a 4-flats keysig even if
+                       # that isn't explicit in the current line
+                       # (i.e. if it was set earlier in the file).
+ !!transpose -f +3 -A  # transpose a line that doesn't start with =1
+
+ perldoc transpose     # read the manual  :-)
+
+=head1 DESCRIPTION
+
+This Perl script transposes I<muscript> text up or down.
+It now handles key signatures, and persistence of accidentals within the bar.
+
+It doesn't fix stem directions within quaver-beams,
+so you will probably have to edit the result to tidy up the quavers.
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-a>
+
+Specifies "use B<a>ccidentals", i.e. if there is no input keysignature,
+then the output will be expressed with no keysignature either.
+
+=item I<-A>
+
+Specifies B<A>ll notes (except naturals) will be given their accidentals.
+Whatever the input keysignature, no keysignature will be given to the output.
+Precautionary naturals are given where necessary to over-rule
+a previous accidental on the same note in the same bar.
+
+=item I<-f>
+
+This option B<f>orces the tranposition of lines even if they don't start
+with B<=\d>
+
+It can be useful within an editor to transpose continuation-lines,
+or lines that set variables, or lines that start with B<#M> or B<#P>. 
+E.g. in I<vi> : B<!!transpose -f +3 -A>
+
+=item I<-k keysig>
+
+Specifies the pre-transposition B<k>ey-signature,
+in I<muscript> notation, e.g. B<-k 1b> or B<-k 6#>
+
+This option is useful if the keysignature is not
+explicit in the I<muscript> text being transposed,
+e.g. if you're transposing just a few lines from within an editor,
+but the key signature was specified back at the beginning of the piece.
+
+For vi users, the letter B<s> can be used as a synonym for B<#>
+
+=item I<-s 3>
+
+Only B<s>tave 3 (in this example) will be transposed.
+For example, this might be used to convert a piece for
+flute and piano into a piece for Bb-clarinet and piano:
+ transpose +2 -s 1
+
+=item I<-v>
+
+Prints B<v>ersion number.
+
+=back
+
+=head1 AUTHOR
+
+Peter J Billam  http://www.pjb.com.au/comp/contact.html
+
+=head1 INSTALLATION
+
+Edit the first line if necessary
+to reflect where Perl is installed on your system.
+Choose some directory in your PATH (we'll use /usr/bin as an example).
+Move the script to /usr/bin/transpose and make it executable.  
+For example,
+
+  cp transpose /usr/bin/transpose
+  chmod 755 /usr/bin/transpose
+
+=head1 CHANGES
+
+ 20131205 2.9 add sub newsystem
+ 20130608 2.8 handles also bb and ##
+ 20130518 2.7 avoid two warnings to accomodate perl 5.14
+ 20101207 2.5 cc87=60 commands recognised as midi_in_stave
+ 20091207 2.3 -A doesn't generate spurious new keysig
+ 20090703 2.1 multiple vertical-shift of ties and slurs
+ 20090625 2.0 doesn't translate international into english
+ 20090311 1.9 handles international-style rhythm notation
+ 20060122 handles { } slur notation
+ 20051121 bugs fixed in '|' and '|=2' lines
+ 20030508 copes with wider range C__ .. b~~
+ 20020904 copes with r, x and l
+ 20020722 first working version
+
+=head1 SEE ALSO
+
+http://www.pjb.com.au/muscript
+
+=cut
+

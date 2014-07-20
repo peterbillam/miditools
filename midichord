@@ -1,0 +1,1099 @@
+#! /usr/bin/perl
+#########################################################################
+#        This Perl script is Copyright (c) 2006, Peter J Billam         #
+#     c/o P J B Computing, GPO Box 669, Hobart TAS 7001, Australia      #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+#
+# Could have it detect muscript files (-t and !/\*\.mid$/), so it could
+# be used identically on realtime midi, midi files, and muscript source ?
+#
+# -f = fixed, firmus channels
+# -a = adjustable channels
+# -at truncates any adjust-notes contradicted by a change in reigning chord
+# -am adjust-modulus   -ac adjust-to-closest-onnote
+
+# use Term::ReadKey;
+use bytes;
+no strict;
+no warnings;
+
+my $Version  = '1.6';  # bug with excessive note_offs in real-time mode fixed
+my $VersionDate  = '05aug2013';
+my @Synopsis     = ();
+my %AdjustChannel = ('1',1); # MIDI channels which will get adjusted
+my %FixedChannel = ('0',1);  # the channels to which they will be adjusted
+my $Debug        = 0;
+my $Quiet        = 0;    # for use in background, and in scripts
+my $RealTimeMode = 0;
+my @InputPorts   = ();
+my @OutputPorts  = ();
+my $Rests        = 0;    # tendancy to use rests on white adjusted-notes
+my $Modulus      = 0;    # use old modulus-rule on the white adjusted-notes
+my $Closest      = 0;    # use simply the closest available chord-note
+my $Truncate     = 0;    # immediately terminate contradicted adjusted-notes
+my $OnNotes      = 0;    # all notes avoid dischords with currently-on-notes
+my %CurrentlyOnNote = ();
+my $NoDry        = 0;    # no dry output, i.e. of the non-adjusted-channels
+# vt100 globals
+my $CursorRow    = 7;
+my $Irow         = 1;
+my $Icol         = 1;
+my $MidCol       = 32;
+# from an old midi2muscript, which used chord to fix the barline
+my @ReigningChord = (0,0,0,0,0,0,0,0,0,0,0,0);  # c..b = 0..11 could do bitmap
+my %OnAdjustedNotes = ();       # HoHoH must remember the separate channels
+my %Event2channelindex = (   # assumes $[=0
+	'note'=>3, 'note_off'=>2, 'note_on'=>2,
+	'key_after_touch'=>2, 'control_change'=>2, 'patch_change'=>2,
+	'channel_after_touch'=>2, 'pitch_wheel_change'=>2,
+);
+my @n2str = ('C','C#','D','Eb','En','Fn','F#','G','G#','A','Bb','Bn');
+
+use Data::Dumper;  # to send the event array from parent to child
+use Time::HiRes;
+
+# check format of options args...
+while (@ARGV and $ARGV[$[] =~ /^-(\w)/) {
+	if ($1 eq 'v')      { shift;
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+        print "$n version $Version $VersionDate\n";
+        exit 0;
+	} elsif ($1 =~ /^a/)      {
+		my @subargs = split(//, $ARGV[$[]); shift @subargs;
+		foreach my $subarg (@subargs) {
+			if      ($subarg eq 'c') {  $Closest  = 1; $Modulus  = 0;
+			} elsif ($subarg eq 'm') {  $Modulus  = 1; $Closest  = 0;
+			} elsif ($subarg eq 'o') {  $OnNotes=1; $Closest=1; $Modulus=0;
+			} elsif ($subarg eq 'r') {  $Rests    = 1;
+			} elsif ($subarg eq 't') {  $Truncate = 1;
+			}
+		}
+		shift @ARGV;
+		%AdjustChannel = ();
+		my $a = shift; if ($a !~ /^\d[\d,]*$/) { die "bad -a arg: $a\n"; }
+		foreach (split (',', $a)) { $AdjustChannel{$_} = 1; }
+	} elsif ($1 eq 'c')      { shift; %AdjustChannel = ();
+		warn " the -c option is deprecated: use -a (=adjust) instead\n";
+		my $a = shift; if ($a !~ /^\d[\d,]*$/) { die "bad -c arg: $a\n"; }
+		foreach (split (',', $a)) { $AdjustChannel{$_} = 1; }
+	} elsif ($1 eq 'f')      { shift; %FixedChannel = ();
+		my $a = shift; if ($a !~ /^\d[\d,]*$/) { die "bad -f arg: $a\n"; }
+		foreach (split (',', $a)) { $FixedChannel{$_} = 1; }
+	} elsif ($1 eq 'i') { shift; $RealTimeMode = 1; my $a = shift;
+		@InputPorts = split (',', $a);
+	} elsif ($1 eq 'm') { shift; $Modulus = 1;
+		warn " the -m option is deprecated: use -am instead\n";
+	} elsif ($1 eq 'n') { shift; $NoDry = 1;
+	} elsif ($1 eq 'o') { shift; $RealTimeMode = 1; my $a = shift;
+		@OutputPorts = split (',', $a);
+	} elsif ($1 eq 'r') { shift; $Rests = 1;
+		warn " the -r option is deprecated: use -ar instead\n";
+	} elsif ($1 eq 's')      { shift; %FixedChannel = ();
+		warn " the -s option is deprecated: use -f (=fixed) instead\n";
+		my $a = shift; if ($a !~ /^\d[\d,]*$/) { die "bad -s arg: $a\n"; }
+		foreach (split (',', $a)) { $FixedChannel{$_} = 1; }
+	} elsif ($1 eq 't') { shift; $Truncate   = 1;
+		warn " the -t option is deprecated: use -at instead\n";
+	} elsif ($1 eq 'Q') { shift; $Quiet      = 1;
+	} elsif ($1 eq 'D') { shift; $Debug      = 1;
+	} else {
+		my $n = $0; $n =~ s#^.*/([^/]+)$#$1#;
+		print "usage:\n";
+		my $synopsis = 0;
+		while (<DATA>) {
+			if (/^=head1 SYNOPSIS/) { push @Synopsis,$_; $synopsis=1; next; }
+			if ($synopsis && /^=head1/) { last; }
+			if ($synopsis)      { print $_; next; }
+		}
+		exit 1;
+	}
+}
+
+if ($RealTimeMode) {
+	eval 'require MIDI::ALSA'; if ($@) {
+		die "you need to install the MIDI::ALSA module from www.cpan.org\n";
+	}
+	if (! @OutputPorts) { @OutputPorts = ($ENV{'ALSA_OUTPUT_PORTS'}); }
+	if ($Quiet and !@OutputPorts) {
+		warn "midichord: no -o option and ALSA_OUTPUT_PORTS undefined:\n";
+		warn " not connecting to anywhere\n";
+	}
+
+	# if (! MIDI::ALSA::client( "midichord pid=$$", 1, 1, 0 )) {
+	if (! MIDI::ALSA::client( "midichord", 1, 1, 0 )) {   # :-(
+		die "can't start the MIDI::ALSA client\n";
+	}
+	if ($Quiet and !@InputPorts) {  # 3.1
+		die "in -Q Quiet-mode you must specify the -i InputPort\n";
+	}
+	foreach (@InputPorts) {
+   		if ($_ && !MIDI::ALSA::connectfrom( 0, $_ )) {   # 1.4
+       		die "can't connect from ALSA client $_\n";
+		}
+	}
+   	foreach (@OutputPorts) {
+   		if ($_ && !MIDI::ALSA::connectto( 1, $_ )) {   # 1.4
+       		die "can't connect to ALSA client $_\n";
+		}
+	}
+	$CursorRow = 5;
+	display_alsa(); display_chord(); display_keystrokes();
+
+	# There are no changeables; we run in one process; you just ^C to quit.
+	$SIG{INT} = sub {
+		if (! $Quiet) { warn"\n"; clrtoeol(); }
+		MIDI::ALSA::syncoutput(); exit;
+	};
+
+	my %key2chordnote = ();
+	# HoLoL $key2chordnote{$cha}{$keynote}[$i][@chordnotes]
+	#  where $i is a push-and-shift queue
+	#    of the white-key events  scalar(@chordnotes) == 1
+	#    or of black-key events   scalar(@chordnotes) > 1
+	#  so when receiving a NOTEOFF, we shift(@{$key2chordnote{$cha}{$keynote}})
+	#  which is an arrayref, and for each chordnote in it we send a NOTEOFF
+	# Do we need OnAdjustedNotes ?  Yes, in practice, for the NOTEON handler.
+	# OnAdjustedNotes is the same information, but indexed by chordnote.
+	while (1) {
+		my @alsaevent = MIDI::ALSA::input();
+		if ($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_PORT_UNSUBSCRIBED()) {
+			if ($Quiet) { MIDI::ALSA::syncoutput(); exit; }
+			display_alsa(); next;
+		} elsif ($alsaevent[0]==MIDI::ALSA::SND_SEQ_EVENT_PORT_SUBSCRIBED()) {
+			display_alsa(); next;
+		}
+		# could detect a 0-delay arg and change the volume accordingly...
+		my $cha  = $alsaevent[$#alsaevent][0];
+		if ((! defined $AdjustChannel{$cha}) and (! $NoDry)) {  # 20130719 ??
+			MIDI::ALSA::output(@alsaevent);  # direct dry output
+		}
+		if (($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_NOTEON())
+		  and ($alsaevent[$#alsaevent][2] == 0)) {   # 1.6
+			$alsaevent[0] = MIDI::ALSA::SND_SEQ_EVENT_NOTEOFF();
+		}
+		if ($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_NOTEOFF()) {
+			if (defined $AdjustChannel{$cha}) {   # NOTEOFF in adjust-channel
+				my $keynote = $alsaevent[$#alsaevent][1];
+				my $chord = shift(@{$key2chordnote{$cha}{$keynote}}) ;
+				if (ref($chord) ne 'ARRAY') { warn "off2: chord = $chord"; }
+				foreach my $chordnote (@{$chord}) {
+					$alsaevent[$#alsaevent][1] = $chordnote;
+					if (defined $OnAdjustedNotes{$cha}{$chordnote}) {
+						if ($OnAdjustedNotes{$cha}{$chordnote} > 0.5) {
+							MIDI::ALSA::output(@alsaevent);   # XXX ?
+							$OnAdjustedNotes{$cha}{$chordnote} -= 1;
+						}
+					}
+				}
+				next;
+			} elsif ($OnNotes and defined $FixedChannel{$cha}) {   # 1.3
+				# now note_off changes key2chordnote
+				my $keynote = $alsaevent[$#alsaevent][1];
+				$CurrentlyOnNote{$keynote%12} -= 1;
+				if ($CurrentlyOnNote{$keynote%12} <= 0.5) {
+					delete $CurrentlyOnNote{$keynote%12};
+					display_chord();   # 1.6 moved inside the if
+				}
+				# MIDI::ALSA::output(@alsaevent); commented out 1.6
+			}
+		} elsif ($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_NOTEON()) {
+			if (defined $AdjustChannel{$cha}) {
+				my $keynote = $alsaevent[$#alsaevent][1];
+				my $w = $keynote%12;
+				if ($Closest) {   # 1.3  output the closest
+					# XXX should do the adjustment...
+					my $note = key2closestnote($keynote);
+					if (! defined $note) { next; }
+					$alsaevent[$#alsaevent][1] = $note;
+					push @{$key2chordnote{$cha}{$keynote}}, [$note];
+					MIDI::ALSA::output(@alsaevent);
+					$OnAdjustedNotes{$cha}{$note} += 1;
+				} elsif ($w==1 or $w==3 or $w==6 or $w==8 or $w==10) {
+					# black-note; output the whole chord
+					my @notes = ();
+					foreach my $n ($[ .. $#ReigningChord) {
+						next unless $ReigningChord[$n];
+						my $note = (240+$n-$keynote)%12 + $keynote;
+						$alsaevent[$#alsaevent][1] = $note;
+						push @notes, $note;
+						MIDI::ALSA::output(@alsaevent);
+						$OnAdjustedNotes{$cha}{$note} += 1;
+					}
+					push @{$key2chordnote{$cha}{$keynote}}, \@notes;
+				} else { # white-note; output one of the adjusted-notes
+					my $note = whitekey2note($keynote);
+					if (! defined $note) { next; }
+					$alsaevent[$#alsaevent][1] = $note;
+					push @{$key2chordnote{$cha}{$keynote}}, [$note];
+					MIDI::ALSA::output(@alsaevent);
+					$OnAdjustedNotes{$cha}{$note} += 1;
+				}
+				next;
+			} elsif (defined $FixedChannel{$cha}) {
+				my $fixed_note = $alsaevent[$#alsaevent][1];
+				if ($OnNotes) {   # 1.3
+					$CurrentlyOnNote{$fixed_note%12} += 1;
+				}
+				if (! $ReigningChord[$fixed_note%12]) {
+					$ReigningChord[$fixed_note%12] = 1;
+					display_chord();
+				}
+				foreach my $chord_note(($fixed_note+11)%12,($fixed_note+1)%12){
+					if ($Truncate) {  # output NOTEOFF for each OnChordNote
+						$alsaevent[0] = MIDI::ALSA::SND_SEQ_EVENT_NOTEOFF();
+						foreach my $oct (0,12,24,36,48,60,72,84,96,108,120) {
+							my $n = $oct + $chord_note;
+							$alsaevent[$#alsaevent][1] = $n;
+							foreach my $cha (keys %AdjustChannel) {
+								if (defined $OnAdjustedNotes{$cha}{$n}) {
+									while ($OnAdjustedNotes{$cha}{$n} > 0.5) {
+										$alsaevent[$#alsaevent][0] = $cha;
+										MIDI::ALSA::output(@alsaevent);
+										$OnAdjustedNotes{$cha}{$n} -= 1;
+									}
+									delete $OnAdjustedNotes{$cha}{$n};
+								}
+							}
+						}
+					}
+					$ReigningChord[$chord_note] = 0;
+					display_chord();
+				}
+			}
+		} elsif (defined $AdjustChannel{$cha}) {  # feed patch changes through.
+			if ($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_CONTROLLER()
+			  and $alsaevent[$#alsaevent][4] == 123) { # all_notes_off
+				@ReigningChord = (0,0,0,0,0,0,0,0,0,0,0,0);
+			} else {
+				MIDI::ALSA::output(@alsaevent);
+			}
+		}
+		MIDI::ALSA::syncoutput();
+	}
+	exit 0;   # end of RealTime mode
+
+} else {   # we're in MIDIfile mode (not RealTime-mode) ...
+	eval 'require MIDI'; if ($@) {
+		die "you need to install the MIDI::Perl module from www.cpan.org\n";
+	}
+	import MIDI;
+	my %Event2channelindex = ( 'note'=>3, 'note_off'=>2, 'note_on'=>2,
+		'key_after_touch'=>2, 'control_change'=>2, 'patch_change'=>2,
+		'channel_after_touch'=>2, 'pitch_wheel_change'=>2
+	);
+	# we go through all tracks, because they all influence ReigningChord
+	my @score = mix_tracks(file2score($ARGV[$[] || '-'));
+	# contradicted adjusted-notes have to be truncated...
+	my $truncated_already = $[;
+	my @new_score  = ($score[0],);
+	my @new_track = ();
+	foreach my $i_event ($[ .. $#{$score[$[+1]}) {
+		my @event = @{$score[$[+1][$i_event]};
+		my $channelindex = $Event2channelindex{$event[$[]};
+		if (! defined $channelindex) { push @new_track, \@event;  next; }
+		my $cha  = $event[$channelindex];
+		if (! defined $AdjustChannel{$cha} and ! $NoDry) {
+			my @event_copy = @event;
+			push @new_track, \@event_copy;  # direct dry output
+		}
+		if ($event[0] eq 'note') {
+			if (defined $AdjustChannel{$cha}) {
+				my $keynote = $event[4];
+				my $w = $keynote%12;
+				if ($Closest) {   # 1.3  output the closest
+					my $note = key2closestnote($keynote);
+					if (! defined $note) { next; }
+					my @event_copy = @event;
+					$event_copy[4] = $note;
+					push @new_track, \@event_copy;
+				} elsif ($w==1 or $w==3 or $w==6 or $w==8 or $w==10) {
+					# black-note; output the whole chord
+					foreach my $n ($[ .. $#ReigningChord) {
+						next unless $ReigningChord[$n];
+						my $note = (240+$n-$keynote)%12 + $keynote;
+						my @event_copy = @event;
+						$event_copy[4] = $note;
+						push @new_track, \@event_copy;
+					}
+				} else { # white-note; output one of the adjusted-notes
+					my $note = whitekey2note($keynote);
+					if (! defined $note) { next; }
+					my @event_copy = @event;
+					$event_copy[4] = $note;
+					push @new_track, \@event_copy;
+				}
+				next;
+			} elsif (defined $FixedChannel{$cha}) {
+				# XXX problem here handling note-offs; we're in score form :-(
+				# could use %CurrentlyOnNote{$note} = [$off_time1,$off_time2];
+				# or a separate %pending_off_times ?
+				my $fixed_note = $event[4];
+				if (! $ReigningChord[$fixed_note%12]) {
+					$ReigningChord[$fixed_note%12] = 1;
+					#  display_chord();  could insert marker ?
+				}
+				foreach my $chord_note(($fixed_note+11)%12,($fixed_note+1)%12){
+					if ($Truncate) {
+						my $i_old = $#new_track + 1;
+						while ($i_old > $truncated_already) {
+							# truncate each OnChordNote
+							$i_old -= 1;
+							my @old_ev = @{$new_track[$i_old]};
+							if ($old_ev[$[] ne 'note') { next; }
+							foreach my $oct(0,12,24,36,48,60,72,84,96,108,120){
+								my $n = $oct + $chord_note;
+								if ((0+$old_ev[$[+4]) != $n) { next; }
+								if (!defined $AdjustChannel{$old_ev[3]}){next;}
+								if (($old_ev[1]+$old_ev[2]) > $event[1]) {
+									$new_track[$i_old][2]=$event[1]-$old_ev[1];
+								}
+							}
+						}
+					}
+					$ReigningChord[$chord_note] = 0;
+				}
+				$truncated_already = $#new_track;
+			}
+		} elsif (defined $AdjustChannel{$cha}) {  # feed patch changes through.
+			if (($event[$[] eq 'control_change') && ($event[$[+3] == 123)) {
+				@ReigningChord = (0,0,0,0,0,0,0,0,0,0,0,0);  # all_notes_off
+			} else {
+				push @new_track, \@event;
+			}
+		}
+	}
+	push @new_score, \@new_track;
+	score2file('-', @new_score);
+	exit 0;   # end of MIDIfile Time mode
+}
+
+sub whitekey2note { my $keynote = $_[$[];  # used by both real-time and .mid
+	# not sure about % modulus
+	# should be (able to be)? more monotonic
+	# the superflous B should mean the adjusted-note under C,
+	# or perhaps a rest
+	# and could vary with the number of reigning adjusted-notes:
+	# with 6 the B means either:
+	#    the same as A, the highest in octave
+	#    rest
+	# with 5 it's C=1st D=2nd E=3 4 3 4 B=5th
+	# with 4 it's C=1st D=2nd E=4 3 2 3 B=4th
+	# with 3 it's C=1st D=2nd E=1 2 3 2 B=3rd
+	# with 2 they should alternate,
+	#  because monotonic would create too many repeated notes
+	# with 1 it is always chosen (or perhaps a rest?).
+	# -r = rest a white-note sometimes
+	# So, monotonicity is desirable,
+	#  repeated notes are to be avoided unless intended,
+	#  and register should be respected reasonaby closely.
+	# pitch_wheel could take a passing note, if one available,
+	#  otherwise either remain on the adjusted-note
+	#  or, again, take a rest, presumably also according to -r
+	my $w = $keynote%12;
+	my $i = round($w * 7 / 12);
+	my @reigning_notes =();
+	foreach my $n ($[ .. $#ReigningChord) {
+		if ($ReigningChord[$n]) { push @reigning_notes, $n; }
+	}
+	if (! @reigning_notes) { return undef; }
+	my $note = $keynote-$w;  # start with the C no higher than the keynote
+	my $n_notes = scalar(@reigning_notes);
+	if ($Modulus or $n_notes == 2 or $n_notes == 1) {
+		$note += $reigning_notes[$i%$n_notes];
+	} else {
+		if ($n_notes == 6) {
+			if ($i == 6) { # B
+				if ($Rests) {
+					next; # must make up time in the .mid case
+				} else {
+					$note += $reigning_notes[6];
+				}
+			} else {
+				$note += $reigning_notes[$i];
+			}
+		} elsif ($n_notes == 5) {
+			my @i2irn = (0,1,2,3,2,3,4);
+			$note += $reigning_notes[$i2irn[$i]];
+		} elsif ($n_notes == 4) {
+			my @i2irn = (0,1,2,3,1,2,3);
+			$note += $reigning_notes[$i2irn[$i]];
+		} elsif ($n_notes == 3) {
+			my @i2irn = (0,1,0,1,2,1,2);
+			$note += $reigning_notes[$i2irn[$i]];
+		}
+	}
+	return $note;
+}
+
+sub key2closestnote { local $keynote = $_[$[]; # used by real-time and .mid
+	my $note = $keynote % 12;
+	my $np1  = ($note+1) % 12;
+	my $nm1  = ($note+11) % 12;
+	my $np2  = ($note+2) % 12;
+	my $nm2  = ($note+10) % 12;
+	if ($CurrentlyOnNote{$note}) { return $keynote; }
+	if ((! $CurrentlyOnNote{$nm1}) and (! $CurrentlyOnNote{$np1})) {
+		return $keynote;
+	}
+	sub random_note {
+		if (0.5 < rand(1.0)) { return ($keynote+127) % 128;
+		} else { return ($keynote+1) % 128;
+		}
+	}
+	if (($CurrentlyOnNote{$nm1}) and ($CurrentlyOnNote{$np1})) {
+		return random_note();
+	}
+	if ($CurrentlyOnNote{$nm1}) {
+		if ($CurrentlyOnNote{$np2}) { return ($keynote+127) % 128;
+		} else { return random_note();
+		}
+	}
+	if ($CurrentlyOnNote{$np1}) {
+		if ($CurrentlyOnNote{$nm2}) { return ($keynote+1) % 128;
+		} else { return random_note();
+		}
+	}
+	die "key2closestnote: shouldn't reach here\n";
+}
+
+die "shouldn't reach here";
+
+# ===================================================================
+
+#--------- RealTime UI and infrastructure, recycled from midikbd ---------
+
+sub display_alsa {
+	return if $Quiet;
+	my @ConnectedTo = ();
+	my $id = MIDI::ALSA::id();
+	foreach (MIDI::ALSA::listconnectedto()) {
+		my @cl = @$_;
+		push @ConnectedTo, "$cl[1]:$cl[2]"
+	}
+	my @ConnectedFrom = ();
+	foreach (MIDI::ALSA::listconnectedfrom()) {
+		my @cl = @$_;
+		push @ConnectedFrom, "$cl[1]:$cl[2]"
+	}
+	gotoxy(1,1);       puts_30c("ALSA client $id");
+	gotoxy($MidCol,1); puts_clr("midichord pid=$$");
+	my $s = "Input port $id:0 is ";
+	if (@ConnectedFrom) { $s .= "connected from ".join(',',@ConnectedFrom);
+	} else {              $s .= "not connected from anything";
+	}
+	gotoxy(1,2); puts_clr($s);
+	$s = "Ouput port $id:1 is ";
+	if (@ConnectedTo) { $s .= "connected to ".join(',',@ConnectedTo);
+	} else {            $s .= "not connected to anything";
+	}
+	gotoxy(1,3); puts_clr($s);
+    gotoxy(1,$CursorRow);
+}
+
+sub display_chord {
+	return if $Quiet;
+	if ($Closest) {  # 1.3   and also gets invoked on Fixed note-off
+		my @currently_on_notes = sort keys %CurrentlyOnNote;
+		my $s = join(',', map { $n2str[$_%12] } @currently_on_notes);
+		gotoxy(1,4);
+		puts("Currently on notes are $s");
+	} else {
+		my @reigning_notes =();
+		foreach my $n ($[ .. $#ReigningChord) {
+			if ($ReigningChord[$n]) { push @reigning_notes, $n; }
+		}
+		my $s = join(',', map { $n2str[$_%12] } @reigning_notes);
+		gotoxy(1,4);
+		puts("Reigning chord is $s");
+	}
+	clrtoeol(); gotoxy(1,$CursorRow);
+}
+
+sub display_keystrokes {
+	if ($Quiet) { return; }
+	gotoxy(1, $CursorRow+1);
+	puts_clr("Ctrl-C = Quit");
+	# gotoxy(1, $CursorRow+2);
+	gotoxy(1,$CursorRow);
+	return;
+}
+
+# --------------- vt100 stuff, evolved from Term::Clui ---------------
+sub puts   { my $s = join q{}, @_;
+	$Irow += ($s =~ tr/\n/\n/);
+	if ($s =~ /\r\n?$/) { $Icol = 0;
+	} else { $Icol += length($s);   # BUG, wrong on multiline strings!
+	}
+	# print STDERR "$s\e[K";   # and clear-to-eol
+	# should be caller's responsibility ? or an option ? a different sub ?
+	print STDERR $s;
+}
+sub puts_30c {  my $s = $_[$[];   # assumes no newlines
+	my $rest = 30-length($s);
+	print STDERR $s, " "x$rest, "\e[D"x$rest;
+	$Icol += length($s);
+}
+sub puts_clr {  my $s = $_[$[];   # assumes no newlines
+	my $rest = 30-length($s);
+	print STDERR "$s\e[K";
+	$Icol += length($s);
+}
+sub clrtoeol {
+	print STDERR "\e[K";
+}
+sub up    {
+	# if ($_[$[] < 0) { down(0 - $_[$[]); return; }
+	print STDERR "\e[A" x $_[$[]; $Irow -= $_[$[];
+}
+sub down  {
+	# if ($_[$[] < 0) { up(0 - $_[$[]); return; }
+	print STDERR "\n" x $_[$[]; $Irow += $_[$[];
+}
+sub right {
+	# if ($_[$[] < 0) { left(0 - $_[$[]); return; }
+	print STDERR "\e[C" x $_[$[]; $Icol += $_[$[];
+}
+sub left  {
+	# if ($_[$[] < 0) { right(0 - $_[$[]); return; }
+	print STDERR "\e[D" x $_[$[]; $Icol -= $_[$[];
+}
+sub gotoxy { my $newcol = shift; my $newrow = shift;
+	if ($newcol == 0) { print STDERR "\r" ; $Icol = 0;
+	} elsif ($newcol > $Icol) { right($newcol-$Icol);
+	} elsif ($newcol < $Icol) { left($Icol-$newcol);
+	}
+	if ($newrow > $Irow)      { down($newrow-$Irow);
+	} elsif ($newrow < $Irow) { up($Irow-$newrow);
+	}
+}
+
+
+#----------- Non-real-time infrastructure, from midisox_pl ------------
+
+sub opus2file {   # from midisox_pl
+	my ($filename, @opus) = @_;
+	my $format = 1;
+	if (2 == @opus) { $format = 0; }
+	my $cpan_opus = MIDI::Opus->new(
+		{'format'=>$format, 'ticks'  => $opus[$[], 'tracks' => []});
+	my @list_of_tracks = ();
+	my $itrack = $[+1;
+	while ($itrack <= $#opus) {
+		push @list_of_tracks,
+		 MIDI::Track->new({ 'type' => 'MTrk', 'events' => $opus[$itrack]});
+		$itrack += 1;
+	}
+	$cpan_opus->tracks(@list_of_tracks);
+	if ($filename eq '-') {
+		$cpan_opus->write_to_file( '>-' );
+	} elsif ($filename eq '-d') {
+		my $PID = fork;
+		if (! $PID) {
+			if (!open(P, '| aplaymidi -')) { die "can't run aplaymidi: $!\n"; }
+			$cpan_opus->write_to_handle( *P{IO}, {} );
+			close P;
+			exit 0;
+		}
+	} else {
+		$cpan_opus->write_to_file($filename);
+	}
+}
+
+sub file2opus {   # from midisox_pl
+	my $opus_ref;
+	if ($_[$[] eq '-') {
+		$opus_ref = MIDI::Opus->new({'from_handle' => *STDIN{IO}});
+	} elsif ($_[$[] =~ /^[a-z]+:\//) {
+		eval 'require LWP::Simple'; if ($@) {
+			die "you'll need to install libwww-perl from www.cpan.org\n";
+		}
+		my $midi = LWP::Simple::get($_[$[]);
+		if (! defined $midi) { _die("can't fetch $_[$[]"); }
+		open(P, '<', \$midi) or _die("can't open FileHandle, need Perl5.8");
+		$opus_ref = MIDI::Opus->new({'from_handle' => *P{IO}});
+		close P;
+	} else {
+		$opus_ref = MIDI::Opus->new({'from_file' => $_[$[]});
+	}
+	my @my_opus = (${$opus_ref}{'ticks'},);
+	foreach my $track ($opus_ref->tracks) {
+		push @my_opus, $track->events_r;
+	}
+	return @my_opus;
+}
+
+sub opus2score {  my ($ticks, @opus_tracks) = @_;
+	# print "opus2score: ticks=$ticks opus_tracks=@opus_tracks\n";
+	if (!@opus_tracks) {
+		return (1000,[],);
+	}
+	my @score = ($ticks,);
+	#foreach my $i ($[+1 .. $#_) {
+	#	push @score, MIDI::Score::events_r_to_score_r($score[$i]);
+	#}
+	my @tracks = deepcopy(@opus_tracks); # couple of slices probably quicker...
+	# print "opus2score: tracks is ", Dumper(@tracks);
+	foreach my $opus_track_ref (@tracks) {
+		my $ticks_so_far = 0;
+		my @score_track = ();
+		my %chapitch2note_on_events = ();	# 4.4 XXX!!! Must be by Channel !!
+		foreach my $opus_event_ref (@{$opus_track_ref}) {
+			my @opus_event = @{$opus_event_ref};
+			$ticks_so_far += $opus_event[1];
+			if ($opus_event[0] eq 'note_off'
+			 or ($opus_event[0] eq 'note_on' and $opus_event[4]==0)) { # YY
+				my $cha = $opus_event[2];
+				my $pitch = $opus_event[3];
+				my $key = $cha*128 + $pitch;
+				if ($chapitch2note_on_events{$key}) {
+					my $new_event_ref = shift @{$chapitch2note_on_events{$key}};
+					${$new_event_ref}[2] = $ticks_so_far - ${$new_event_ref}[1];
+					push @score_track, $new_event_ref;
+				} else {
+				  warn("note_off without a note_on, cha=$cha pitch=$pitch\n");
+				}
+			} elsif ($opus_event[0] eq 'note_on') {
+				my $cha = $opus_event[2];  # 4.4
+				my $pitch = $opus_event[3];
+				my $new_event_ref = ['note', $ticks_so_far, 0,
+				 $cha, $pitch, $opus_event[4]];
+				my $key = $cha*128 + $pitch;
+				push @{$chapitch2note_on_events{$key}}, $new_event_ref;
+			} else {
+				$opus_event[1] = $ticks_so_far;
+				push @score_track, \@opus_event;
+			}
+		}
+		# 4.7 check for unterminated notes, see: ~/lua/lib/MIDI.lua
+		while (my ($k1,$v1) = each %chapitch2note_on_events) {
+			foreach my $new_e_ref (@{$v1}) {
+				${$new_e_ref}[2] = $ticks_so_far - ${$new_e_ref}[1];
+				push @score_track, $new_e_ref;
+				warn("opus2score: note_on with no note_off cha="
+				 . ${$new_e_ref}[3] . ' pitch='
+				 . ${$new_e_ref}[4] . "; adding note_off at end\n");
+			}
+		}
+		push @score, \@score_track;
+	}
+	# print "opus2score: score is ", Dumper(@score);
+	return @score;
+}
+
+sub file2score {
+	return opus2score(file2opus($_[$[]));
+}
+
+sub mix_tracks {   # from midisox_pl, but modified to sort
+	my @input_score = @_;
+	my @new_track = ();
+	my $itrack = $[+1;
+	while ($itrack <= $#input_score) {
+		push @new_track, @{$input_score[$itrack]};
+		$itrack += 1;
+	}
+	@new_track = sort { $$a[1] <=> $$b[1] } @new_track;
+	return ($input_score[0], \@new_track);
+}
+
+sub score2opus {
+	if (2 > @_) { return (1000, []); }
+	my ($ticks, @tracks) = @_;
+	# print "score2opus: tracks is ", Dumper(@tracks);
+	my @opus = ($ticks,);
+	my $itrack = $[;
+	while ($itrack <= $#tracks) {
+		# MIDI::Score::dump_score( $_[$itrack] );
+		# push @opus, MIDI::Score::score_r_to_events_r($_[$itrack]);
+		my %time2events = ();
+		foreach my $scoreevent_ref (@{$tracks[$itrack]}) {
+			my @scoreevent = @{$scoreevent_ref};
+			# print "score2opus: scoreevent = @scoreevent\n";
+			if ($scoreevent[0] eq 'note') {
+				my @note_on_event = ('note_on',$scoreevent[1],
+				 $scoreevent[3],$scoreevent[4],$scoreevent[5]);
+				my @note_off_event = ('note_off',$scoreevent[1]+$scoreevent[2],
+				 $scoreevent[3],$scoreevent[4],$scoreevent[5]);
+				if ($time2events{$note_on_event[1]}) {
+				   push @{$time2events{$note_on_event[1]}}, \@note_on_event;
+				} else {
+				   @{$time2events{$note_on_event[1]}} = (\@note_on_event,);
+				}
+				if ($time2events{$note_off_event[1]}) {
+				   push @{$time2events{$note_off_event[1]}}, \@note_off_event;
+				} else {
+				   @{$time2events{$note_off_event[1]}} = (\@note_off_event,);
+				}
+			} elsif ($time2events{$scoreevent[1]}) {
+			   push @{$time2events{$scoreevent[1]}}, \@scoreevent;
+			} else {
+			   @{$time2events{$scoreevent[1]}} = (\@scoreevent,);
+			}
+		}
+
+		my @sorted_events = (); # list of event_refs sorted by time
+		for my $time (sort {$a <=> $b} keys %time2events) {
+			push @sorted_events, @{$time2events{$time}};
+		}
+
+		my $abs_time = 0;
+		for my $event_ref (@sorted_events) { # convert abs times => delta times
+			my $delta_time = ${$event_ref}[1] - $abs_time;
+			$abs_time = ${$event_ref}[1];
+			${$event_ref}[1] = $delta_time;
+		}
+		push @opus, \@sorted_events;
+		$itrack += 1;
+	}
+	return (@opus);
+}
+
+sub score2file { my ($filename, @score) = @_;
+	my @opus = score2opus(@score);
+	return opus2file($filename, @opus);
+}
+
+sub deepcopy {
+    use Storable;
+    if (1 == @_ and ref($_[$[])) {
+        return Storable::dclone($_[$[]);
+    } else {
+        my $b_ref = Storable::dclone(\@_);
+        return @$b_ref;
+    }
+}
+
+sub usecs {
+	my ($secs, $usecs) = Time::HiRes::gettimeofday();
+	return 1000000*$secs + $usecs;
+}
+
+sub round { my $x = $_[$[];
+	if ($x > 0.0) { return int ($x + 0.5); }
+	if ($x < 0.0) { return int ($x - 0.5); }
+	return 0;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+midichord - generates adjusted-notes to conform to a fixed-voice
+
+=head1 SYNOPSIS
+
+ perldoc midichord     # read the manual :-)
+
+ # on a midi-file, which should contain both the fixed voice(s) on
+ # channels 2 and 3, and adjustable chord-pattern 'notes' on channel 5:
+ # (useful if 2,3 is a fast-moving solo, and 5 is a backing pattern)
+ ~> midichord -f 2,3 -a 5 in.mid > out.mid
+
+ # on real-time (raw) midi:
+ # a chord-file plays on channels 4 and 5 which will be adjusted
+ # to follow the keyboards on the fixed channels 0 and 1
+ ~> midichord -a 4,5 -f 0,1 -i 14:0,32 -o 128
+ ALSA client 129                midichord pid=2157
+ Input port 129:0 is connected from 14:0,32:0
+ Ouput port 129:1 is connected to 128:0
+ Reigning chord is C,D,F,Ab
+ ^C to Quit
+
+ # Adjust channels 4,5 Closely to not dischord with On-notes in 0,1
+ # (useful if 0,1 is a slow-moving chord, and 4,5 is a faster solo)
+ ~> midichord -f 0,1 -aco 4,5 -i 14:0,32 -o 128
+
+ # in Quiet mode, e.g. in a Makefile or script (14 is Midi Through):
+ # where you play on your ProKeys on channels 0 and 1,
+ # and the chord notes are on channels 4 and 5 in backing.mid
+ ~> midichord -Q -f 0,1 -a 4,5 -i 14:0,ProKeys -o 14:1,TiMidity &
+ ~> aplaymidi   -p midichord:0 backing.mid &
+ ~> arecordmidi -p 14:1 -b 60 -t 1000 piece.mid
+ # and then you play on your ProKeys
+
+=head1 DESCRIPTION
+
+Notes input on the fixed-channels are 
+transmitted unchanged to the output (unless B<-n>),
+but notes received in the adjust-channels have their pitches changed
+before being output.
+
+It can be used either to synthesise chords on the adjust-channels
+to accompany a solo on a fixed-channels (the default mode),
+or (since 1.3) to adjust the notes of a solo to not conflict
+with the notes on the fixed-channels (B<-aco> mode).
+
+=head1 DEFAULT MODE
+
+By default, I<midichord> remembers
+all non-semitone-dischord notes in a "fixed-channel" (or channels),
+which remain as part of the Reigning Chord
+and continue there until contradicted by a subsequent note in a
+fixed-channel (where "contradiction" means a semitone-dischord).
+In this mode,
+a B<black note in an adjust-channel plays the whole chord>,
+in close harmony, inverted to start just above that note.
+
+A B<white note in an adjust-channel plays one of the chord-notes>
+in the same octave.
+The rules governing which one are a bit complicated;
+there are seven white keys in each octave, but the number
+of notes in the chord varies all the time, from one to six.
+The B<D> key will always output the lowest chord-note in its octave,
+and the B<B> key will usually output the higest.
+Between those two, the default mapping of key to chord-note
+ascends as smoothly as possible subject to the condition that
+each key produces a different chord-note from the previous key,
+so that it will avoid generating repeated notes unless that was intended.
+
+When I<midichord> starts, the Reigning Chord is empty.
+So, until the first note in a fixed-channel,
+the adjust-channels, whatever their input,  will produce no output.
+The "all-notes-off" midi-controller (cc123) in one of the adjust-channels
+clears the Reigning Chord, resulting again in silence.
+This can be a graceful way to end a piece, to avoid having to fade out
+an endlessly recycling accompaniment.
+
+Various suboptions to the B<-a> option
+change the way the adjustment is performed:
+
+With the B<-am> sub-option
+the note is chosen according to the B<M>odulus of the key-number,
+so that the white keys just cycle through the chord notes.
+This is useful for generating arpeggios,
+because if there are three or more chord-notes
+then three neighbouring white keys will generate three different notes.
+
+If you are improvising in a fixed-channel,
+try to play your solo line a tiny bit I<ahead> of the chord beat;
+it doesn't have to be audible - a millisecond will do.
+
+=head1 ON-NOTE MODE and CLOSEST MODE
+
+If the B<-ao> sub-option is used,
+the adjust-channel notes get adjusted to avoid any semitone-dischord
+with one of the currently B<O>n notes in a fixed-channel.
+
+With the B<-ac> sub-option there is no difference between
+how the white keys and the black keys are treated;
+the note is chosen B<C>losest to the adjust-channel note.
+This is usually used in conjunction with the B<o> sub-option,
+i.e. B<-aco>, with slow-moving fixed-channel notes
+and a faster-moving solo on the adjust-channel.
+
+=head1 -a AND ITS SUB-OPTIONS
+
+The sub-options of B<-a> affect
+the way the pitches in the adjust-channels get adjusted.
+They can be concatenated in the same argument,
+for example B<-aco> which is a useful way to fix dischordant notes
+in a fast solo over a a slower channel which is setting the harmony;
+also B<-ato> or B<-acot> etc.
+
+=over 3
+
+=item I<-a 4,5>
+
+In this example, the midi channels B<4> and B<5>
+will be used for the 'ajustable' voices.
+
+Notes input on those channels are I<not> transmitted to the output;
+they are used to decide which of the current chord-notes will be output.
+
+If the input-note is a black key, then all the current chord-notes
+are output, in a chord. The chord will be in close position,
+and inverted so that its lowest note is not lower than the input-note.
+
+If the input-note is a white key, then only I<one> of the current chord-notes
+will be output.
+If the input-note is a C then the lowest chord-note in that octave is chosen,
+and if the input-note is a D the the second-lowest,
+and thereafter the chosen chord-note meanders upwards
+(there are at most 6 chord-notes, but there are 7 white notes in an octave).
+
+In either case, the chord-notes are output
+on the same channel as the input note came in on,
+and the note's duration and velocity (or volume) are also conserved.
+
+=item I<-ac>
+
+This causes all adjust-channel keys to be translated differently into
+the choice of adjusted-note: by taking the closest available pitch that
+is not discordant with a fixed-channel.
+It is incompatible with the B<-am> option.
+
+=item I<-am>
+
+This causes adjust-channel white-keys to be translated differently into
+the choice of chord-note: by taking the B<M>odulus of the key-number.
+If any input-note is a C then the lowest available
+chord-note in that octave is chosen,
+if the input-note is a D the the second-lowest,
+and so on, but returning to the lowest
+chord-note and starting again after reaching the highest;
+so cycling through the chord-notes.
+It is incompatible with the B<-ac> option.
+
+=item I<-ao>
+
+This causes the Reigning chord to consist of only the currently
+B<O>n notes of the fixed-channels;
+in other words the I<memory> of a fixed-channel note will not persist.
+It allows a solo line more freedom, and is often used in combination with
+B<-ac> for example B<-aco>
+
+Do not confuse this B<-ao> sub-option with
+the top-level B<-o> option which sets the ALSA output port.
+
+=item I<-ar>
+
+This introduces a tendancy to use B<R>ests on white adjust-channel-notes,
+if they would otherwise repeat the adjusted-pitch most recently played.
+It is not very compatible with the B<-ao> option.
+
+=item I<-at>
+
+This causes any adjust-notes contradicted by a fixed-note to be 
+immediately B<T>erminated.
+The default is to allow the adjust-note to continue to its normal duration.
+Using B<-at> gives a harmonically cleaner and lighter sound,
+but it can result in some ugly short notes in the adjust-channels.
+You may need to use B<-at> if your chord-notes are very long notes.
+
+=back
+
+=head1 OTHER OPTIONS
+
+=over 3
+
+=item I<-f 0,1>
+
+In this example, the midi channels B<0> and B<1> (out of 0...15)
+will be treated as the 'fixed' voices,
+and the notes on the adjustable channels will be changed
+so as not to be discordant with them.
+In this context, an interval of a semitone
+(plus or minus any number of octaves) is treated as a dischord.
+Notes on the fixed-channels (or any other non-adjustable-channels)
+will by default also be transmitted unchanged to the output,
+though this can be changed with the B<-n> option.
+
+=item I<-n>
+
+This causes I<midichord> to B<not> transmit the non-adjust-channels
+(including the fixed-channels,
+and all the other channels which are neither fixed nor adjusted).
+This is useful because
+it allows I<midichord> and I<midiecho> to be run in parallel,
+for example both from 14:0 to 14:1 (where Midi Through is 14),
+without outputting the non-adjust-channels in duplicate.
+
+=item I<-Q>
+
+This causes I<midichord> to run in B<Q>uiet mode,
+in which nothing is printed to the screen;
+this is useful in scripts and Makefiles,
+and only makes sense in real-time mode (with B<-i>).
+In Quiet mode, I<midichord> will terminate if one of its ALSA connections
+becomes disconnected.
+
+=item I<-i 32:0> or I<-i ProKeys>
+
+This option puts I<midichord> into raw-midi
+(or real-time, or midi-on-the-wire) mode,
+and takes the midi-data from the specified ALSA-port or ports.
+If the ALSA port is specified as B<0> then I<midichord> will start
+up in real-time mode but without connecting from anything.
+You can check out the available ports with the command
+I<arecordmidi -l> or I<aconnect -il>.
+
+=item I<-o 128:0> or I<-o TiMidity>
+
+This option sets the ALSA-port or ports to which the midi output will be sent.
+You can check out the available ports with the command
+I<aplaymidi -l> or I<aconnect -ol>.
+The default ouput-port (if only B<-i> option is present)
+is the environment variable $ALSA_OUTPUT_PORTS
+
+=back
+
+=head1 EXAMPLES
+
+For example, a quirky waltz such as
+
+ http://www.pjb.com.au/mus/impro/20111214_1009a_waltz_ro.mp3
+
+was produced by a chord pattern such as this (in I<muscript>):
+
+ midi channel 0 patch 71 pan 50  # solo clarinet
+ midi channel 4 patch 21 pan 20  # accordeon
+ midi channel 5 patch 48 pan 80  # pizz bass
+ | .5 .6 .5
+ =1 bass cha5 4 E cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 C cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 E cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 C cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 E cha4 8 D# rest 4 D#
+ |
+ =1 cha5 4 c cha4 8 D# rest 4 D#
+ |
+ =1 cha4 8 C# C# C# rest C# rest
+ =1 cha5 4 E rest rest
+ |
+ =1 cha4 4 C# rest d
+ =1 cha5 4 C rest rest
+
+by improvising a solo over the top of it, on the ProKeys
+keyboard on channel 0, using these commands:
+
+ aconnect -x
+ aconnect Midi:1 Roland   # Roland is the synth
+ midichord -f 0 -a 4,5 -i ProKeys,Midi:0 -o Midi:1 &
+ arecordmidi -p Midi:1 -b 60 -t 1000 waltz.mid &
+ muscript -midi waltz.txt | aplaymidi -p Midi:0 -
+ pkill -INT midichord
+ pkill -INT arecordmidi
+
+=head1 CHANGES
+
+ 1.6 20130805 bug with excessive note_offs in real-time mode fixed
+ 1.5 20130719 fixed-channel note-ons get output in real-time mode
+ 1.4 20130330 -i 0 forces realtime mode without connecting from anywhere
+ 1.3 20120811 move to -f and -a, with -a having suboptions c,m,o,r,t
+ 1.2 20111223 -n, no tranmission of fixed-channels
+ 1.1 20111217 -t, real-time, midi-file; almost releaseable
+ 1.0 20111214 first working version
+
+=head1 TO DO
+
+By emitting only the changed note, it could also convert any chordal
+impro into a melody ?
+
+Perhaps a version working directly on I<muscript> ?
+
+=head1 AUTHOR
+
+Peter J Billam  http://www.pjb.com.au/comp/contact.html
+
+=head1 CREDITS
+
+Based on the MIDI::Perl CPAN module in midi-file mode,
+and the MIDI::ALSA CPAN module in real-time mode.
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/midi
+ http://www.pjb.com.au/muscript
+ http://search.cpan.org/perldoc?MIDI
+ http://search.cpan.org/perldoc?MIDI::ALSA
+
+=cut

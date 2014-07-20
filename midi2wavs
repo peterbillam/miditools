@@ -1,0 +1,5 @@
+midi2wavs foo.mid
+
+Converts each midi-channel in the foo.mid into a separate foo_1.wav
+then suggests suitable midifade and ecasound commands for mixdown,
+following   file:///home/pjb/www/midi/midifade.html#options

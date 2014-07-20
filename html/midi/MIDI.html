@@ -1,0 +1,248 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module MIDI</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>MIDI</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="./free/MIDI.py">./free/MIDI.py</a></font></td></tr></table>
+    <p><tt>This&nbsp;module&nbsp;offers&nbsp;functions:&nbsp;&nbsp;<a href="#-concatenate_scores">concatenate_scores</a>(),&nbsp;<a href="#-grep">grep</a>(),<br>
+<a href="#-merge_scores">merge_scores</a>(),&nbsp;<a href="#-mix_scores">mix_scores</a>(),&nbsp;<a href="#-midi2opus">midi2opus</a>(),&nbsp;<a href="#-midi2score">midi2score</a>(),&nbsp;<a href="#-opus2midi">opus2midi</a>(),<br>
+<a href="#-opus2score">opus2score</a>(),&nbsp;<a href="#-play_score">play_score</a>(),&nbsp;<a href="#-score2midi">score2midi</a>(),&nbsp;<a href="#-score2opus">score2opus</a>(),&nbsp;<a href="#-score2stats">score2stats</a>(),<br>
+<a href="#-score_type">score_type</a>(),&nbsp;<a href="#-segment">segment</a>(),&nbsp;<a href="#-timeshift">timeshift</a>()&nbsp;and&nbsp;<a href="#-to_millisecs">to_millisecs</a>(),<br>
+where&nbsp;"midi"&nbsp;means&nbsp;the&nbsp;MIDI-file&nbsp;bytes&nbsp;(as&nbsp;can&nbsp;be&nbsp;put&nbsp;in&nbsp;a&nbsp;.mid&nbsp;file,<br>
+or&nbsp;piped&nbsp;into&nbsp;aplaymidi),&nbsp;and&nbsp;"opus"&nbsp;and&nbsp;"score"&nbsp;are&nbsp;list-structures<br>
+as&nbsp;inspired&nbsp;by&nbsp;Sean&nbsp;Burke's&nbsp;MIDI-Perl&nbsp;CPAN&nbsp;module.<br>
+&nbsp;<br>
+Download&nbsp;MIDI.py&nbsp;from&nbsp;&nbsp;&nbsp;<a href="http://www.pjb.com.au/midi/free/MIDI.py">http://www.pjb.com.au/midi/free/MIDI.py</a><br>
+and&nbsp;put&nbsp;it&nbsp;in&nbsp;your&nbsp;PYTHONPATH.&nbsp;&nbsp;MIDI.py&nbsp;depends&nbsp;on&nbsp;Python3.<br>
+&nbsp;<br>
+There&nbsp;is&nbsp;also&nbsp;a&nbsp;call-compatible&nbsp;translation&nbsp;into&nbsp;Lua&nbsp;of&nbsp;this<br>
+module:&nbsp;see&nbsp;<a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a><br>
+&nbsp;<br>
+The&nbsp;"opus"&nbsp;is&nbsp;a&nbsp;direct&nbsp;translation&nbsp;of&nbsp;the&nbsp;midi-file-events,&nbsp;where<br>
+the&nbsp;times&nbsp;are&nbsp;delta-times,&nbsp;in&nbsp;ticks,&nbsp;since&nbsp;the&nbsp;previous&nbsp;event.<br>
+&nbsp;<br>
+The&nbsp;"score"&nbsp;is&nbsp;more&nbsp;human-centric;&nbsp;it&nbsp;uses&nbsp;absolute&nbsp;times,&nbsp;and<br>
+combines&nbsp;the&nbsp;separate&nbsp;note_on&nbsp;and&nbsp;note_off&nbsp;events&nbsp;into&nbsp;one&nbsp;"note"<br>
+event,&nbsp;with&nbsp;a&nbsp;duration:<br>
+&nbsp;['note',&nbsp;start_time,&nbsp;duration,&nbsp;channel,&nbsp;note,&nbsp;velocity]&nbsp;#&nbsp;in&nbsp;a&nbsp;"score"<br>
+&nbsp;<br>
+&nbsp;&nbsp;EVENTS&nbsp;(in&nbsp;an&nbsp;"opus"&nbsp;structure)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_off',&nbsp;dtime,&nbsp;channel,&nbsp;note,&nbsp;velocity]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#&nbsp;in&nbsp;an&nbsp;"opus"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_on',&nbsp;dtime,&nbsp;channel,&nbsp;note,&nbsp;velocity]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#&nbsp;in&nbsp;an&nbsp;"opus"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['key_after_touch',&nbsp;dtime,&nbsp;channel,&nbsp;note,&nbsp;velocity]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['control_change',&nbsp;dtime,&nbsp;channel,&nbsp;controller(0-127),&nbsp;value(0-127)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['patch_change',&nbsp;dtime,&nbsp;channel,&nbsp;patch]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['channel_after_touch',&nbsp;dtime,&nbsp;channel,&nbsp;velocity]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['pitch_wheel_change',&nbsp;dtime,&nbsp;channel,&nbsp;pitch_wheel]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['copyright_text_event',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['track_name',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['instrument_name',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['lyric',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['marker',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['cue_point',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_08',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_09',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0a',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0b',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0c',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0d',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0e',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['text_event_0f',&nbsp;dtime,&nbsp;text]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['end_track',&nbsp;dtime]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['set_tempo',&nbsp;dtime,&nbsp;tempo]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['smpte_offset',&nbsp;dtime,&nbsp;hr,&nbsp;mn,&nbsp;se,&nbsp;fr,&nbsp;ff]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['time_signature',&nbsp;dtime,&nbsp;nn,&nbsp;dd,&nbsp;cc,&nbsp;bb]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['key_signature',&nbsp;dtime,&nbsp;sf,&nbsp;mi]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['sequencer_specific',&nbsp;dtime,&nbsp;raw]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['raw_meta_event',&nbsp;dtime,&nbsp;command(0-255),&nbsp;raw]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['sysex_f0',&nbsp;dtime,&nbsp;raw]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['sysex_f7',&nbsp;dtime,&nbsp;raw]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['song_position',&nbsp;dtime,&nbsp;song_pos]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['song_select',&nbsp;dtime,&nbsp;song_number]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['tune_request',&nbsp;dtime]<br>
+&nbsp;<br>
+&nbsp;&nbsp;DATA&nbsp;TYPES<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;channel&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;15<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;controller&nbsp;=&nbsp;0&nbsp;to&nbsp;127&nbsp;(see&nbsp;<a href="http://www.pjb.com.au/muscript/gm.html#cc">http://www.pjb.com.au/muscript/gm.html#cc</a>&nbsp;)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dtime&nbsp;=&nbsp;time&nbsp;measured&nbsp;in&nbsp;"ticks",&nbsp;0&nbsp;to&nbsp;268435455<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;velocity&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;(soft)&nbsp;to&nbsp;127&nbsp;(loud)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;note&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;127&nbsp;&nbsp;(middle-C&nbsp;is&nbsp;60)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;patch&nbsp;=&nbsp;0&nbsp;to&nbsp;127&nbsp;(see&nbsp;<a href="http://www.pjb.com.au/muscript/gm.html">http://www.pjb.com.au/muscript/gm.html</a>&nbsp;)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pitch_wheel&nbsp;=&nbsp;a&nbsp;value&nbsp;-8192&nbsp;to&nbsp;8191&nbsp;(0x1FFF)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;raw&nbsp;=&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;binary&nbsp;data<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sequence_number&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;65,535&nbsp;(0xFFFF)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_pos&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;16,383&nbsp;(0x3FFF)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_number&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;127<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempo&nbsp;=&nbsp;microseconds&nbsp;per&nbsp;crochet&nbsp;(quarter-note),&nbsp;0&nbsp;to&nbsp;16777215<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text&nbsp;=&nbsp;a&nbsp;string&nbsp;of&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;of&nbsp;ASCII&nbsp;text<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ticks&nbsp;=&nbsp;the&nbsp;number&nbsp;of&nbsp;ticks&nbsp;per&nbsp;crochet&nbsp;(quarter-note)<br>
+&nbsp;<br>
+&nbsp;&nbsp;GOING&nbsp;THROUGH&nbsp;A&nbsp;SCORE&nbsp;WITHIN&nbsp;A&nbsp;PYTHON&nbsp;PROGRAM<br>
+&nbsp;&nbsp;&nbsp;&nbsp;channels&nbsp;=&nbsp;{2,3,5,8,13}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;itrack&nbsp;=&nbsp;1&nbsp;&nbsp;&nbsp;#&nbsp;skip&nbsp;1st&nbsp;element&nbsp;which&nbsp;is&nbsp;ticks<br>
+&nbsp;&nbsp;&nbsp;&nbsp;while&nbsp;itrack&nbsp;&lt;&nbsp;len(score):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;event&nbsp;in&nbsp;score[itrack]:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;event[0]&nbsp;==&nbsp;'note':&nbsp;&nbsp;&nbsp;#&nbsp;for&nbsp;example,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pass&nbsp;&nbsp;#&nbsp;do&nbsp;something&nbsp;to&nbsp;all&nbsp;notes<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#&nbsp;or,&nbsp;to&nbsp;work&nbsp;on&nbsp;events&nbsp;in&nbsp;only&nbsp;particular&nbsp;channels...<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;channel_index&nbsp;=&nbsp;MIDI.Event2channelindex.get(event[0],&nbsp;False)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;channel_index&nbsp;and&nbsp;(event[channel_index]&nbsp;in&nbsp;channels):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pass&nbsp;&nbsp;#&nbsp;do&nbsp;something&nbsp;to&nbsp;channels&nbsp;2,3,5,8&nbsp;and&nbsp;13<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itrack&nbsp;+=&nbsp;1</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="copy.html">copy</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
+</td><td width="25%" valign=top><a href="struct.html">struct</a><br>
+</td><td width="25%" valign=top><a href="sys.html">sys</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-concatenate_scores"><strong>concatenate_scores</strong></a>(scores)</dt><dd><tt>Concatenates&nbsp;a&nbsp;list&nbsp;of&nbsp;scores&nbsp;into&nbsp;one&nbsp;score.<br>
+If&nbsp;the&nbsp;scores&nbsp;differ&nbsp;in&nbsp;their&nbsp;"ticks"&nbsp;parameter,<br>
+they&nbsp;will&nbsp;all&nbsp;get&nbsp;converted&nbsp;to&nbsp;millisecond-tick&nbsp;format.</tt></dd></dl>
+ <dl><dt><a name="-event2alsaseq"><strong>event2alsaseq</strong></a>(event<font color="#909090">=None</font>)</dt><dd><tt>Converts&nbsp;an&nbsp;event&nbsp;into&nbsp;the&nbsp;format&nbsp;needed&nbsp;by&nbsp;the&nbsp;alsaseq&nbsp;module,<br>
+<a href="http://pp.com.mx/python/alsaseq">http://pp.com.mx/python/alsaseq</a><br>
+The&nbsp;type&nbsp;of&nbsp;track&nbsp;(opus&nbsp;or&nbsp;score)&nbsp;is&nbsp;autodetected.</tt></dd></dl>
+ <dl><dt><a name="-grep"><strong>grep</strong></a>(score<font color="#909090">=None</font>, channels<font color="#909090">=None</font>)</dt><dd><tt>Returns&nbsp;a&nbsp;"score"&nbsp;containing&nbsp;only&nbsp;the&nbsp;channels&nbsp;specified</tt></dd></dl>
+ <dl><dt><a name="-merge_scores"><strong>merge_scores</strong></a>(scores)</dt><dd><tt>Merges&nbsp;a&nbsp;list&nbsp;of&nbsp;scores&nbsp;into&nbsp;one&nbsp;score.&nbsp;&nbsp;A&nbsp;merged&nbsp;score&nbsp;comprises<br>
+all&nbsp;of&nbsp;the&nbsp;tracks&nbsp;from&nbsp;all&nbsp;of&nbsp;the&nbsp;input&nbsp;scores;&nbsp;un-merging&nbsp;is&nbsp;possible<br>
+by&nbsp;selecting&nbsp;just&nbsp;some&nbsp;of&nbsp;the&nbsp;tracks.&nbsp;&nbsp;If&nbsp;the&nbsp;scores&nbsp;differ&nbsp;in&nbsp;their<br>
+"ticks"&nbsp;parameter,&nbsp;they&nbsp;will&nbsp;all&nbsp;get&nbsp;converted&nbsp;to&nbsp;millisecond-tick<br>
+format.&nbsp;&nbsp;merge_scores&nbsp;attempts&nbsp;to&nbsp;resolve&nbsp;channel-conflicts,<br>
+but&nbsp;there&nbsp;are&nbsp;of&nbsp;course&nbsp;only&nbsp;15&nbsp;available&nbsp;channels...</tt></dd></dl>
+ <dl><dt><a name="-midi2ms_score"><strong>midi2ms_score</strong></a>(midi<font color="#909090">=b''</font>)</dt><dd><tt>Translates&nbsp;MIDI&nbsp;into&nbsp;a&nbsp;"score"&nbsp;with&nbsp;one&nbsp;beat&nbsp;per&nbsp;second&nbsp;and&nbsp;one<br>
+tick&nbsp;per&nbsp;millisecond,&nbsp;using&nbsp;<a href="#-midi2opus">midi2opus</a>()&nbsp;then&nbsp;<a href="#-to_millisecs">to_millisecs</a>()<br>
+then&nbsp;<a href="#-opus2score">opus2score</a>()</tt></dd></dl>
+ <dl><dt><a name="-midi2opus"><strong>midi2opus</strong></a>(midi<font color="#909090">=b''</font>)</dt><dd><tt>Translates&nbsp;MIDI&nbsp;into&nbsp;a&nbsp;"opus".&nbsp;&nbsp;For&nbsp;a&nbsp;description&nbsp;of&nbsp;the<br>
+"opus"&nbsp;format,&nbsp;see&nbsp;<a href="#-opus2midi">opus2midi</a>()</tt></dd></dl>
+ <dl><dt><a name="-midi2score"><strong>midi2score</strong></a>(midi<font color="#909090">=b''</font>)</dt><dd><tt>Translates&nbsp;MIDI&nbsp;into&nbsp;a&nbsp;"score",&nbsp;using&nbsp;<a href="#-midi2opus">midi2opus</a>()&nbsp;then&nbsp;<a href="#-opus2score">opus2score</a>()</tt></dd></dl>
+ <dl><dt><a name="-mix_opus_tracks"><strong>mix_opus_tracks</strong></a>(input_tracks)</dt><dd><tt>Mixes&nbsp;an&nbsp;array&nbsp;of&nbsp;tracks&nbsp;into&nbsp;one&nbsp;track.&nbsp;&nbsp;A&nbsp;mixed&nbsp;track<br>
+cannot&nbsp;be&nbsp;un-mixed.&nbsp;&nbsp;It&nbsp;is&nbsp;assumed&nbsp;that&nbsp;the&nbsp;tracks&nbsp;share&nbsp;the&nbsp;same<br>
+ticks&nbsp;parameter&nbsp;and&nbsp;the&nbsp;same&nbsp;tempo.<br>
+Mixing&nbsp;score-tracks&nbsp;is&nbsp;trivial&nbsp;(just&nbsp;insert&nbsp;all&nbsp;events&nbsp;into&nbsp;one&nbsp;array).<br>
+Mixing&nbsp;opus-tracks&nbsp;is&nbsp;only&nbsp;slightly&nbsp;harder,&nbsp;but&nbsp;it's&nbsp;common&nbsp;enough<br>
+that&nbsp;a&nbsp;dedicated&nbsp;function&nbsp;is&nbsp;useful.</tt></dd></dl>
+ <dl><dt><a name="-mix_scores"><strong>mix_scores</strong></a>(scores)</dt><dd><tt>Mixes&nbsp;a&nbsp;list&nbsp;of&nbsp;scores&nbsp;into&nbsp;one&nbsp;one-track&nbsp;score.<br>
+A&nbsp;mixed&nbsp;score&nbsp;cannot&nbsp;be&nbsp;un-mixed.&nbsp;&nbsp;Hopefully&nbsp;the&nbsp;scores<br>
+have&nbsp;no&nbsp;undesirable&nbsp;channel-conflicts&nbsp;between&nbsp;them.<br>
+If&nbsp;the&nbsp;scores&nbsp;differ&nbsp;in&nbsp;their&nbsp;"ticks"&nbsp;parameter,<br>
+they&nbsp;will&nbsp;all&nbsp;get&nbsp;converted&nbsp;to&nbsp;millisecond-tick&nbsp;format.</tt></dd></dl>
+ <dl><dt><a name="-opus2midi"><strong>opus2midi</strong></a>(opus<font color="#909090">=[]</font>)</dt><dd><tt>The&nbsp;argument&nbsp;is&nbsp;a&nbsp;list:&nbsp;the&nbsp;first&nbsp;item&nbsp;in&nbsp;the&nbsp;list&nbsp;is&nbsp;the&nbsp;"ticks"<br>
+parameter,&nbsp;the&nbsp;others&nbsp;are&nbsp;the&nbsp;tracks.&nbsp;Each&nbsp;track&nbsp;is&nbsp;a&nbsp;list<br>
+of&nbsp;midi-events,&nbsp;and&nbsp;each&nbsp;event&nbsp;is&nbsp;itself&nbsp;a&nbsp;list;&nbsp;see&nbsp;above.<br>
+<a href="#-opus2midi">opus2midi</a>()&nbsp;returns&nbsp;a&nbsp;bytestring&nbsp;of&nbsp;the&nbsp;MIDI,&nbsp;which&nbsp;can&nbsp;then&nbsp;be<br>
+written&nbsp;either&nbsp;to&nbsp;a&nbsp;file&nbsp;opened&nbsp;in&nbsp;binary&nbsp;mode&nbsp;(mode='wb'),<br>
+or&nbsp;to&nbsp;stdout&nbsp;by&nbsp;means&nbsp;of:&nbsp;&nbsp;&nbsp;sys.stdout.buffer.write()<br>
+&nbsp;<br>
+my_opus&nbsp;=&nbsp;[<br>
+&nbsp;&nbsp;&nbsp;&nbsp;96,&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;&nbsp;&nbsp;#&nbsp;track&nbsp;0:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['patch_change',&nbsp;0,&nbsp;1,&nbsp;8],&nbsp;&nbsp;&nbsp;#&nbsp;and&nbsp;these&nbsp;are&nbsp;the&nbsp;events...<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_on',&nbsp;&nbsp;&nbsp;5,&nbsp;1,&nbsp;25,&nbsp;96],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_off',&nbsp;96,&nbsp;1,&nbsp;25,&nbsp;0],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_on',&nbsp;&nbsp;&nbsp;0,&nbsp;1,&nbsp;29,&nbsp;96],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note_off',&nbsp;96,&nbsp;1,&nbsp;29,&nbsp;0],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;],&nbsp;&nbsp;&nbsp;#&nbsp;end&nbsp;of&nbsp;track&nbsp;0<br>
+]<br>
+my_midi&nbsp;=&nbsp;<a href="#-opus2midi">opus2midi</a>(my_opus)<br>
+sys.stdout.buffer.write(my_midi)</tt></dd></dl>
+ <dl><dt><a name="-opus2score"><strong>opus2score</strong></a>(opus<font color="#909090">=[]</font>)</dt><dd><tt>For&nbsp;a&nbsp;description&nbsp;of&nbsp;the&nbsp;"opus"&nbsp;and&nbsp;"score"&nbsp;formats,<br>
+see&nbsp;<a href="#-opus2midi">opus2midi</a>()&nbsp;and&nbsp;<a href="#-score2opus">score2opus</a>().</tt></dd></dl>
+ <dl><dt><a name="-play_score"><strong>play_score</strong></a>(score<font color="#909090">=None</font>)</dt><dd><tt>Converts&nbsp;the&nbsp;"score"&nbsp;to&nbsp;midi,&nbsp;and&nbsp;feeds&nbsp;it&nbsp;into&nbsp;'aplaymidi&nbsp;-'</tt></dd></dl>
+ <dl><dt><a name="-score2midi"><strong>score2midi</strong></a>(score<font color="#909090">=None</font>)</dt><dd><tt>Translates&nbsp;a&nbsp;"score"&nbsp;into&nbsp;MIDI,&nbsp;using&nbsp;<a href="#-score2opus">score2opus</a>()&nbsp;then&nbsp;<a href="#-opus2midi">opus2midi</a>()</tt></dd></dl>
+ <dl><dt><a name="-score2opus"><strong>score2opus</strong></a>(score<font color="#909090">=None</font>)</dt><dd><tt>The&nbsp;argument&nbsp;is&nbsp;a&nbsp;list:&nbsp;the&nbsp;first&nbsp;item&nbsp;in&nbsp;the&nbsp;list&nbsp;is&nbsp;the&nbsp;"ticks"<br>
+parameter,&nbsp;the&nbsp;others&nbsp;are&nbsp;the&nbsp;tracks.&nbsp;Each&nbsp;track&nbsp;is&nbsp;a&nbsp;list<br>
+of&nbsp;score-events,&nbsp;and&nbsp;each&nbsp;event&nbsp;is&nbsp;itself&nbsp;a&nbsp;list.&nbsp;&nbsp;A&nbsp;score-event<br>
+is&nbsp;similar&nbsp;to&nbsp;an&nbsp;opus-event&nbsp;(see&nbsp;above),&nbsp;except&nbsp;that&nbsp;in&nbsp;a&nbsp;score:<br>
+&nbsp;1)&nbsp;the&nbsp;times&nbsp;are&nbsp;expressed&nbsp;as&nbsp;an&nbsp;absolute&nbsp;number&nbsp;of&nbsp;ticks<br>
+&nbsp;&nbsp;&nbsp;&nbsp;from&nbsp;the&nbsp;track's&nbsp;start&nbsp;time<br>
+&nbsp;2)&nbsp;the&nbsp;pairs&nbsp;of&nbsp;'note_on'&nbsp;and&nbsp;'note_off'&nbsp;events&nbsp;in&nbsp;an&nbsp;"opus"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;are&nbsp;abstracted&nbsp;into&nbsp;a&nbsp;single&nbsp;'note'&nbsp;event&nbsp;in&nbsp;a&nbsp;"score":<br>
+&nbsp;&nbsp;&nbsp;&nbsp;['note',&nbsp;start_time,&nbsp;duration,&nbsp;channel,&nbsp;pitch,&nbsp;velocity]<br>
+<a href="#-score2opus">score2opus</a>()&nbsp;returns&nbsp;a&nbsp;list&nbsp;specifying&nbsp;the&nbsp;equivalent&nbsp;"opus".<br>
+&nbsp;<br>
+my_score&nbsp;=&nbsp;[<br>
+&nbsp;&nbsp;&nbsp;&nbsp;96,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;&nbsp;&nbsp;#&nbsp;track&nbsp;0:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['patch_change',&nbsp;0,&nbsp;1,&nbsp;8],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note',&nbsp;5,&nbsp;96,&nbsp;1,&nbsp;25,&nbsp;96],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;['note',&nbsp;101,&nbsp;96,&nbsp;1,&nbsp;29,&nbsp;96]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;],&nbsp;&nbsp;&nbsp;#&nbsp;end&nbsp;of&nbsp;track&nbsp;0<br>
+]<br>
+my_opus&nbsp;=&nbsp;<a href="#-score2opus">score2opus</a>(my_score)</tt></dd></dl>
+ <dl><dt><a name="-score2stats"><strong>score2stats</strong></a>(opus_or_score<font color="#909090">=None</font>)</dt><dd><tt>Returns&nbsp;a&nbsp;dict&nbsp;of&nbsp;some&nbsp;basic&nbsp;stats&nbsp;about&nbsp;the&nbsp;score,&nbsp;like<br>
+bank_select&nbsp;(list&nbsp;of&nbsp;tuples&nbsp;(msb,lsb)),<br>
+channels_by_track&nbsp;(list&nbsp;of&nbsp;lists),&nbsp;channels_total&nbsp;(set),<br>
+general_midi_mode&nbsp;(list),<br>
+ntracks,&nbsp;nticks,&nbsp;patch_changes_by_track&nbsp;(list&nbsp;of&nbsp;dicts),<br>
+num_notes_by_channel&nbsp;(list&nbsp;of&nbsp;numbers),<br>
+patch_changes_total&nbsp;(set),<br>
+percussion&nbsp;(dict&nbsp;histogram&nbsp;of&nbsp;channel&nbsp;9&nbsp;events),<br>
+pitches&nbsp;(dict&nbsp;histogram&nbsp;of&nbsp;pitches&nbsp;on&nbsp;channels&nbsp;other&nbsp;than&nbsp;9),<br>
+pitch_range_by_track&nbsp;(list,&nbsp;by&nbsp;track,&nbsp;of&nbsp;two-member-tuples),<br>
+pitch_range_sum&nbsp;(sum&nbsp;over&nbsp;tracks&nbsp;of&nbsp;the&nbsp;pitch_ranges),</tt></dd></dl>
+ <dl><dt><a name="-score_type"><strong>score_type</strong></a>(opus_or_score<font color="#909090">=None</font>)</dt><dd><tt>Returns&nbsp;a&nbsp;string,&nbsp;either&nbsp;'opus'&nbsp;or&nbsp;'score'&nbsp;or&nbsp;''</tt></dd></dl>
+ <dl><dt><a name="-segment"><strong>segment</strong></a>(score<font color="#909090">=None</font>, start_time<font color="#909090">=None</font>, end_time<font color="#909090">=None</font>, start<font color="#909090">=0</font>, end<font color="#909090">=100000000</font>, tracks<font color="#909090">=set([0, 1, 2, 3, 4, 5, ...])</font>)</dt><dd><tt>Returns&nbsp;a&nbsp;"score"&nbsp;which&nbsp;is&nbsp;a&nbsp;segment&nbsp;of&nbsp;the&nbsp;one&nbsp;supplied<br>
+as&nbsp;the&nbsp;argument,&nbsp;beginning&nbsp;at&nbsp;"start_time"&nbsp;ticks&nbsp;and&nbsp;ending<br>
+at&nbsp;"end_time"&nbsp;ticks&nbsp;(or&nbsp;at&nbsp;the&nbsp;end&nbsp;if&nbsp;"end_time"&nbsp;is&nbsp;not&nbsp;supplied).<br>
+If&nbsp;the&nbsp;set&nbsp;"tracks"&nbsp;is&nbsp;specified,&nbsp;only&nbsp;those&nbsp;tracks&nbsp;will<br>
+be&nbsp;returned.</tt></dd></dl>
+ <dl><dt><a name="-timeshift"><strong>timeshift</strong></a>(score<font color="#909090">=None</font>, shift<font color="#909090">=None</font>, start_time<font color="#909090">=None</font>, from_time<font color="#909090">=0</font>, tracks<font color="#909090">=set([0, 1, 2, 3, 4, 5, ...])</font>)</dt><dd><tt>Returns&nbsp;a&nbsp;"score"&nbsp;shifted&nbsp;in&nbsp;time&nbsp;by&nbsp;"shift"&nbsp;ticks,&nbsp;or&nbsp;shifted<br>
+so&nbsp;that&nbsp;the&nbsp;first&nbsp;event&nbsp;starts&nbsp;at&nbsp;"start_time"&nbsp;ticks.<br>
+&nbsp;<br>
+If&nbsp;"from_time"&nbsp;is&nbsp;specified,&nbsp;only&nbsp;those&nbsp;events&nbsp;in&nbsp;the&nbsp;score<br>
+that&nbsp;begin&nbsp;after&nbsp;it&nbsp;are&nbsp;shifted.&nbsp;If&nbsp;"start_time"&nbsp;is&nbsp;less&nbsp;than<br>
+"from_time"&nbsp;(or&nbsp;"shift"&nbsp;is&nbsp;negative),&nbsp;then&nbsp;the&nbsp;intermediate<br>
+notes&nbsp;are&nbsp;deleted,&nbsp;though&nbsp;patch-change&nbsp;events&nbsp;are&nbsp;preserved.<br>
+&nbsp;<br>
+If&nbsp;"tracks"&nbsp;are&nbsp;specified,&nbsp;then&nbsp;only&nbsp;those&nbsp;tracks&nbsp;get&nbsp;shifted.<br>
+"tracks"&nbsp;can&nbsp;be&nbsp;a&nbsp;list,&nbsp;tuple&nbsp;or&nbsp;set;&nbsp;it&nbsp;gets&nbsp;converted&nbsp;to&nbsp;set<br>
+internally.<br>
+&nbsp;<br>
+It&nbsp;is&nbsp;deprecated&nbsp;to&nbsp;specify&nbsp;both&nbsp;"shift"&nbsp;and&nbsp;"start_time".<br>
+If&nbsp;this&nbsp;does&nbsp;happen,&nbsp;<a href="#-timeshift">timeshift</a>()&nbsp;will&nbsp;print&nbsp;a&nbsp;warning&nbsp;to<br>
+stderr&nbsp;and&nbsp;ignore&nbsp;the&nbsp;"shift"&nbsp;argument.<br>
+&nbsp;<br>
+If&nbsp;"shift"&nbsp;is&nbsp;negative&nbsp;and&nbsp;sufficiently&nbsp;large&nbsp;that&nbsp;it&nbsp;would<br>
+leave&nbsp;some&nbsp;event&nbsp;with&nbsp;a&nbsp;negative&nbsp;tick-value,&nbsp;then&nbsp;the&nbsp;score<br>
+is&nbsp;shifted&nbsp;so&nbsp;that&nbsp;the&nbsp;first&nbsp;event&nbsp;occurs&nbsp;at&nbsp;time&nbsp;0.&nbsp;This<br>
+also&nbsp;occurs&nbsp;if&nbsp;"start_time"&nbsp;is&nbsp;negative,&nbsp;and&nbsp;is&nbsp;also&nbsp;the<br>
+default&nbsp;if&nbsp;neither&nbsp;"shift"&nbsp;nor&nbsp;"start_time"&nbsp;are&nbsp;specified.</tt></dd></dl>
+ <dl><dt><a name="-to_millisecs"><strong>to_millisecs</strong></a>(old_opus<font color="#909090">=None</font>)</dt><dd><tt>Recallibrates&nbsp;all&nbsp;the&nbsp;times&nbsp;in&nbsp;an&nbsp;"opus"&nbsp;to&nbsp;use&nbsp;one&nbsp;beat<br>
+per&nbsp;second&nbsp;and&nbsp;one&nbsp;tick&nbsp;per&nbsp;millisecond.&nbsp;&nbsp;This&nbsp;makes&nbsp;it<br>
+hard&nbsp;to&nbsp;retrieve&nbsp;any&nbsp;information&nbsp;about&nbsp;beats&nbsp;or&nbsp;barlines,<br>
+but&nbsp;it&nbsp;does&nbsp;make&nbsp;it&nbsp;easy&nbsp;to&nbsp;mix&nbsp;different&nbsp;scores&nbsp;together.</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>All_events</strong> = ('note_off', 'note_on', 'key_after_touch', 'control_change', 'patch_change', 'channel_after_touch', 'pitch_wheel_change', 'text_event', 'copyright_text_event', 'track_name', 'instrument_name', 'lyric', 'marker', 'cue_point', 'text_event_08', 'text_event_09', 'text_event_0a', 'text_event_0b', 'text_event_0c', 'text_event_0d', ...)<br>
+<strong>Event2channelindex</strong> = {'channel_after_touch': 2, 'control_change': 2, 'key_after_touch': 2, 'note': 3, 'note_off': 2, 'note_on': 2, 'patch_change': 2, 'pitch_wheel_change': 2}<br>
+<strong>MIDI_events</strong> = ('note_off', 'note_on', 'key_after_touch', 'control_change', 'patch_change', 'channel_after_touch', 'pitch_wheel_change')<br>
+<strong>Meta_events</strong> = ('text_event', 'copyright_text_event', 'track_name', 'instrument_name', 'lyric', 'marker', 'cue_point', 'text_event_08', 'text_event_09', 'text_event_0a', 'text_event_0b', 'text_event_0c', 'text_event_0d', 'text_event_0e', 'text_event_0f', 'end_track', 'set_tempo', 'smpte_offset', 'time_signature', 'key_signature', ...)<br>
+<strong>Nontext_meta_events</strong> = ('end_track', 'set_tempo', 'smpte_offset', 'time_signature', 'key_signature', 'sequencer_specific', 'raw_meta_event', 'sysex_f0', 'sysex_f7', 'song_position', 'song_select', 'tune_request')<br>
+<strong>Notenum2percussion</strong> = {35: 'Acoustic Bass Drum', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare', 39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat', 43: 'High Floor Tom', 44: 'Pedal Hi-Hat', ...}<br>
+<strong>Number2patch</strong> = {0: 'Acoustic Grand', 1: 'Bright Acoustic', 2: 'Electric Grand', 3: 'Honky-Tonk', 4: 'Electric Piano 1', 5: 'Electric Piano 2', 6: 'Harpsichord', 7: 'Clav', 8: 'Celesta', 9: 'Glockenspiel', ...}<br>
+<strong>Text_events</strong> = ('text_event', 'copyright_text_event', 'track_name', 'instrument_name', 'lyric', 'marker', 'cue_point', 'text_event_08', 'text_event_09', 'text_event_0a', 'text_event_0b', 'text_event_0c', 'text_event_0d', 'text_event_0e', 'text_event_0f')<br>
+<strong>Version</strong> = '5.9'<br>
+<strong>VersionDate</strong> = '20120504'</td></tr></table>
+</body></html>

@@ -1,0 +1,419 @@
+<HTML><HEAD><TITLE>midichord</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midichord</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+
+<ul>
+
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#default_mode">DEFAULT MODE</a></li>
+	<li><a href="#aco_mode">ON-NOTE MODE and CLOSEST MODE</a></li>
+	<li><a href="#a_and_sub_options">-a AND ITS SUB-OPTIONS</a></li>
+	<li><a href="#other_options">OTHER OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>midichord - generates adjusted-notes to conform to a fixed-voice
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ perldoc midichord     # read the manual :-)</pre>
+<pre>
+ # on a midi-file, which should contain both the fixed voice(s) on
+ # channels 2 and 3, and adjustable chord-pattern 'notes' on channel 5:
+ # (useful if 2,3 is a fast-moving solo, and 5 is a backing pattern)
+ ~&gt; midichord -f 2,3 -a 5 in.mid &gt; out.mid</pre>
+<pre>
+ # on real-time (raw) midi:
+ # a chord-file plays on channels 4 and 5 which will be adjusted
+ # to follow the keyboards on the fixed channels 0 and 1
+ ~&gt; midichord -a 4,5 -f 0,1 -i 14:0,32 -o 128
+ ALSA client 129                midichord pid=2157
+ Input port 129:0 is connected from 14:0,32:0
+ Ouput port 129:1 is connected to 128:0
+ Reigning chord is C,D,F,Ab
+ ^C to Quit</pre>
+<pre>
+ # Adjust channels 4,5 Closely to not dischord with On-notes in 0,1
+ # (useful if 0,1 is a slow-moving chord, and 4,5 is a faster solo)
+ ~&gt; midichord -f 0,1 -aco 4,5 -i 14:0,32 -o 128</pre>
+<pre>
+ # in Quiet mode, e.g. in a Makefile or script (14 is Midi Through):
+ # where you play on your ProKeys on channels 0 and 1,
+ # and the chord notes are on channels 4 and 5 in backing.mid
+ ~&gt; midichord -Q -f 0,1 -a 4,5 -i 14:0,ProKeys -o 14:1,TiMidity &amp;
+ ~&gt; aplaymidi   -p midichord:0 backing.mid &amp;
+ ~&gt; arecordmidi -p 14:1 -b 60 -t 1000 piece.mid
+ # and then you play on your ProKeys</pre>
+<p>
+</P>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>Notes input on the <I>fixed-channels</I>
+are transmitted unchanged to the output
+(<A HREF="#n">unless <B>-n</B></A>),
+but notes received in the <I>adjust-channels</I>
+have their pitches changed before being output.
+&nbsp;
+<I>midichord</I> can be used either:
+<OL><LI><A HREF="#default_mode">
+to synthesise chords on the adjust-channels
+to accompany a solo on a fixed-channels (the default mode),</A>
+</LI><LI><A HREF="#aco_mode">
+or to adjust the notes of a solo to not conflict
+with the notes on the fixed-channels (<B>-aco</B> mode).</A>
+</LI></OL>
+</p>
+<hr />
+<h3><a name="default_mode">DEFAULT MODE</a></h3>
+<p>By default, <I>midichord</I> remembers
+all non-semitone-dischord notes in a &quot;fixed-channel&quot;
+(or channels), generating a changing set of &quot;chord&quot; notes,
+which can be played by notes in a &quot;adjust-channel&quot;.
+Any note in a fixed-channel remains as part of the Reigning Chord,
+and continues there until contradicted by a subsequent note in a
+fixed-channel, where &quot;contradiction&quot; means a semitone-dischord.
+</p><p>
+Notes input on the fixed-channels are also,
+<A HREF="#n">by default</A>, transmitted unchanged to the output.
+But notes received in the adjust-channels have their pitches changed,
+to conform to the Reigning Chord, before being output.
+</p><p>
+A <strong>black note in a adjust-channel plays the whole chord</strong>,
+in close harmony, inverted to start just above that note.
+</p><p>
+A <strong>white note in a adjust-channel plays one of the chord-notes</strong>
+in the same octave.
+The rules governing which one are a bit complicated;
+there are seven white keys in each octave, but the number
+of notes in the chord varies all the time, from one to six.
+The <strong>D</strong> key will always output the lowest chord-note in its
+octave, and the <strong>B</strong> key will usually output the higest.
+Between those two, the default mapping of key to chord-note
+ascends as smoothly as possible subject to the condition that
+each key produces a different chord-note from the previous key,
+so that it will avoid generating repeated notes unless that was intended.
+</p><p>
+The <strong>-m</strong> option enforces a simpler mapping:
+the note is chosen according to the <strong>m</strong>odulus of the key-number,
+so that the white keys just cycle through the chord notes.
+This is useful for generating arpeggios,
+because if there are three or more chord-notes
+then three neighbouring white keys will generate three different notes.
+</p><p>
+When <em>midichord</em> starts, the Reigning Chord is empty.
+So, until the first note in a fixed-channel,
+the adjust-channels, whatever their input,  will produce no output.
+The &quot;all-notes-off&quot; midi-controller (cc123) in one of the
+adjust-channels clears the Reigning Chord, resulting again in silence.
+This can be a graceful way to end a piece, to avoid having to fade out
+an endlessly recycling accompaniment.
+</p><p>
+If you are improvising in a fixed-channel,
+try to play your solo line a tiny bit <I>ahead</I> of the chord beat;
+it doesn't have to be audible - a millisecond will do.
+</p>
+<hr />
+<h3><a name="aco_mode">ON-NOTE MODE and CLOSEST MODE</a></h3>
+<p>
+If the <B>-ao</B> sub-option is used,
+the adjust-channel notes are adjusted to avoid any semitone-dischord
+with one of the currently <B>O</B>n notes in a fixed-channel.
+</p><p>
+With the <B>-ac</B> sub-option there is no difference between
+how the white keys and the black keys are treated;
+the note is chosen <B>C</B>losest to the adjust-channel note.
+This is usually used in conjunction with the <B>o</B> sub-option,
+i.e. <B>-aco</B>, with slow-moving fixed-channel notes
+and a faster-moving solo on the adjust-channel.
+
+</p>
+<hr />
+<h3><a name="a_and_sub_options">-a AND ITS SUB-OPTIONS</a> : &nbsp;
+<A HREF="#a">-a</A>, &nbsp;
+<A HREF="#ac">-ac</A>, &nbsp;
+<A HREF="#am">-am</A>, &nbsp;
+<A HREF="#ao">-ao</A>, &nbsp;
+<A HREF="#ar">-ar</A>, &nbsp;
+<A HREF="#at">-at</A>
+</h3>
+<P>
+The sub-options of <B>-a</B> affect
+the way the pitches in the adjust-channels get adjusted.
+They can be concatenated in the same argument,
+for example <B>-aco</B> which is a useful way to fix dischordant notes
+in a fast solo over a a slower channel which is setting the harmony;
+also <B>-ato</B>
+or <B>-acot</B> etc.
+</P>
+
+<dl>
+<dt><strong><a name="a" class="item"><em>-a 4,5</em></a></strong></dt>
+<dd>
+<p>In this example, the midi channels <strong>4</strong> and <strong>5</strong>
+will be used for the '<B>a</B>djustable' voices.
+Notes input on those channels are <em>not</em> transmitted to the output;
+they are used to decide which of the current chord-notes will be output.</p>
+<p>If the input-note is a black key, then all the current chord-notes
+are output, in a chord. The chord will be in close position,
+and inverted so that its lowest note is not lower than the input-note.
+</p><p>
+If the input-note is a white key,
+then only <em>one</em> of the current chord-notes will be output.
+If the input-note is a C then the lowest chord-note in that octave is chosen,
+and if the input-note is a D the the second-lowest,
+and thereafter the chosen chord-note meanders upwards
+(there are at most 6 chord-notes, but there are 7 white notes in an octave).
+</p><p>
+In either case, the chord-notes are output
+on the same channel as the input note came in on,
+and the note's duration and velocity (or volume) are also conserved.</p>
+</dd>
+
+<dt><strong><a name="ac" class="item"><em>-ac</em></a></strong></dt>
+<dd>
+<p>This causes all adjust-channel keys to be translated differently into
+the choice of adjusted-note: by taking the closest available pitch that
+is not discordant with a fixed-channel.
+It is incompatible with the
+<B><A HREF="#am">-am option</A></B>.
+</dd>
+
+<dt><strong><a name="am" class="item"><em>-am</em></a></strong></dt>
+<dd><p>
+This causes adjust-channel white-keys to be translated differently into
+the choice of chord-note: by taking the <B>M</B>odulus of the key-number.
+If any input-note is a C then the lowest available
+chord-note in that octave is chosen,
+if the input-note is a D the the second-lowest,
+and so on, but returning to the lowest
+chord-note and starting again after reaching the highest;
+so cycling through the chord-notes.
+It is incompatible with the
+<B><A HREF="#ac">-ac option</A></B>.
+</dd>
+</p></dd>
+
+<dt><strong><a name="ao" class="item"><em>-ao</em></a></strong></dt>
+<dd><p>
+This causes the Reigning chord to consist of only the currently
+<B>O</B>n notes of the fixed-channels;
+in other words the <I>memory</I> of a fixed-channel note will not persist.
+It allows a solo line more freedom, and is often used in combination with 
+<B><A HREF="#ac">-ac</A></B>&nbsp;
+for example
+<B>-aco</B>
+</p><p>
+Do not confuse this <B>-ao sub-option</B> with the
+<B><A HREF="#o">top-level -o option</A></B> which sets the ALSA output port.
+</p></dd>
+
+<dt><strong><a name="ar" class="item"><em>-ar</em></a></strong></dt>
+<dd>
+<p>
+This introduces a tendancy to use <B>R</B>ests on white adjust-channel-notes,
+if they would otherwise repeat the adjusted-pitch most recently played.
+It is not very compatible with the
+<B><A HREF="#ao">-ao option</A></B>.
+</p></dd>
+
+<dt><strong><a name="at" class="item"><em>-at</em></a></strong></dt>
+<dd>
+<p>
+This causes any chord-notes contradicted by a fixed-note to be 
+immediately <B>T</B>erminated.
+&nbsp;
+The default is to allow the chord-note to continue to its normal duration.
+Using <B>-at</B> gives a harmonically cleaner and lighter sound,
+but it can result in some ugly short notes in the adjust-channels.
+You may need to use <B>-at</B> if your chord-notes are very long notes.</p>
+</dd></dl>
+
+<hr />
+<h3><a name="other_options">OTHER OPTIONS</a> : &nbsp;
+<A HREF="#f">-f</A>, &nbsp;
+<A HREF="#n">-n</A>, &nbsp;
+<A HREF="#Q">-Q</A>, &nbsp;
+<A HREF="#i">-i</A>, &nbsp;
+<A HREF="#o">-o</A>
+</h3>
+<dl>
+
+<dt><strong><a name="f" class="item"><em>-f 0,1</em></a></strong></dt>
+<dd>
+<p>In this example, the midi channels <strong>0</strong> and <strong>1</strong> (out of 0...15)
+will be treated as the '<B>f</B>ixed' voices, or 'free' voices,
+and the adjustable-notes will be chosen so as not to be discordant with them.
+In this context, an interval of a semitone
+(plus or minus any number of octaves) is treated as a dischord.
+Notes on the fixed-channels (or any other non-adjust-channels)
+will by default also be transmitted unchanged to the output,
+though this can be changed
+<A HREF="#n">with the <B>-n</B> option</A>.
+</p>
+</dd>
+
+<dt><strong><a name="n" class="item"><em>-n</em></a></strong></dt>
+<dd>
+<p>This causes <I>midichord</I> to <B>n</B>ot transmit
+the <B>n</B>on-adjust-channels
+(including the fixed-channels,
+and all the other channels which are neither fixed nor adjusted).
+&nbsp;
+This is useful because it allows <I>midichord</I> and
+<I><A HREF="midiecho.html">midiecho</A></I> to be run in parallel,
+for example both from 14:0 to 14:1 (where Midi Through is 14),
+without outputting the non-adjust-channels in duplicate.</p>
+</dd>
+
+<dt><strong><a name="Q" class="item"><em>-Q</em></a></strong></dt>
+
+<dd>
+<p>This causes <em>midichord</em> to run in <strong>Q</strong>uiet mode,
+in which nothing is printed to the screen;
+this is useful in scripts and Makefiles,
+and only makes sense in real-time mode (with <strong>-i</strong>).
+&nbsp;
+In Quiet mode, <em>midichord</em> will terminate if one of its ALSA connections
+becomes disconnected.</p>
+</dd>
+<dt><strong><a name="i" class="item"><em>-i 32:0</em> or <em>-i ProKeys</em></a></strong></dt>
+
+<dd>
+<p>This option puts <em>midichord</em> into raw-midi
+(or real-time, or midi-on-the-wire) mode, and takes the
+midi-data from the specified ALSA-port or ports.<BR>
+If the ALSA port is specified as <B>0</B> then <em>midichord</em>
+will start up in real-time mode but without connecting from anything.<BR>
+You can check out the available ports with the command
+<em>arecordmidi -l</em> or <em>aconnect -il</em>.</p>
+</dd>
+<dt><strong><a name="o" class="item"><em>-o 128:0</em> or <em>-o TiMidity</em></a></strong></dt>
+
+<dd>
+<p>This option sets the ALSA-port or ports to which the midi output will
+be sent.  You can check out the available ports with the command
+<em>aplaymidi -l</em> or <em>aconnect -ol</em>.
+The default ouput-port (if only <strong>-i</strong> option is present)
+is the environment variable $ALSA_OUTPUT_PORTS</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h3><a name="examples">EXAMPLES</a></h3>
+<p>For example, a quirky waltz such as<BR>
+&nbsp; <code>
+<a href="../mus/impro/20111214_1009a_waltz_ro.mp3">http://www.pjb.com.au/mus/impro/20111214_1009a_waltz_ro.mp3</a></code>
+<BR>was produced by a chord pattern such as this <CODE>waltz.txt</CODE>
+(<A HREF="../muscript/index.html">in muscript</A>):</p>
+<pre>
+ midi channel 0 patch 71 pan 50  # solo clarinet
+ midi channel 4 patch 21 pan 20  # accordeon
+ midi channel 5 patch 48 pan 80  # arco bass
+ | .5 .6 .5
+ =1 bass cha5 4 E cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 C cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 E cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 C cha4 8 C# rest 4 C#
+ |
+ =1 cha5 4 E cha4 8 D# rest 4 D#
+ |
+ =1 cha5 4 c cha4 8 D# rest 4 D#
+ |
+ =1 cha4 8 C# C# C# rest C# rest
+ =1 cha5 4 E rest rest
+ |
+ =1 cha4 4 C# rest d
+ =1 cha5 4 C rest rest</pre>
+<p>by improvising a solo over the top of it, on the ProKeys
+keyboard on channel 0, using these commands:</p>
+<pre>
+ aconnect -x
+ aconnect Midi:1 Roland   # Roland is the synth
+ midichord -f 0 -a 4,5 -i ProKeys,Midi:0 -o Midi:1 &amp;
+ arecordmidi -p Midi:1 -b 60 -t 1000 waltz.mid &amp;
+ muscript -midi waltz.txt | aplaymidi -p Midi:0 -
+ pkill -INT midichord
+ pkill -INT arecordmidi</pre>
+<p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>midichord</i> is available by http at
+<A HREF="free/midichord">
+www.pjb.com.au/midi/free/midichord</A><BR>
+To install <i>midichord</i>, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+</p>
+<hr />
+
+<h3><a name="changes">CHANGES</a></h3>
+<pre>
+ 1.6 20130805 bug with excessive note_offs in real-time mode fixed
+ 1.5 20130719 fixed-channel note-ons get output in real-time mode
+ 1.4 20130330 -i 0 forces realtime mode without connecting from anywhere
+ 1.3 20120811 move to -f and -a, with -a having suboptions c,m,o,r,t
+ 1.2 20111223 -n, no tranmission of fixed-channels
+ 1.1 20111217 real-time, midi-file; almost releaseable
+ 1.0 20111214 first working version</pre>
+<p>
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on the MIDI::Perl CPAN module in midi-file mode,
+and the MIDI::ALSA CPAN module in real-time mode.</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<pre>
+ <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
+ <a href="http://www.pjb.com.au/midi">http://www.pjb.com.au/midi</a>
+ <a href="http://www.pjb.com.au/midi/midiecho.html">http://www.pjb.com.au/midi/midiecho.html</a>
+ <a href="http://www.pjb.com.au/muscript">http://www.pjb.com.au/muscript</a>
+ <a href="http://search.cpan.org/perldoc?MIDI">http://search.cpan.org/perldoc?MIDI</a>
+ <a href="http://search.cpan.org/perldoc?MIDI::ALSA">http://search.cpan.org/perldoc?MIDI::ALSA</a></pre>
+
+</body>
+
+</html>

@@ -1,0 +1,241 @@
+<HTML><HEAD><TITLE>terminfo.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="terminfo, Lua, module, luarock">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>terminfo.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<A NAME="index"></A>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#functions">FUNCTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR></TABLE>
+
+<!-- INDEX END -->
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p><code>terminfo</code> - access the <em>terminfo</em> database</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ local T = require 'terminfo'  -- see:  man terminfo
+ print("Can a vt100 do overstrike ? ",
+    tostring(T<A HREF="#getflag">.getflag('os','vt100')</A>))
+ print("Tabs on this terminal are initially every ",
+    T<A HREF="#getnum">.getnum('it')</A>)
+ print("Can this terminal do overstrike ? ",
+    tostring(T<A HREF="#flag_by_varname">.flag_by_varname('over_strike')</A>))
+ print("Tabs on xterm are initially every ",
+    T<A HREF="#flag_by_varname">.num_by_varname('init_tabs', 'xterm')</A>)
+ if T<A HREF="#get">.get('km')</A> then  -- this kbd has a Meta-Key :-)
+    if T<A HREF="#get">.get('init_tabs')</A> &lt; 8 then
+       print('someone changed the tabstop setting !')
+    end
+    print('testing the Home key:'..<A HREF="#get">T.get</A>('key_home'))
+    if T<A HREF="#get">.get('cud1') ~= T.get('cursor_down')</A> then
+       print('BUG: capname and varname gave different answers')
+    end
+ end
+ local P = require 'posix'
+ local tty = io.open(P.ctermid(), 'a+') -- the controlling terminal
+ tty:write(T<A HREF="#tparm">.tparm</A>(<A HREF="#get">T.get('cursor_address')</A>,20,30))
+</pre><p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>This module provides access to <em>terminfo</em> database entries,
+see <em>man terminfo</em>.
+</p><p>
+This database provides information about a terminal,
+in three separate sets of capabilities.
+Flag capabilities are boolean
+(more accurately, they are either <I>true</I> or <I>nil</I>);
+they indicate the presence of a particular ability, feature, or bug.
+Number capabilities give the size,
+count or other numeric detail of some feature of the terminal.
+String capabilities are usually control strings
+that the terminal will recognise, or send.
+</p><p>
+String capabilities involving no parameters (e.g. <I>clear_screen</I>)
+can be printed directly to the screen and will work as expected.
+Any parameters (e.g. with <I>cursor_address</I>)
+are represented, using <B>%</B> characters,
+in a notation documented in the
+<I>Parameterized&nbsp;Strings</I> section
+of <I>man&nbsp;terminfo</I>;
+these parameters must be put in place with the function
+<B><A HREF="#tparm">tparm(capability, parameters...)</A></B>
+This function is not present in the Perl module.
+</p><p>
+Each capability has two names; a short name called the <em>capname</em>,
+and a longer name called the <em>varname</em>;
+for details, see <em>man terminfo</em>.
+This module, like the Perl <em>
+<a href="http://search.cpan.org/perldoc?Term::Terminfo">Term::Terminfo</a>
+</em> module, provides two sets of functions,
+one that works on <em>capnames</em>, one that works on <em>varnames</em>.
+It also, unlike the Perl module, provides a general-purpose function
+<B><A HREF="#get">get(name)</A></B> which returns
+the capability whether it is a flag, number or string,
+and whether the name is a <em>capname</em> or a <em>varname</em>.
+</p><p>
+Unlike the Perl <em>
+<a href="http://search.cpan.org/perldoc?Term::Terminfo">Term::Terminfo</a></em>
+module, there is no separate constructor.
+The <I>term</I> parameter is passed as an optional second argument.
+If it is not present, the current terminal,
+from the environment variable <em>TERM</em>, is used.
+</p><p>
+</p>
+<hr />
+<h3><a name="functions">FUNCTIONS</a></h3>
+<p>
+</p>
+<B><a name="get">T.get( name [, term] )</a></B><BR>
+Returns the value of the capability of the given name,
+whether the capability is a flag, number or string,
+and whether the name is a <em>capname</em> or a <em>varname</em>.
+This function is not present in the Perl <em>
+<a href="http://search.cpan.org/perldoc?Term::Terminfo">Term::Terminfo</a>
+</em> module.
+<p>
+</p>
+<B><a name="tparm">T.tparm( capability, &lt;param1, param2, ...&gt; )</a></B><BR>
+Substitutes the parameters according to the notation documented in the
+<I>Parameterized Strings</I> section of <I>man terminfo</I>,
+and returns the resulting string, for example,<BR>
+&nbsp; <CODE> io.stderr:write(T.tparm(T.get('cursor_address'),20,30))</CODE>
+<BR>
+So that you remain in control of your input/output at the Lua level,
+no <I>tputs</I> function is provided;
+thus, as a side effect, any padding information will be lost.
+This is very rarely a problem nowadays, but it could mean that
+for example: the <I>flash</I> capability may not work as expected.
+If you really need this, you can resort to:
+&nbsp; <CODE>os.execute('tput&nbsp;flash')</CODE>
+<BR>
+This function is not present in the Perl <em>
+<a href="http://search.cpan.org/perldoc?Term::Terminfo">Term::Terminfo</a>
+</em> module.
+<p>
+</p>
+<B><a name="getflag">bool = T.getflag( capname [, term] )</a></B><BR>
+<B><a name="getnum">num = T.getnum( capname [, term] )</a></B><BR>
+<B><a name="getstr">str = T.getstr( capname [, term] )</a></B><BR>
+Return the value of the flag, number or string capability respectively,
+of the given <em>capname</em>.
+<p>
+</p>
+<B><a name="flag_by_varname">bool = T.flag_by_varname( varname [, term] )</a></B><BR>
+<B><a name="num_by_varname">num = T.num_by_varname( varname [, term] )</a></B><BR>
+<B><a name="str_by_varname">str = T.str_by_varname( varname [, term] )</a></B><BR>
+Return the value of the flag, number or string capability respectively,
+of the given <em>varname</em>.
+<p>
+</p>
+<B><a name="flag_capnames">capnames = T.flag_capnames( [term] )</a></B><BR>
+<B><a name="num_capnames">capnames = T.num_capnames( [term] )</a></B><BR>
+<B><a name="str_capnames">capnames = T.str_capnames( [term] )</a></B><BR>
+Return arrays of the <em>capnames</em> of the supported
+flags, numbers, and strings respectively.
+<p>
+</p>
+<B><a name="flag_varnames">varnames = T.flag_varnames( [term] )</a></B><BR>
+<B><a name="num_varnames">varnames = T.num_varnames( [term] )</a></B><BR>
+<B><a name="str_varnames">varnames = T.str_varnames( [term] )</a></B><BR>
+Return arrays of the <em>varnames</em> of the supported
+flags, numbers, and strings respectively.
+<p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>This module is available as a LuaRock in
+<A HREF="http://rocks.moonscript.org/modules/peterbillam">
+rocks.moonscript.org/modules/peterbillam</A>
+so you should be able to install it with the command:</p>
+<pre>
+ $ su
+ Password:
+ # luarocks install --server=http://rocks.moonscript.org terminfo</pre>
+<p>or:</p>
+<pre>
+ # luarocks install <a href="http://www.pjb.com.au/comp/lua/terminfo-1.3-0.rockspec">http://www.pjb.com.au/comp/lua/terminfo-1.3-0.rockspec</a></pre>
+<p>
+It depends on a <I>term.h</I> header-file;
+so for example, on Debian you may also need:
+</p><pre>
+ # aptitude install libncurses5-dev</pre>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<pre>
+ 20140519 1.3 switch pod and doc over to using moonrocks
+ 20140519 1.2 installs as terminfo not Terminfo under luarocks 2.1.2
+ 20130917 1.1 introduce <A HREF="#tparm">tparm()</A>
+ 20130915 1.0 first working version</pre>
+<p>
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Translated into Lua by Peter Billam
+(<a href="http://www.pjb.com.au/comp/contact.html">www.pjb.com.au/comp/contact.html</a>)
+from the Perl CPAN module
+(<a href="http://search.cpan.org/perldoc?Term::Terminfo">search.cpan.org/perldoc?Term::Terminfo</a>)
+by Paul Evans</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<pre>
+ <a href="https://github.com/mauke/unibilium">unibilium</A> - a terminfo parsing library
+ <a href="http://search.cpan.org/perldoc?Term::Terminfo">http://search.cpan.org/perldoc?Term::Terminfo</a>
+ man terminfo
+ /usr/share/terminfo/
+ tput
+ infocmp
+ <A HREF="http://linux.die.net/man/3/tparm">linux.die.net/man/3/tparm</A>
+ <A HREF="http://www.pjb.com.au/comp/lua/readline.html">readline.lua</A>
+ <A HREF="http://www.pjb.com.au">www.pjb.com.au</A>
+ <A HREF="http://www.pjb.com.au/comp/index.html#lua">www.pjb.com.au/comp/</A>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam">http://rocks.moonscript.org/modules/peterbillam</A>
+ <a href="http://www.pjb.com.au/comp/lua/readkey.html">http://www.pjb.com.au/comp/lua/readkey.html</a>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam/readkey">http://rocks.moonscript.org/modules/peterbillam/readkey</A>
+ <a href="http://www.pjb.com.au/comp/lua/readline.html">http://www.pjb.com.au/comp/lua/readline.html</a>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam/readline">http://rocks.moonscript.org/modules/peterbillam/readline</A>
+ <a href="http://www.pjb.com.au/comp/lua/terminfo.html">http://www.pjb.com.au/comp/lua/terminfo.html</a>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam/terminfo">http://rocks.moonscript.org/modules/peterbillam/terminfo</A>
+</pre>
+
+</DIV>
+</body>
+
+</html>

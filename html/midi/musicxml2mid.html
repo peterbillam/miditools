@@ -1,0 +1,144 @@
+<HTML><HEAD><TITLE>midiecho</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, MusicXML, XML::Parser">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>musicxml2mid</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>musicxml2mid - Perl script to convert MusicXML to MIDI</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ musicxml2mid Example.xml &gt; Example.mid
+ musicxml2mid Example.xml | aplaymidi -
+ musicxml2mid -v      # prints version number</pre>
+<p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>
+This script converts a musical score in MusicXML format into a MIDI
+file.  It uses the XML::Parser module to read the xml input, and the
+MIDI-Perl module to put together the midi output.
+</p>
+<p>
+It was written to assist in debugging "muscript -xml".
+</p><p>
+It handles both partwise and timewise scores, and seems to work correctly
+on all the sample MusicXML files at
+<A HREF="http://www.recordare.com">www.recordare.com</A>,
+and on all output from "muscript -xml".
+</p><p>
+There is (was ?) a Python script called <i>musicxml2midi</i> on Sourceforge,
+so this script has no final "i", to reduce the amount of confusion...
+</p><p>
+</p>
+<hr />
+<h3><a name="options">OPTIONS</a></h3>
+<dl>
+<dt><strong><a name="item__2dd"><em>-d</em></a></strong>
+<dd>
+Generates <strong>D</strong>ebugging output.
+</dd>
+<dt><strong><a name="item__2dv"><em>-v</em></a></strong>
+<dd>
+Prints <strong>V</strong>ersion number.
+</dd></dl>
+
+<p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>musicxml2mid</i> is available by http at
+<A HREF="free/musicxml2mid">
+www.pjb.com.au/midi/free/musicxml2mid</A> (save it to disc,
+make it executable, and move it into your $PATH),<BR>
+or as part of
+<A HREF="free/midiscripts.tar.gz">
+www.pjb.com.au/midi/free/midiscripts.tar.gz</A>
+(unpack the <I>tar</I> archive somewhere in your $PATH).<BR>
+If necessary, edit the first lines to reflect
+where <I>perl</I> is installed on your system.
+</p><p>
+You'll also need to install the
+<A HREF="http://search.cpan.org/search?query=MIDI">MIDI-Perl</A>
+module and the
+<A HREF="http://search.cpan.org/search?query=XML::Parser">XML::Parser</A>
+module.
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<B>1.7</B>, 20090205, add lyric events, as suggested by Albert Frantz
+<A HREF="http://www.key-notes.com">www.key-notes.com</A>
+<BR><B>1.6</B>, 20070301, fix bug with a timesig after the start
+<BR><B>1.5</B>, 20070301, fix bug in rests
+<BR><B>1.4</B>, 20070228,
+Char handler copes with multiple calls in a single string
+<BR><B>1.3</B>, 20070227, correct MIDI Type (format=1) if multiple parts
+(thanks to Pete in comp.music.midi)
+<BR><B>1.2</B>, 20070225, handles timewise musicxml,
+different &lt;divisions&gt; in each &lt;part&gt;, grace notes, and short bars
+<BR><B>1.1</B>, 20070222, handles channels in recordare and muscript files
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  &nbsp;
+<a href="../comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on Larry Wall's <I>XML::Parser</I> module
+and Sean Burke's <I>MIDI::Perl</I> module.</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
+<a href="bassline.html">www.pjb.com.au/midi/bassline.html</a><BR>
+<a href="mididump.html">www.pjb.com.au/midi/mididump.html</a><BR>
+<a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
+<a href="midiedit.html">www.pjb.com.au/midi/midiedit.html</a><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+
+</body>
+
+</html>

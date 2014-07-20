@@ -1,0 +1,463 @@
+<HTML><HEAD><TITLE>midiecho</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midiecho</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>midiecho - Simulates tape-loop delay echo: on MIDI files,
+or on real-time MIDI</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ # on midi-files ( *.mid ) :
+ midiecho -c 3 fn            # echo will be added to midi channel 3
+ midiecho -c 3 -d 450,450,450 fn      # three echoes at 450 mS gaps
+ midiecho -c 3 -d 450,450 -s 30 fn  # each echo is (MIDI) 30 softer
+ midiecho -c 2 -d 450 -e 5 -s 30 fn # the echo appears on channel 5
+ midiecho -c 3 -d 40 -e 4 -w 10 -s 0    # Automatic-Double-Tracking
+ midiecho filename          #  defaults: midiecho -c 0 -d 300 -s 30
+ muscript -midi f.txt | midiecho -c 1 -d 300 -s 25 -e 2 &gt;f.mid
+
+ # on real-time (raw) midi :
+ $&gt; xterm -g 80x16+1+1 -exec 'midiecho -i 32 -d 22 -c 3 -e 4' &amp;
+ $&gt; midiecho -i 32:0 -o 128:0 -c 3 -d 450,400 -e 4,5
+ ALSA client 129                midiecho pid=2157
+ Input port 129:0 is connected from 32:0
+ Ouput port 129:1 is connected to 128:0
+ Echo is being applied to input channel 3
+ Delay 450 ms, to Channel 4, Softer by 25
+ Delay 400 ms, to Channel 5, Softer by 25
+ <B>_</B>
+ Up, n=New echo, q=Quit
+ midiecho -c 3 -d 450,400 -e 3,3 -s 25,25
+
+</pre>
+<p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>Simulates a tape-delay echo on a particular MIDI-channel
+by issuing repeated note_on events with diminishing volume.
+&nbsp;
+Since version 2.0, <A HREF="#option_i">the -i and -o options</A>
+allow <I>midiecho</I> to work on real-time (raw) midi inputs,
+as well as on midi files.
+</p><p>Midiecho sounds best if
+<A HREF="#option_e">the -e option</A> or
+<A HREF="#option_e">the -E option</A>
+is used, to assign the echoes to different MIDI-channels;
+this avoids notes being restarted before they have finished.
+Without -e, <i>midiecho</i> works much better on transient sounds,
+e.g. banjo, or snare-drum.
+</p><p>
+If <A HREF="#option_e">the -e option</A> is not being used,
+then the echo note is played on the same channel as the original note.
+</p><p>
+Since version 2.5, the -E option works like the -e option,
+except not just the Note-On and Note-Off events are echoed,
+but also the Control-Change and Pitch-Bend events.
+</p><p>
+Since version 2.6, the delays are incremental (since the previous
+delay) not absolute (since the original note); this is a bug-fix,
+but it was a well-established bug.
+</p><p>
+Version 3.0 brings major changes,
+involving some loss of backward-compatibility.
+Since version 3.0:
+<UL><LI>
+In real-time mode,
+<A HREF="http://search.cpan.org/perdoc?MIDI::ALSA">the MIDI::ALSA module</A>
+is used to create a proper ALSA client,
+so Virtual-MIDI clients are no longer needed.
+</LI><LI>
+<A HREF="#option_i">The real-time mode</A>
+now has a keyboard interface,
+allowing real-time adjustment of the delay parameters.
+If you don't want the interface (e.g. in a Makefile),
+<A HREF="#option_Q">the -Q option</A> sets Quiet-mode.
+</LI><LI>
+<A HREF="#option_d">The -d option</A> specifies delays
+<I>incrementally</I> in milliseconds since the previous signal,
+not in absolute milliseconds since the dry signal.
+</LI><LI>
+<A HREF="#option_p">The -p option</A>
+specifies the Patches of the various echoes,
+in the same order as they were given delays.
+</LI><LI>
+The former "Pitch" option is now called "Wheel" and is invoked by
+<A HREF="#option_w">-w</A>;
+it allows the echo to be detuned (in 1/100's of a semitone)
+which makes possible an "Automatic Double-Tracking" effect.
+</LI><LI>
+<A HREF="#option_s">The -s option</A> replaces the -q option,
+because in the real-time mode keyboard interface <B>q</B> means quit.
+</LI></UL>
+</p><p>
+Currently, echo can only be applied to one channel.
+At some time in the future this restriction may be removed.
+To make this possible, a more compact notation would be introduced
+to replace the
+<A HREF="#option_d">-d</A>,
+<A HREF="#option_e">-e</A>,
+<A HREF="#option_n">-n</A>,
+<A HREF="#option_p">-p</A> and
+<A HREF="#option_w">-w</A> options:
+<BR><CODE>
+&nbsp; midiecho -c 0 d300e1p0 d300e2p74
+</CODE><BR>
+However, version 4.3 introduced
+<A HREF="#option_N">the -N option</A>,
+which allows more than one <I>midiedit</I> process to be started,
+with predictable ALSA-client names;
+these can then be connected up by <I>aconnect</I> in a script,
+which removes much of the need to run echoes on multiple channels
+within one <I>midiecho</I> process.
+</p>
+<hr />
+<h3><a name="options">OPTIONS</a> : &nbsp;
+<A HREF="#option_c">-c</A>, &nbsp;
+<A HREF="#option_d">-d</A>, &nbsp;
+<A HREF="#option_e">-e</A>, &nbsp;
+<A HREF="#option_n">-n</A>, &nbsp;
+<A HREF="#option_p">-p</A>, &nbsp;
+<A HREF="#option_w">-w</A>, &nbsp;
+<A HREF="#option_s">-s</A>, &nbsp;
+<A HREF="#option_i">-i</A>, &nbsp;
+<A HREF="#option_o">-o</A>, &nbsp;
+<A HREF="#option_N">-N</A>
+</h3>
+<dl>
+<dt><strong><a name="option_c"><em>-c 3</em></a></strong>
+
+<dd>
+<p>Echo will be added to midi <strong>C</strong>hannel 3.
+&nbsp;
+The channels are numbered from 0...15
+&nbsp;
+If -c is not specified, the default channel is 0.
+&nbsp;
+Currently, <I>midiecho</I> can only add echoes to one channel
+at once; the other channels pass through unaltered.</p>
+</dd>
+
+<dt><strong><a name="option_d"><em>-d 350,300,250</em></a></strong>
+<dd>
+<p>The echo notes will be <strong>D</strong>elayed 350, 300 and 250 mS
+after the previous.
+&nbsp;
+If -d is not specified, the default delay is just 300 mS</p>
+</dd>
+
+
+<dt><strong><a name="option_e"><em>-e 4,5,4</em></a></strong>
+<dd>
+<p>The <strong>E</strong>choes are generated
+not on the original (-c) channel,
+but on the channels 4 then 5 then 4 again
+(in this example there are three echoes).
+This is a really useful option :-)
+</p><p>
+As one example usage, you might have set up your synth's channel 4 and 5
+with the same patch (instrumental sound) as the original channel (e.g. 3),
+but panned to different places in the stereo image.
+This creates a very realistic echo-effect.
+</p><p>
+Another example usage could be to set up the echo-channels with a
+completely different sound, maybe something atmospheric or ethereal.
+</p><p>
+Another example usage could be to set up the echo-channels
+with a different patch, and use a 1ms delay, thus doubling
+the original channel with a different sound.
+</p><p>
+If the number of echo-channels (-e) is fewer than the number of delays
+in the -d list, then the last echo-channel is repeated as necessary.
+</p>
+</dd>
+
+<dt><strong><a name="option_n"><em>-n 38,40</em></a></strong>
+<dd>
+<p>Echo will be added only to midi <strong>n</strong>otes 38 and 40.
+This option is mainly useful with
+<a href="../muscript/gm.html#perc">
+General-MIDI channel 9, which represents a drumkit,
+with each note representing a different drum.</a>
+</p><p>
+In this <em>-c 9 -n 38,40</em> example, echoes would only be added
+to the Acoustic Snare and the Electric Snare sounds.</p>
+</dd>
+
+<dt><strong><a name="option_p"><em>-p 74,93</em></a></strong>
+<dd>
+<P>The channels specifed by
+<A HREF="#option_e">the <B>-e</B> option</A>
+will be preset to use
+<A HREF="../muscript/gm.html#patch">MIDI-<B>P</B>atches 74 and 93</A>
+(in this example).
+</P>
+<dt><strong><a name="option_w"><em>-w 8</em></a></strong>
+<dd>
+<p>The echo will be changed by the pitch-<strong>W</strong>heel up 8 cents
+(hundredths of a semi-tone).  This is mainly useful in conjunction with
+the -e and -d options to produce the "Automatic-Double-Tracking" effect,
+e.g.<BR>
+<CODE> &nbsp; midiecho&nbsp;-c&nbsp;3&nbsp;-d&nbsp;40&nbsp;-e&nbsp;4&nbsp;-w&nbsp;10&nbsp;-s&nbsp;0
+</CODE><BR>
+which assumes that the original channel 3 is panned over to one
+extreme, and the echo-channel 4 is set up with the same patch but
+panned over the other way.  It then produces an "echo" just 40mS
+late and just 10 cents lower. Because the two sounds are in different
+speakers they don't beat with each other, and sound almost like two
+instruments playing in unison.
+</P><P>
+With larger parameters, it can be used to produce doubling at
+a large interval; e.g. &nbsp; <I>-d&nbsp;2&nbsp;-w&nbsp;1200</I> &nbsp;
+causes the original
+voice to be doubled (with a delay of 2mS) at the octave (1200 cents).
+</p>
+</dd>
+
+<dt><strong><a name="option_s"><em>-s 35,20</em></a></strong>
+<dd><p>
+The first delayed note is 35 (MIDI) <strong>s</strong>ofter than
+the original, and the second is 20 softer still.
+&nbsp;
+If the number of softenings (-e) is fewer than the number of delays
+in the -d list, then the last softening is repeated as necessary.
+&nbsp;
+If an echo ends up with zero volume or less, then it is suppressed.
+&nbsp;
+If -s is not specified, by default each delayed note is 30 softer
+than the previous.
+</P>
+</dd>
+
+<dt><strong>
+<em><a name="option_i">-i 32:0</a></em>
+&nbsp; or &nbsp;<em>-i ProKeys</em></strong>
+</strong>
+<dd><p>
+This option puts <I>midiecho</I> into raw-midi
+(or real-time, or midi-on-the-wire) mode,
+and takes the midi-data from the specified port.
+&nbsp;
+The port is specified as an ALSA-port;
+you can check out the available ports with the command
+<I>arecordmidi&nbsp;-l</I> or <I>aconnect&nbsp;-il</I>.
+</p><p>
+Since <A HREF="#changes">Version 3.6</A>,
+you may supply a comma-separated list of ports, e.g. <I>-i&nbsp;28,32</I>
+</p></dd>
+
+<dt><strong>
+<em><a name="option_o">-o 128:0</a></em>
+&nbsp; or &nbsp;<em>-o TiMidity</em></strong>
+<dd><p>
+This option puts <I>midiecho</I> into raw-midi mode
+and sets the ouput-port to which the midi output will be sent.
+&nbsp;
+You can check out the available ports with the command
+<I>aplaymidi&nbsp;-l</I> or <I>aconnect&nbsp;-ol</I>.<BR>
+The default ouput-port
+(if only <A HREF="#option_i">the <I>-i</I> option</A> is present)
+is the environment variable $ALSA_OUTPUT_PORTS
+</p><p>
+Since <A HREF="#changes">Version 3.6</A>,
+you may supply a comma-separated list of ports,
+e.g. <I>-o&nbsp;Roland,128:1</I>
+</p></dd>
+
+<dt><strong>
+<em><a name="option_N">-N my_echo_1</a></em></strong>
+<dd><p>
+This option sets the ALSA Client-<B>N</B>ame,
+to <I>my_echo_1</I> in this example,
+that <I>midiecho</I> will adopt
+if the <I>-i</I> or <I>-o</I> option is used to put it into raw-midi mode,
+<BR>
+This is useful if starting up <I>midiecho</I>
+(or especially multiple <I>midiecho</I>s)
+from a script which will then need to connect them to other ALSA clients.
+<BR>
+The default ALSA-name is <I>midiecho pid=456</I> or whatever the pid is
+of the midiecho process.
+</p></dd></dl>
+
+<hr />
+<h3><a name="examples">EXAMPLES</a></h3>
+<p>
+As an example, note that
+<B><A HREF="free/t">this muscript file</A></B>
+sets up some extra MIDI channels on the synth;<BR>
+ &nbsp; channel 3 is patch 105, which is a banjo<BR>
+ &nbsp; channel 4 is patch 105 pan 5, which is a banjo panned left<BR>
+ &nbsp; channel 5 is patch 105 pan 95, which is a banjo panned right<BR>
+ &nbsp; channel 6 is patch 91 pan 10, which is a Pad 4 (choir)<BR>
+ &nbsp; channel 7 is patch 88 pan 90, which is a Pad 7 (halo), and<BR>
+ &nbsp; channel 8 is patch 66 pan 35, which is a tenor sax
+</P><P>
+It was converted into midi by the command<BR>
+<CODE><A HREF="free/t.mid">muscript -midi t > t.mid</A></CODE>
+&nbsp; &nbsp; (or listen to <A HREF="free/t.mp3">t.mp3</A>)
+</P><P>
+Then a couple of echoes on the same channel (3) were added with<BR>
+<CODE><A HREF="free/t1.mid">
+midiecho -c 3 -d 250,200 -s 45 t.mid > t1.mid</A></CODE>
+&nbsp; &nbsp; (or listen to <A HREF="free/t1.mp3">t1.mp3</A>)
+</P><P>
+or on different channels with the same patch (banjo)
+but panned left and right with<BR>
+<CODE><A HREF="free/t2.mid">
+midiecho -c 3 -d 250,200 -s 45 -e 4,5 t.mid > t2.mid</A></CODE>
+&nbsp; &nbsp; (or listen to <A HREF="free/t2.mp3">t2.mp3</A>)
+</P><P>
+or on channels with different, more ethereal, patches with<BR>
+<CODE><A HREF="free/t3.mid">
+midiecho -c 3 -d 250,200 -s 45 -e 6,7 t.mid > t3.mid</A></CODE>
+&nbsp; &nbsp; (or listen to <A HREF="free/t3.mp3">t3.mp3</A>)
+</P><P>
+or on a channel with a saxophone patch and a
+one-millisecond delay, for a doubling effect, with<BR>
+<CODE><A HREF="free/t4.mid">
+midiecho -c 3 -d 1 -s 5 -e 8 t.mid > t4.mid</A></CODE>
+&nbsp; &nbsp; (or listen to <A HREF="free/t4.mp3">t4.mp3</A>)
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>midiecho</i> is available by http at
+<A HREF="free/midiecho.txt">
+www.pjb.com.au/midi/free/midiecho.txt</A> (rename it to <I>midiecho</I>,
+make it executable, and move it into your $PATH),<BR>
+or as part of
+<A HREF="free/midiscripts.tar.gz">
+www.pjb.com.au/midi/free/midiscripts.tar.gz</A>
+(unpack the <I>tar</I> archive somewhere in your $PATH).<BR>
+If necessary, edit the first lines to reflect
+where <I>perl</I> is installed on your system.
+</p><p>
+You'll also need to install the
+<A HREF="http://search.cpan.org/perldoc?MIDI">MIDI-Perl</A> module,
+and the
+<a href="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</a>
+module.
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<BR><B>4.3</B>, 20140704, <A HREF="#option_N">-N option</A> to set the ALSA-Client name
+<BR><B>4.2</B>, 20140430, bug fix: don't sort the delay arguments !
+<BR><B>4.1</B>, 20120909, uses
+<A HREF="free/api_for_perl.txt">api_for_perl</A>
+for file-mode;
+ far simpler code, and
+ <A HREF="#option_w">-w</A> works for big shifts like -1200
+<BR><B>4.0</B>, 20120110, in
+<A HREF="#option_w">-w</A>, store @pitch_delta by i_echo, not by channel
+<BR><B>3.9</B>, 20111116,
+option now works in midi-file mode
+<BR><B>3.8</B>, 20111103, uses
+<A HREF="../comp/lua/midialsa.html#parse_address">the new MIDI-ALSA 1.11</A>
+to handle ALSA-ports by their names
+<BR><B>3.7</B>, 20111029, fix bug in
+<A HREF="#option_w">-w</A> %pitch_delta
+<BR><B>3.6</B>, 20111028,
+<A HREF="#option_o">OutputPort</A> and
+<A HREF="#option_i">InputPort</A>
+can be comma-separated lists
+<BR><B>3.5</B>, 20111028, controllers in DoEchoCC
+ don't get echoed repeatedly to the same channel
+<BR><B>3.4</B>, 20111027, controllers in DoEchoCC get echoed correctly
+<BR><B>3.3</B>, 20110528, real-time w pitchWheel adjustments work from the UI
+<BR><B>3.2</B>, 20110527, -w &gt; 100 handled with %pitch_delta{$cha}
+<BR><B>3.1</B>, 20110526, -w works, -p is Patch, -Q works properly
+<BR><B>3.0</B>, 20110520, MIDI::ALSA; kbd-UI in real-time mode
+<BR><B>2.4</B>, 20100420, bug fixed with real-time pitch-bend events
+<BR><B>2.3</B>, 20100325, real-time patch-changes do not get echoed
+<BR><B>2.2</B>, 20100324, real-time mode handles running-status;
+<I>aconnect</I> connections get cleaned up after Ctrl-C
+<BR><B>2.1</B>, 20100324, fixed bug:
+<I><A HREF="#option_w">-p</A></I> in real-time mode was a quarter-tone flat
+<BR><B>2.0</B>, 20100323,
+<A HREF="#option_i">the <I>-i</I></A> and
+<A HREF="#option_o">the <I>-o options</I></A>
+work on real-time raw midi, not just on .mid midi-files
+<BR><B>1.9</B>, 20071006, numerical sort of keys of %pending;
+start_time remembers $millisecs, not $unique_ms
+<BR><B>1.8</B>, 20070403,
+<A HREF="#option_w">the <I>-p option</I></A> allows Automatic-Double-Tracking
+<BR><B>1.5</B>, 20060804, tracks overlapping note_ons in input,
+<BR><B>1.4</B>, 20060729, reads STDIN if no filename, for use in pipes
+<BR><B>1.3</B>, 20060728, first working version;
+-N is now the default, and
+<I><A HREF="#option_stateless">-S</A></I>
+introduced to handle stateless synths.
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  &nbsp;
+<a href="../comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on Sean Burke's MIDI::Perl CPAN module,
+and on Peter Billam's MIDI::ALSA CPAN module.</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<a href="http://search.cpan.org/perldoc?MIDI">MIDI-Perl</a><BR>
+<a href="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</a><BR>
+<a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
+<a href="midichord.html">www.pjb.com.au/midi/midichord.html</a><BR>
+<a href="midikbd.html">www.pjb.com.au/midi/midikbd.html</a><BR>
+<a href="bassline.html">www.pjb.com.au/midi/bassline.html</a><BR>
+<a href="mididump.html">www.pjb.com.au/midi/mididump.html</a><BR>
+<a href="midiedit.html">www.pjb.com.au/midi/midiedit.html</a><BR>
+<a href="midithru.html">www.pjb.com.au/midi/midithru.html</a><BR>
+<a href="musicxml2mid.html">www.pjb.com.au/midi/musicxml2mid.html</a><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+
+</body>
+
+</html>

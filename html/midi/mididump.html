@@ -1,0 +1,114 @@
+<HTML><HEAD><TITLE>mididump</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>mididump</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>mididump - dumps a MIDI file in a text format provided by MIDI::Perl</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ mididump filename.mid
+ muscript -midi filename | mididump
+ mididump filename.mid | grep patch_change
+ mididump filename.mid &gt; /tmp/filename.dump
+
+ #! /usr/bin/perl
+ use MIDI;
+ my $newopus;
+ do '/tmp/filename.dump';
+ # $newopus is now a Midi Opus identical to the original filename.mid</pre>
+<p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>Dumps (displays) a MIDI file, in the human-readable
+text-format provided by <em>MIDI::Perl</em>'s $opus-&gt;dump function.</p>
+<p>Assuming you've installed MIDI::Perl, then <code>perldoc MIDI::Event</code>
+should document the format in which the various MIDI-events are represented.
+</p><p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>mididump</i> is available by http at
+<A HREF="free/mididump">
+www.pjb.com.au/midi/free/mididump</A><BR>
+To install <i>mididump</i>, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where perl is installed on your system.
+</p><p>
+You'll also need to install the
+<A HREF="http://interglacial.com/~sburke/midi-perl">MIDI-Perl</A> module
+written by <A HREF="http://search.cpan.org/~sburke">Sean&nbsp;Burke</A>.
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<B>1.3</B>, 20130506, explicitly sets <I>$newopus=</I>
+ so Perl can <B>do</B> the dump
+<BR><B>1.2</B>, 20060729, helpful message if MIDI-Perl not installed
+<BR><B>1.1</B>, 20060728, first working version
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on Sean Burke's <em>MIDI::Perl</em> CPAN module.
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<a href="http://search.cpan.org/~sburke">
+http://search.cpan.org/~sburke</a><BR>
+<a href="http://search.cpan.org/~pjb">search.cpan.org/~pjb</a><BR>
+<a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
+<a href="bassline.html">www.pjb.com.au/midi/bassline.html</a><BR>
+<a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
+<a href="midiedit.html">www.pjb.com.au/midi/midiedit.html</a><BR>
+<a href="musicxml2mid.html">www.pjb.com.au/midi/musicxml2mid.html</a><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+
+</body>
+
+</html>

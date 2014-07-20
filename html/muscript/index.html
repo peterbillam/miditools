@@ -1,0 +1,1306 @@
+<HTML><HEAD> <TITLE>Muscript 3.1</TITLE> </HEAD>
+<LINK rel=stylesheet type="text/css" href="styles.css" title="Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
+</HEAD><BODY LINK="#000066" VLINK="#000066" ALINK="#000066"><DIV>
+
+<H1><A NAME="top"><IMG SRC="logo.gif" ALT=" " WIDTH=81 HEIGHT=32></A>
+<FONT COLOR="#800000">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B><I>Muscript 3.1</I></B></FONT></H1>
+
+<HR>
+
+<P><I>Muscript</I> is a language for typesetting music,
+and a <I>Perl</I> script which translates this language
+either into <I>PostScript</I>,
+or into <I>Encapsulated PostScript</I>,
+or into <I>MIDI</I>, or into
+<I><A HREF="http://www.musicxml.com/">MusicXML</A></I>,
+and there is a script
+<A HREF="#ps_tools">muscriptps2svg</A> to translate <I>muscript</I> into
+<A HREF="http://www.svg.org">SVG</A>.
+<I>Muscript</I> was written by
+<A HREF="http://www.pjb.com.au">Peter Billam</A> to typeset his own
+<A HREF="http://www.pjb.com.au/mus/comp.html">compositions</A> and
+<A HREF="http://www.pjb.com.au/mus/arr.html">arrangements</A>;
+it started life as an <I>awk</I> script,
+and was announced to the world in 1996.
+There is some backward-incompatibility of syntax with 2.7 and previous
+because of a stricter <A HREF="#notes">note syntax</A>.
+The
+<A HREF="variables.html">ability to define variables</A>
+is introduced in version 3.1.
+The current version of <I>muscript</I> is <B>3.1y</B>.
+</P><P>
+<FONT SIZE="+1"><B>
+This page describes the
+<A HREF="#syntax">text input syntax</A>:
+<A HREF="#boundingbox">boundingbox</A>,
+<A HREF="#systems">systems</A>,
+<A HREF="#barlines">barlines</A>,
+<A HREF="#newbar">new bar</A>,
+<A HREF="#staves">staves</A>,
+<A HREF="#clefs">clefs</A>,
+<A HREF="#keysigs">keysigs</A>,
+<A HREF="#timesigs">timesigs</A>,
+<A HREF="#rhythms">rhythms</A>,
+<A HREF="#rests">rests</A>,
+<A HREF="#notes">notes</A>,
+<A HREF="#pitches">pitches</A>,
+<A HREF="#accidentals">accidentals</A>,
+<A HREF="#stems">stems</A>,
+<A HREF="#beams">beams</A>,
+<A HREF="#ties">ties and slurs</A>,
+<A HREF="#options">note-options</A>,
+<A HREF="#chords">chords</A>,
+<A HREF="#words">words</A>,
+<A HREF="#midi">MIDI</A>,
+<A HREF="#comments">comments</A> and
+<A HREF="variables.html">variables</A>
+</P>
+</B></FONT>
+<P>It ends with details of how to
+<B><A HREF="#download">download and install</A></B> muscript, on
+<A HREF="#pagesize">page size issues</A>, some
+<B><A HREF="#tools">tools</A></B> for manipulating <I>muscript</I> files;
+then after a history of
+<B><A HREF="changes.html">changes</A></B> and a list of
+<A HREF="#enhancements">proposed enhancements</A>,
+there are some pointers to some of the
+<A HREF="#others">other free music-typesetting software</A>.
+In a separate directory, there are some
+<B><A HREF="samples/index.html">samples</A></B>
+available to get you started with <I>muscript</I> syntax.</P>
+
+
+<HR><H2>Usage</H2>
+<PRE>muscript filename &gt; filename.ps     <I>(generates PostScript)</I>
+muscript filename | lpr             <I>(direct to the printer)</I>
+muscript foo | gs -q -sDEVICE=pdfwrite -sOutputFile=foo.pdf - <I>(generates PDF)</I>
+muscript -letter foo &gt; foo.ps       <I>(US Letter pagesize)</I>
+muscript -midi foo &gt; foo.mid        <I>(generates MIDI output)</I>
+muscript -xml foo &gt; foo.xml         <I>(generates MusicXML output)</I>
+musicxml2ly foo.xml                 <I>(generates LilyPond)</I>
+muscript -pp foo &gt; foo_expanded     <I>(runs variables through the PreProcessor)</I>
+muscript -v                         <I>(version information)</I>
+muscript -h                         <I>(helpful list of calling options)</I>
+</PRE>
+
+<HR><H2><A NAME="syntax">Text Input Syntax</A></H2><P>
+The <I>muscript</I> language is designed, in the spirit of <I>eqn</I> and
+<I>pic</I>, to reflect the way one musician might describe a score in detail
+over the phone to another musician.  The language is quite compact, and a
+page of music can be described in not much more than a page of ascii text.
+In fact with a little practice a musician can sight-read the score
+in its <I>muscript</I> form.
+</P><P>
+<I>Muscript</I> text input consists of a number of commands,
+mostly on separate lines.  The Backslash <CODE>\</CODE> as last
+character on a line will continue the command on the next line.
+</P><P>
+Describing a page of music in <I>muscript</I> corresponds to the way you'd
+write the page; so first you draw the staves, then on each stave you
+draw the barlines, then for each bar you fill in the clefs, notes, etc.
+</P><P>
+Each page consists of several <A HREF="#systems">systems</A>,
+each of which consists of one or more <A HREF="#barlines">bars</A>,
+each of which consists of one or more <A HREF="#staves">staves</A>,
+each of which contains one or more <A HREF="#notes">notes</A>
+or <A HREF="#words">words</A>.
+
+</P><A NAME="boundingbox"><HR></A><H2>BoundingBox</H2><P>
+If the very first line in the file is e.g.:<BR>
+<CODE>boundingbox 65 53</CODE><BR>
+then <I>muscript</I> will generate output in Encapsulated PostScript
+(EPS) format, 65 points wide and 53 points high in this example.
+This EPS output can then be inserted into word-processor or
+desktop-publishing documents, or it can be converted into JPG format
+and used in web pages. See the <A HREF="#eps2jpg">eps2jpg</A> script,
+and the <I>kdf.txt</I> file in <A HREF="samples/index.html">the samples</A>.
+
+</P><A NAME="systems"><HR></A><H2>Systems</H2><P>
+The first line on each page draws the systems of staves.
+For example, a typical piece for flute, 'cello, etc might be:<BR>
+<CODE>12 systems /20/20/20/20/20/20/20/20/20/20/20/20/</CODE>
+</P><P>
+The numbers between slashes are the height of each stave, in point.
+Or a typical piece for piano might be<BR>
+<CODE>6 systems /20-40-20/20-40-20/20-40-20/20-40-20/20-40-20/20-40-20/</CODE>
+</P><P>
+The intermediate numbers (40 here) are the height of the gaps between
+the staves.  The dashes cause barlines to join between the staves.
+So the piano part of a violin sonata might be:<BR>
+<CODE>4 systems /14 30 20-40-20/14 30 20-35-20/14 30 20-40-20/14 30 20-42-20/
+</CODE>
+</P><P>
+A trailing gap in a system is respected, and can be used to reserve
+space, for example for low stem-down notes on multiple ledger lines.
+A top gap, to be reserved above the first system,
+is indicated by a number before the first slash, e.g.<BR>
+<CODE>2 systems <B>80</B> / 13 30 19-40-19 / 13 30 19-40-19 <B>30</B>/
+</CODE>
+</P><P>
+If there are fewer systems specified than needed, then <I>muscript</I>
+repeats the last one as necessary. For example, twelve single-stave systems
+can be written:<BR>
+<CODE>12 systems / 19 /</CODE>
+</P>
+
+<A NAME="titles"><H4>Titles</H4></A>
+<P>Titles use a <CODE>title Blurb Blurb</CODE> syntax,
+and are printed in big bold font, centered at the top of the page.</P>
+
+<A NAME="pagenums"><H4>Page numbers</H4></A>
+<P>Page numbers use a <CODE>pagenum&nbsp;7</CODE> syntax.
+They are printed in the top outer corner;
+that is, odd page numbers print in the top right corner,
+even page numbers in the top left.
+If a number is not specified (e.g.&nbsp;<CODE>pagenum</CODE>&nbsp;)
+then the number will auto-increment from the previous page number.</P>
+
+<A NAME="headers"><H4>Headers</H4></A>
+<P>Headers use a <CODE>innerhead Blurb blub</CODE> syntax.
+These are printed in small italic font in the the inner top corner -
+the opposite top corner from the <A HREF="#pagenums">page-number</A>.
+If there is no page-number on the current page, you can use the explicit
+<CODE>lefthead</CODE> and <CODE>righthead</CODE> commands.
+If high notes on the top stave get mixed up with the headers and titles,
+then put a gap ahead of the top system, as in the next example.</P>
+
+<A NAME="footers"><H4>Footers</H4></A><P>
+Left Footers, using a <CODE>leftfoot Blurb blub</CODE> syntax,
+are printed in small italic font in the bottom left corner.
+Right Footers use a <CODE>rightfoot&nbsp;Blurb&nbsp;blub</CODE> syntax,
+and are printed in small italic in the bottom right corner.
+If low notes on the bottom stave of the bottom system are getting mixed up
+with the footers, then put a trailing gap into the lowest system, e.g.</P>
+<PRE>6 systems <B>12</B>/19-30-19/19-35-19/19-33-19/19-30-19/19-30-19/19-33-19 <B>15</B>/
+title Squishy Macaroons
+pagenum 1
+innerhead Kylie Bloggs, 2003
+rightfoot Typeset by Gina Bloggs, 2005
+<A HREF="#midi_global">midi</A> channe1 1 patch 3
+</PRE><P>
+These systems specifications are <B>persistent</B>, so if <I>muscript</I> runs
+off the end of a page, it reuses the previous specification for the new page
+(except that it increments the page number,
+and it doesn't reprint a title but prepends the title to the innerheader).
+</P><P>
+Then, once the systems have been set up, the simple command<BR>
+<CODE><B>/</B></CODE>
+</P><P>
+causes <I>muscript</I> to start typesetting
+<A HREF="#barlines">the bars of the next system</A>.
+
+</P><A NAME="barlines"><HR></A><H2>Bar-Lines</H2><P>
+After the <CODE>/</CODE> command, the first thing is to draw the barlines.
+For this, <I>muscript</I> has to know how many bars, and how they are spaced.
+For example, for four bars:<BR>
+<CODE>4 bars | 1 | 1.2 | 1 | 1 |</CODE>
+</P><P>
+Here the numbers between the <CODE>|</CODE> lines are the <B>proportions</B>
+of the bar lengths.  In the above example, the second bar obviously needs a
+bit more space than the others.  If just one part of a bar needs stretching
+(perhaps because it has a lot of semiquavers) then you put more than one
+number in the bar.  For example, if there are five bars, but the second
+quarter of the fourth bar needs more space, you could use:<BR>
+<CODE>5 bars | 2 | 2 | 2 | 0.5 <B>0.7</B> 0.5 0.5 | 2 |</CODE>
+</P><P>
+These barline specifications are <B>persistent</B>, so if <I>muscript</I>
+runs off the end of a system,
+it reuses the previous specification for the new system.
+</P><P>
+When <I>muscript</I> works out the proportions, it reserves extra space
+automatically for a clef at the beginning of the line.  You can also reserve
+space for time signatures and key signatures at the beginning of a line (note
+that this reserves space, but does not draw anything; they will be
+drawn <A HREF="#staves">later</A>).  For example:<BR>
+<CODE>4 bars | <B>3b 4/4</B> 1 | 1.2 | 1 | 1 |</CODE>
+</P><P>
+Double-bars are indicated <CODE>||</CODE> and repeat marks with <CODE>:</CODE>
+<BR><CODE>5 bars | 10 | 9 <B>:||</B> 11 | 10 | 9 <B>||</B></CODE>
+</P><P>
+A <I>Segno</I> sign (to be used by a later "<I>Dal Segno</I>" instruction)
+is indicated with <CODE>Segno</CODE><BR>
+<CODE>5 bars | 10 :|| <B>Segno</B> 3b 4/4 11 | 10 | 9 |</CODE>
+</P><P>
+If there are fewer proportion-numbers than bars needed, then <I>muscript</I>
+repeats the last one as necessary. For example, eleven evenly-spaced bars
+can be written:<BR>
+<CODE>11 bars | 2# 6/8 12 | <B>12 |</B></CODE>
+</P><P>
+As from version 2.7g, the last barline can be ommitted.
+This can be used for bar-less music,
+for example:<BR>
+<CODE>1 bars | 50</CODE><BR>
+or to split a bar between two systems:<BR>
+<CODE>3 bars ||: 16 | 16 | 8</CODE><BR>
+
+</P>
+
+<A NAME="newbar"><H4>New Bar</H4></A>
+<P>Then, once the barlines have been set up, the simple command<BR>
+<CODE><B>|</B></CODE>
+</P><P>
+causes <I>muscript</I> to start typesetting the next bar within the current
+system.  As from version 2.3, the <CODE>|</CODE> can also be followed by
+numbers to tell MIDI about the tempo within the bar; see the
+<A HREF="#midi_newbar">MIDI</A> section below.
+</P>
+
+<P>Back to <A HREF="#top">the top</A>
+or to <A HREF="samples/index.html">the samples</A>. . .</P>
+
+<A NAME="staves"><HR></A><H2>Staves</H2>
+<P>After the <CODE>|</CODE> command, you fill in the staves (of the current
+bar) one by one.  The first (or only) stave is <CODE>=1</CODE> and the
+second is <CODE>=2</CODE> etc.  These numbers can be followed with a
+<B>,</B> or a <B>'</B> to set a default stem direction; this is very
+useful if two voices share one stave, one tail-up and one tail-down.
+For example, a piano piece might begin
+</P><TABLE><TR><TD><PRE>|
+=1' bass 4b 2/4 4 c~ b
+=1,      4b 2/4 16 [a e a e] [g e g e]
+=2' bass 4b 2/4 4 A d
+</PRE></TD><TD>
+<IMG SRC="pathetique.gif" WIDTH=205 HEIGHT=130>
+</TD></TABLE><P>
+Clefs and Key Signatures are <B>persistent</B>, within a given stave-number.
+<I>Muscript</I> remembers them from bar to bar,
+and reprints them automatically at the beginning of each new system.
+</P>
+
+<A NAME="clefs"><H4>Clefs</H4></A>
+<P>The principal clefs are <CODE>treble</CODE>, <CODE>alto</CODE>,
+<CODE>tenor</CODE> and <CODE>bass</CODE>.
+Also available are <CODE>treble8va</CODE>, <CODE>treble8vab</CODE>,
+and <CODE>bass8va</CODE>, <CODE>bass8vab</CODE>,
+which put a small "8" above or below the clef
+to indicate instruments that transpose by one octave.
+Clefs can occur within a bar, as well as at the beginning.
+</P><P>
+The null clef <CODE>clefspace</CODE> prints nothing, but
+reserves one clef's-width of space; this can be useful for lining
+up the other parts when a clef change occurs in one part.
+As you can see from the above example, <CODE>clefspace</CODE> is
+unnecessary at the beginning of a line; <I>muscript</I> reckons
+there's always a clef there, so it reserves space anyway.
+</P>
+
+<A NAME="keysigs"><H4>Key Signatures</H4></A>
+<P>The are written simply as &nbsp; <CODE>1#</CODE> ,
+&nbsp; <CODE>3b</CODE> ,
+&nbsp; <CODE>4#</CODE> &nbsp; etc.
+The special key signature <CODE>0</CODE> means "return to Cmaj", and will
+print the natural signs necessary to cancel any previous key signature.
+A key signature can only occur at the beginning of a bar,
+and before the time signature (if any).</P>
+
+<A NAME="timesigs"><H4>Time Signatures</H4></A>
+<P>The are written simply as fractions, for example
+&nbsp; <CODE>2/4</CODE>, &nbsp; <CODE>6/8</CODE>,
+&nbsp; <CODE>12/8</CODE>, &nbsp; etc.  A time signature can only
+occur at the beginning of a bar, and after the key signature (if any).
+</P>
+<P>Then we can start writing the <A HREF="#rhythms">rhythms</A> and
+<A HREF="#notes">notes</A> (and
+<A HREF="#midi_in_a_stave">in-stave MIDI</A> instructions).</P>
+
+<A NAME="rhythms"><HR></A><H2>Rhythms</H2><P>
+The rhythms are written either in abbreviated English syntax,
+or in a numeric, International syntax.<BR>
+The breve (de: <I>doppelte Taktnote</I>)
+is written <CODE><B>bre</B></CODE> in both syntaxes:
+</P>
+<TABLE ALIGN=CENTER COLS="8"><TR ALIGN="center">
+<TH HEIGHT="40px">&nbsp;
+</TH><TD><IMG SRC="bre.gif">
+</TD><TD><IMG SRC="smb.gif">
+</TD><TD><IMG SRC="min.gif">
+</TD><TD><IMG SRC="cro.gif">
+</TD><TD><IMG SRC="qua.gif">
+</TD><TD><IMG SRC="smq.gif">
+</TD><TD><IMG SRC="dsq.gif">
+</TD><TD><IMG SRC="hds.jpg">
+</TD></TR><TR ALIGN="center"><TH>
+English syntax
+</TH><TD><CODE><B>&nbsp;bre&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;smb&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;min&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;cro&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;qua&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;smq&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;dsq&nbsp;</B></CODE>
+</TD><TD><CODE><B>&nbsp;hds&nbsp;</B></CODE>
+</TD></TR><TR ALIGN="center"><TH>
+International&nbsp;syntax &nbsp;
+</TH><TD><CODE><B>bre</B></CODE>
+</TD><TD><CODE><B>1</B></CODE>
+</TD><TD><CODE><B>2</B></CODE>
+</TD><TD><CODE><B>4</B></CODE>
+</TD><TD><CODE><B>8</B></CODE>
+</TD><TD><CODE><B>16</B></CODE>
+</TD><TD><CODE><B>32</B></CODE>
+</TD><TD><CODE><B>64</B></CODE>
+</TD></TR></TABLE>
+
+<P>
+Triplet notes are written with a three;
+e.g. <CODE><B>qua3</B></CODE> or <CODE><B>83</B></CODE><BR>
+Duplet notes are written with a two;
+e.g. <CODE><B>cro2</B></CODE> or <CODE><B>42</B></CODE>
+(two duplet crotchets last three normal quavers)<BR>
+Quadruplets are written with a four;
+e.g. <CODE><B>qua4</B></CODE> or <CODE><B>84</B></CODE>
+(four quadruplet quavers last three normal quavers)<BR>
+Quintuplets are written with a five;
+e.g. <CODE><B>smq5</B></CODE> or <CODE><B>165</B></CODE>
+(five quintuplet semiquavers last one normal crotchet)<BR>
+Dotted notes are written with a dot;
+e.g. <CODE><B>min.</B></CODE> or <CODE><B>2.</B></CODE>
+or <CODE><B>qua3.</B></CODE> or <CODE><B>83.</B></CODE><BR>
+Double-dotted notes are written with two dots;
+e.g. <CODE><B>min..</B></CODE> or <CODE><B>2..</B></CODE><BR>
+Tremolandi have a <CODE><B>/</B></CODE> or <CODE><B>//</B></CODE> 
+or <CODE><B>///</B></CODE> suffix; e.g. a dotted  minim divided into
+semiquavers is <CODE><B>min.//</B></CODE> or <CODE><B>2.//</B></CODE>
+and tremolandi notes joined by
+<A HREF="#beams">a beam form a "Brille-Bass"</A>
+<BR>
+Small notes (e.g. ornaments) have a <CODE><B>-s</B></CODE> option at the end;
+e.g. <CODE><B>smq-s</B></CODE> or <CODE><B>16-s</B></CODE>
+or <CODE><B>qua3.-s</B></CODE> or <CODE><B>163.-s</B></CODE>
+</P><P>
+A rhythm remains valid for all notes and rests in that stave, until changed.
+
+</P><A NAME="rests"><H4>Rests and Blanks</H4></A><P>
+A rest in the centre of the stave is written <CODE><B>rest</B></CODE>
+<BR>It can be moved to the top line by <CODE><B>rest'</B></CODE>
+or further by <CODE><B>rest''</B></CODE> or <CODE><B>rest'''</B></CODE> etc.,
+<BR>or to the bottom line by <CODE><B>rest,</B></CODE>
+or further by <CODE><B>rest,,</B></CODE> or <CODE><B>rest,,,</B></CODE> etc..
+</P><P>
+A blank space on a stave is written <CODE><B>blank</B></CODE>
+</P>
+
+<P>Back to <A HREF="#top">the top</A> or to
+<A HREF="samples/index.html">the samples</A>. . .</P>
+
+<A NAME="notes"><HR></A><H2>Notes</H2><P>
+<OL><LI>
+A note begins with the start of a <A HREF="#beams">beam</A>, if any
+</LI><LI>
+then the start of a <A HREF="#chords">chord</A>, if any
+</LI><LI>
+then the
+<A HREF="#pitches">pitch</A> including any
+<A HREF="#accidentals">accidental</A>
+</LI><LI>
+then any instructions to
+<A HREF="#cross">cross the note to the other side</A> of the stem,
+or <A HREF="#shift">shift the note</A> rightwards,
+or <A HREF="#shift">shift the accidental</A> leftwards,
+or to <A HREF="#stems">override the default stem-direction</A>
+</LI><LI>
+then the starts or finishes of any
+<A HREF="#ties">ties or slurs</A>
+</LI><LI>
+then a dash-separated list of any
+<A HREF="#options">options</A>
+</LI><LI>
+then the end of a <A HREF="#chords">chord</A>, if any
+</LI><LI>
+and finally the end of a <A HREF="#beams">beam</A>, if any.
+</LI></OL>
+
+</P><A NAME="beams"><H4>Beams</H4></A><P>
+By default, Quavers, Semiquavers and Demisemiquavers get <B>tails</B>.
+For example:<BR>
+<CODE>8&nbsp;F&nbsp;16&nbsp;A&nbsp;G</CODE>
+ &nbsp; &nbsp; &nbsp;
+<IMG SRC="qua_tails.gif" BORDER=0 WIDTH=75 HEIGHT=50 ALIGN="middle"
+ALT="[qua_tails.gif]">
+</P><P>
+You can start a <B>beam</B> with a <B>[</B> character right at the beginning
+of the note-string, or end it with a <B>]</B> character right at the end.
+On each stave, <I>muscript</I> keeps track of two beams, one for stem-up
+notes, and one for stem-down; so make sure that all the notes you
+wish to be joined by the same beam have the same stem-direction.
+For example:<BR>
+<CODE>8&nbsp;<B>[</B>F&nbsp;16&nbsp;A&nbsp;G<B>]</B></CODE>
+<IMG SRC="qua_beams.gif" BORDER=0 WIDTH=70 HEIGHT=50 ALIGN="middle"
+ALT="[qua_beams.gif]">
+</P><P>
+Similarly, by default, a
+<A HREF="#rhythms">tremolando minim</A> gets little tremolando-marks
+crossing its stem. You can start a beam with a <B>[</B>
+or end it with a <B>]</B> as above,
+and this joins up two
+<A HREF="#rhythms">tremolando minims</A> to form a <I>Brille-Bass</I>.
+For example:<BR>
+<CODE>2//&nbsp;G&nbsp;<B>[</B>F&nbsp;A<B>]</B></CODE>
+<IMG SRC="min_beams.jpg" BORDER=0 WIDTH=105 HEIGHT=53 ALIGN="middle"
+ALT="[min_beams.jpg]">
+
+</P><H4><A NAME="chords">Chords</A></H4><P>
+Simultaneous notes are expressed with angle brackets, for example:<BR>
+<CODE>2 <B>&#60;</B>C Eb G c'<B>&#62;</B>
+</CODE>
+<IMG SRC="min_chord.jpg" BORDER=0 WIDTH=30 HEIGHT=65 ALIGN="middle"
+ALT="[min_chord.jpg]">
+ &nbsp; &nbsp; or: &nbsp; &nbsp;
+<CODE>
+8 [<B>&#60;</B>E G<B>&#62;</B> <B>&#60;</B>F A<B>&#62;</B>]
+</CODE>
+<IMG SRC="qua_chord.jpg" BORDER=0 WIDTH=45 HEIGHT=48 ALIGN="middle"
+ALT="[qua_chord.jpg]">
+
+<H4><A NAME="pitches">Pitches</A></H4>
+<P>Near the middle of each clef there is a "c".
+This note is written <CODE>c</CODE>, and the notes above it
+are written <CODE>c# d eb en f f# g g# a bb b c~ c~# d~ e~b</CODE>
+and so on up to <CODE>b~</CODE>
+and then further with <CODE>c~~</CODE> up to <CODE>f~~#</CODE>.
+Likewise, the notes below <CODE>c</CODE> are
+<CODE>B Bb A Ab G F# F E Eb D C# C B_ B_b A_</CODE>
+and so on down to <CODE>C_</CODE>
+and then further with <CODE>B__</CODE> and <CODE>A__</CODE>.
+Thus on each clef you can write a range of nearly five octaves
+without "8va" signs.
+
+</P><H4><A NAME="accidentals">Accidentals</A></H4>
+<P>Flats, sharps, naturals, double-flats and double-sharps are written
+<CODE>b</CODE>, <CODE>#</CODE>, <CODE>n</CODE>, <CODE>bb</CODE>
+and <CODE>##</CODE> after the note, just like they're pronounced.
+Where there are accidentals and octave sign on the same note,
+the octave sign must be first, e.g. <CODE>A_b</CODE>
+
+</P><H4><A NAME="cross">Crossing the note over to the other side of the stem
+</A></H4><P>
+In chords with neighbouring tones on one stem, one note-blob has to
+be moved across to the other side of the note-stem.  This is done with
+an <B>x</B><BR>
+For example: <CODE>2 &#60;C D<B>x</B> G&#62;</CODE>
+<IMG SRC="x_chord.gif" BORDER=0 WIDTH=37 HEIGHT=65 ALIGN="middle"
+ALT="[x_chord.gif]">
+</P><P>
+Semibreves have no note-stems,
+and the <CODE>x</CODE> always shifts them rightwards.
+
+</P><H4><A NAME="shift">
+Shifting the note (or chord) rightwards, or the accidental leftwards
+</A></H4>
+<P>If one note neighbours a note in a different voice, one of them has
+to be shifted rightwards, together with its stem.  (So if the note forms
+part of a chord, the whole chord gets shifted rightwards.)  This is done
+with an <B>r</B>.  For example:</P>
+<TABLE><TR><TD>
+<PRE>=1' 4 rest c# d
+=1, 4 blank 2 &lt;G B<B>r</B>&gt;
+</PRE></TD><TD>&nbsp;</TD><TD>
+<IMG SRC="rightshift.gif" WIDTH=87 HEIGHT=63>
+</TR></TABLE><P>
+If neighbouring tones both have accidentals, it improves clarity to shift
+the accidentals leftwards.  This is done with an <B>l</B>,
+for example:</P>
+<TABLE><TR><TD>
+<PRE>=1' 4 rest c#<B>l</B> d
+=1, 4 blank 2 &lt;G<B>r</B> Bb<B>l</B>&gt;
+</PRE></TD><TD>&nbsp;</TD><TD>
+<IMG SRC="leftshift.gif" WIDTH=87 HEIGHT=63>
+</TR></TABLE>
+
+</P><H4><A NAME="stems">Overriding the Default Stem Direction</A></H4>
+<P>By default, stems go up if the note is below the centre line;
+otherwise they go down.  This default can be changed to all-up or all-down
+by the <A HREF="#staves">stave command</A>, e.g. <CODE>=1'</CODE> or
+<CODE>=1,</CODE>&nbsp; Stems on individual notes can be forced up with a
+<B>'</B> or down with a <B>,</B> after the note: for example <CODE>
+8&nbsp;A,&nbsp;B&nbsp;c&nbsp;d&nbsp;16&nbsp;c'&nbsp;B'&nbsp;A&nbsp;G#
+</CODE></P>
+
+<H4><A NAME="ties">Ties and Slurs</A></H4><P>
+Ties unite two notes of the same pitch into one longer note;
+they are written with brackets <B>(&nbsp;)</B>.<BR>
+Slurs associate a sequence of notes into one melodic phrase,
+generally played legato; they are written with curlie-braces <B>{&nbsp;}</B>
+<BR>
+Ties and slurs are printed the same, but are handled differently by MIDI.
+</P><P>
+Ties
+<B>above</B> the note are started with <B>(1</B> or <B>(3</B> or <B>(5</B>
+or <B>(7</B> or <B>(9</B> and finished at a later note in the same stave with
+<B>)1</B> or <B>)3</B> or <B>)5</B> or <B>)7</B> or <B>)9</B> respectively.
+<BR>
+Ties <B>below</B> the note are started with <B>(2</B> or <B>(4</B> or
+<B>(6</B> or <B>(8</B> and finished at a later note in the same stave
+with <B>)2</B> or <B>)4</B> or <B>)6</B> or <B>)8</B> respectively.
+</P><P>
+Slurs
+<B>above</B> the note are started with <B>{1</B> or <B>{3</B> or <B>{5</B>
+or <B>{7</B> or <B>{9</B> and finished at a later note in the same stave with
+<B>}1</B> or <B>}3</B> or <B>}5</B> or <B>}7</B> or <B>}9</B> respectively.
+<BR>
+Slurs <B>below</B> the note are started with <B>{2</B> or <B>{4</B> or
+<B>{6</B> or <B>{8</B> and finished at a later note in the same stave
+with <B>}2</B> or <B>}4</B> or <B>}6</B> or <B>}8</B> respectively.
+</P><P>
+By default, ties and slurs end close to the note-blob.
+If you want one to end higher, at the top of an upward stem,
+then insert one or more <B>'</B> between the bracket and the number.
+Or if you want one to end lower, beneath a downward stem,
+then insert one or more <B>,</B> between the bracket and the number.
+For example:
+</P><TABLE><TR><TD><PRE>|
+=1' treble 5/8 8 rest' [d<B>{'1</B> f(3] [f)3 d<B>}'1</B>]
+=1, treble 5/8 4. G(2 4 G)2
+|
+=1 bass b<B>{1</B>-. d-. G-., C<B>}'1</B>-.,
+</PRE></TD><TD> 
+<IMG SRC="ties_slurs.jpg" WIDTH=322 HEIGHT=86>
+</TD></TABLE>
+<P>
+Ties which are ended without having being begun are deemed to begin at the
+nearest double-bar, or at the start of the line if there's no double-bar
+in the way. This copes with a note being tied into a second-time-bar.
+</P>
+
+<H4><A NAME="options">Note Options</A></H4><P>
+Options attaching to a note appear, separated by <B>-</B>'s,
+after any ties or slurs, and just before any end-chord or end-beam sign.
+For example:<BR>
+<CODE>4 rest B-. 2 c(1<B>-tr-fermata</B> 43 c)1 B<B>-I3</B> A
+</P><P>
+The available options are:
+<CODE><B>blank</B></CODE>&nbsp;(or the empty string, see below),
+<CODE><B>creNN</B></CODE>&nbsp;(crescendo, see below),
+<CODE><B>down</B></CODE>&nbsp;(<IMG SRC="downbow.jpg"
+ WIDTH=18 HEIGHT=18 ALIGN="middle">),
+<CODE><B>emph</B></CODE>&nbsp;(emphasis,
+<IMG SRC="emph.jpg" ALIGN="bottom" WIDTH=30 HEIGHT=20>),
+<CODE><B>fermata</B></CODE>&nbsp;(<IMG SRC="fermata.gif" ALIGN="middle"
+ WIDTH=33 HEIGHT=26>),
+the guitar-string options <CODE><B>gs1</B></CODE>
+(&nbsp;<IMG SRC="guitar_string1.jpg" WIDTH=25 HEIGHT=25 ALIGN="bottom">&nbsp;)
+to <CODE><B>gs6</B></CODE>
+(&nbsp;<IMG SRC="guitar_string6.jpg" WIDTH=25 HEIGHT=25 ALIGN="bottom">&nbsp;),
+<CODE><B>mordent</B></CODE>&nbsp;(<IMG SRC="mordent.gif"
+ WIDTH=29 HEIGHT=22 ALIGN="middle">),
+<CODE><B>P</B></CODE>&nbsp;or&nbsp;<CODE><B>*</B></CODE>&nbsp;(pedal,
+see below),
+<CODE><B>stacc</B></CODE> or <CODE><B>.</B></CODE>&nbsp;(staccato),
+<CODE><B>tr</B></CODE>&nbsp;(trill),
+<CODE><B>turn</B></CODE>&nbsp;(<IMG SRC="turn.gif" ALIGN="middle"
+WIDTH=29 HEIGHT=22>),
+<CODE><B>ten</B></CODE>&nbsp;(tenuto),
+<CODE><B>up</B></CODE>&nbsp;(<IMG SRC="upbow.jpg"
+ WIDTH=20 HEIGHT=25 ALIGN="bottom">),
+and the text options
+<CODE><B>r</B></CODE><FONT SIZE="-1"><I>SomeText</I></FONT>,
+<CODE><B>b</B></CODE><FONT SIZE="-1"><I>SomeBoldText</I></FONT>,
+<CODE><B>i</B></CODE><FONT SIZE="-1"><I>SomeItalicText</I></FONT>,
+<CODE><B>I</B></CODE><FONT SIZE="-1"><I>SomeBoldItalicText</I></FONT>,
+<CODE><B>rs</B></CODE><FONT SIZE="-1"><I>SomeRegularSmallText</I></FONT>,
+<CODE><B>bs</B></CODE><FONT SIZE="-1"><I>SomeBoldSmallText</I></FONT>,
+<CODE><B>is</B></CODE><FONT SIZE="-1"><I>SomeItalicSmallText</I></FONT> and
+<CODE><B>Is</B></CODE><FONT SIZE="-1"><I>SomeBoldItalicSmallText</I></FONT>.
+</CODE></P><P>
+Text to be printed can be protected by double-quotes,
+e.g. &nbsp; <CODE>-I<B>"</B>sf<B>"</B></CODE> &nbsp;
+or &nbsp; <CODE>-s<B>"</B>3 - 4<B>"</B></CODE>
+</P><P>
+Trills with a flat, natural, or sharpened upper note are expressed by
+<CODE><B>trb</B></CODE>, <CODE><B>trn</B></CODE>
+or <CODE><B>tr#</B></CODE>
+</P><P>
+Multiple options on the same note are printed in order, starting close
+to the stave and moving away.  The <CODE><B>blank</B></CODE> option does
+not print anything, but just leaves a gap where the option would have
+been printed; this can be used to avoid options colliding with things
+like slurs. An empty option works the same as a <I>blank</I> option,
+so that <CODE><B>A-blank-blank-s4</B></CODE> can also be written as
+<CODE><B>A---s4</B></CODE>
+</P><P>
+Options are, by default, printed above the stave.
+They can be printed below the stave by appending a comma (<CODE>,</CODE>)
+to the individual option, e.g.<BR>
+<CODE>4 B,-., 2 c,(1-tr<B>-fermata,</B></CODE>
+</P><P>
+Crescendo and diminuendo within a note can be produced with the
+<CODE><B>-cre</B></CODE> and <CODE><B>-dim</B></CODE> options.
+Currently these do not affect the printed output;
+they adjust MIDI's <I>expression</I> controller on the note's MIDI-channel,
+The <I>expression</I> parameter (cc11) starts each note
+at a level of 100, and can be varied from 0 to 127.  For example,
+<CODE>min.&nbsp;c<B>-cre20</B></CODE> produces a moderate crescendo, or
+<CODE>min.&nbsp;c<B>-cre20-dim30</B></CODE> produces a crescendo for
+the first half of the note, followed by a slightly stronger diminuendo
+in the second half.  You can use the number 0, for example:
+<CODE>min.&nbsp;c<B>-dim0-dim20</B></CODE> produces a note which fades
+away during its second half.
+</P><P>
+The piano sustain-pedal is taken, or retaken, with the
+<CODE><B>-P</B></CODE> option,
+and released with the <CODE><B>-*</B></CODE> option,
+the sostenuto-pedal is taken, or retaken, with the
+<CODE><B>-Sos</B></CODE> option,
+and released with <CODE><B>-*Sos</B></CODE>
+and the Una-Corda-pedal is taken with the
+<CODE><B>-Una</B></CODE>
+and released with <CODE><B>-Tre</B></CODE>
+</P><P>
+Back to <A HREF="#notes">the note-syntax</A>,
+or to <A HREF="#top">the top</A>,
+or to <A HREF="samples/index.html">the samples</A>. . .
+</P>
+
+<A NAME="words"><HR></A><H2>Words</H2><P>
+Words can be printed above the top stave in the bar,
+or in the gaps between staves, or beneath the bottom stave.
+</P><P>
+<B>Font:</B>
+The first bit of the command is a letter or two;
+<B>r</B> means regular font,
+<B>i</B> means italic font,
+<B>b</B> means bold font,
+<B>I</B> means bold italic font;
+and these can be followed by an optional
+<B>s</B> which means small, or
+<B>l</B> which means large.
+These font sizes are relative; they are scaled according
+to the average stave height in the current system.
+</P><P>
+ISO-8859-1 character encoding is respected,
+so that e.g. octal 374 is printed as &Uuml; (U-umlaut).<BR>
+UTF-8 character encoding is also respected,
+but only for characters within the ISO-8859-1 character-set
+(due to a PostScript limitation) and also for <B>&oelig;</B>
+which is mapped to <B>oe</B>
+</P><P>
+<B>Vertical Spacing:</B> These letters can then be followed immediately
+(no space !) with a decimal number which determines the vertical position
+of the words as a proportion of the stave gap. The next space is a
+separator, and the rest of the command is the text to be printed.
+</P><UL><LI>
+If the command appears after the <B>|</B> but <B>before the first stave</B>,
+then words will be printed <B>above</B> the first stave in the system;
+the number expresses the vertical position above the top line,
+as a proportion of the height of the top stave.
+</LI><LI>
+If the command appears <B>between two staves</B>,
+then the words will be printed <B>between</B> those staves;
+the number expresses the vertical position above the lower line,
+as a proportion of the stave gap.
+</LI><LI>
+If the command appears <B>after the last stave</B> but before the next
+<B>|</B>, then the words will be printed <B>beneath</B> the bottom staves
+in the system; the number expresses the vertical position beneath the
+bottom line, as a proportion of the height of the bottom stave.
+</LI></UL><P>
+<B>Horizontal Spacing</B>
+of text is mostly done by numbers beginning with a decimal point and followed
+by one, two or three digits.  These numbers are treated as reserved words
+within the text strings, and they space the following text to start at
+that proportion of the bar's width.  Multiple spaces between text-words,
+or before the first word, are displayed as such, and this can be used 
+for small spacings, as in "<CODE>Freu&nbsp;&nbsp;-</CODE>" or in
+"<CODE>bl1.1&nbsp;&nbsp;&nbsp;First</CODE>"<BR>
+See the examples:</P>
+
+<P><B>Examples:</B></P><PRE><CODE>
+r0.5 .01 Drink .33 to .67 me    <I>( Regular font, good for song words )</I>
+r0.5 .01 Freu  - .25 de .5 sch&ouml;   - .75 ne    <I>( iso-8859-1 or utf-8 )</I>
+I0.9 .97 ff                   <I>( Bold Italic font, good for dynamics )</I>
+i0.05 .62 rallentando            <I>( Italic font, good for expression )</I>
+is0.8 .10 Fred Bloggs, Symphony No. 10, 5th Mvt.    <I>( small italics )</I>
+bl1.1   First Movement           <I>( bold large font, good for titles )</I>
+</PRE></CODE>
+
+<P>Back to <A HREF="#top">the top</A>
+or to <A HREF="samples/ich_fahr.txt">the sample</A>. . .</P>
+
+<A NAME="midi"><HR></A><H2>MIDI</H2><P>
+Within <I>muscript</I>, there are three types of MIDI commands:
+<B><A HREF="#midi_global">Global commands</A></B> which affect all staves, the
+<B><A HREF="#midi_newbar">New-Bar command</A></B> which governs the tempo, and
+<B><A HREF="#midi_in_a_stave">In-A-Stave commands</A></B> which affect
+just one stave (like either <CODE>=1</CODE> or <CODE>=2</CODE>).<BR>
+Also MIDI-related are the <CODE>-cre</CODE> and <CODE>-dim</CODE>
+<A HREF="#options">note-options</A>,
+which do changes of dynamic within the note.
+
+</P><A NAME="midi_global"><H4>Global MIDI Commands</H4></A><P>
+Trailing comments can be introduced by a
+<B>#</B> character, and will be ignored by <I>muscript</I>.
+</P><P>There are commands that apply to a specific channel:<BR><B>
+ &nbsp; &nbsp;
+<A HREF="#cha">channel, bank, patch</A>,
+<A HREF="#vib">vibrato, rate, delay</A>,
+<A HREF="#pan">pan, reverb, chorus</A>,
+<A HREF="#tra">transpose</A></B><BR>
+and system-wide commands that apply to all channels:<BR><B>
+ &nbsp; &nbsp;
+<A HREF="#gm">gm</A>,
+<A HREF="#cen">cents, temperament, barlines</A>,
+<A HREF="#pau">pause</A>,
+<A HREF="#cen"> off, on</A></B><BR>
+</P><DL>
+<DT><CODE><A NAME="cha">midi</A>
+channel 2 bank 87,65 patch 56 </CODE></DT><DD>
+This instructs the synthesiser
+to select Bank MSB=87 LSB=65,
+and to assign its Patch 56 to MIDI channel 2.
+The word "Patch" is MIDI-speak for a particular instrumental sound.
+This command would usually come near the top of the <I>muscript</I> file.
+<BR>
+The <B>channel</B>-number can be anything from 0 to 15
+(except 9 is reserved in General-MIDI).
+<BR>
+The <B>patch</B>-number can be anything from 0 to 127.
+<BR>
+The <B>bank</B>-number is in two parts, separated by a comma (no spaces!).
+The first part is the MSB (most-significant-byte) and
+the second is the LSB (least-significant-byte);
+either byte can be anything from 0 to 127.
+Since version 3.1g the LSB can be omitted (many synths ignore it anyway).
+It only makes sense to specify the bank if your synth is in <B>Patch mode</B>
+(in fact, specifying a bank may <I>force</I> your synth into its Patch mode)
+see below:
+<UL><LI>
+Usually your synthesiser will be in <B>General-MIDI mode</B>;
+<A HREF="gm.html#patch">the General-MIDI standard defines
+particular numbers for common instruments</A>, like 0 is a grand piano,
+25 a steel-string acoustic guitar, 65 an alto saxophone, etc;
+<A HREF="gm.html#perc">General-MIDI channel 9 is reserved
+for percussion sounds</A>.
+</LI><LI>
+If your synth is in <B>Patch mode</B>,
+then you should set it up to listen on some particular Channel
+(be aware that your synth may number the Channels 1-16).
+Then <I>muscript</I> will only be able to use that Channel
+and you will only be able to play one Patch at once;
+"Patch mode" is not "multi-timbral" :-(
+</LI><LI>
+If your synth is in <B>Performance mode</B>, hopefully you have already
+selected a Performance and configured its various Channels (or "Parts")...
+Consult your synth manual for details.
+</LI></UL>
+</DD>
+
+<DT><CODE><A NAME="vib">midi</A>
+channel 2 vibrato 60 rate 40 delay 70</CODE></DT><DD>
+This asks the synth to adjust the Vibrato parameters on Channel 2.
+In all these numbers, 50 represents the default vibrato settings
+of this Patch, 100 represents the maximum, and 0 the minimum.
+For note-by-note changes to the vibrato depth there is a corresponding
+<A HREF="#midi_in_a_stave">In-Stave</A> command.
+</DD>
+
+<DT><CODE><A NAME="pan">midi</A>
+channel 5 pan 80 reverb 45 chorus 90</CODE></DT><DD>
+This asks the synth to Pan Channel-5 80% over towards the right speaker,
+to add moderate (45%) Reverb,
+and to add a heavy (90%) Chorus effect.
+<BR>
+The <B>pan</B>-number can be anything from 0 (full left) to 100 (full right).
+For note-by-note changes there is a corresponding
+<A HREF="#midi_in_a_stave">In-Stave</A> command.
+<BR>
+The <B>reverb</B>-number can be from 0 (dry)
+through 50 (default) to 100 (reverberant as possible).
+<BR>
+The <B>chorus</B>-number can be from 0 to 100.
+<DT><CODE><A NAME="tra">midi</A>
+channel 5 patch 73 transpose 12</CODE></DT><DD>
+This will transpose all notes on channel 5 up one octave (twelve semitones).
+<BR>
+For note-by-note changes governing all notes on a particular
+<I>stave</I>, there is a corresponding
+<A HREF="#midi_in_a_stave">In-Stave</A> command.
+</DD>
+
+<DT><CODE><A NAME="gm">midi</A> gm 2</CODE></DT><DD>
+This forces the synth into <B>General-MIDI mode</B> (see above),
+General-MIDI-2 in this example.
+Other possible values are <CODE>gm 1</CODE> for General-MIDI-1,
+or <CODE>gm off</CODE> which puts the synth into one of its
+non-General-MIDI modes, see your synth manual for more details.
+The <CODE>gm 1</CODE> and <CODE>gm 2</CODE> commands
+are incompatible with the <CODE>bank</CODE> command above.
+</DD>
+
+<DT><CODE><A NAME="pau">midi</A>
+pause 3.9</CODE></DT><DD>
+This inserts a pause in the output, of 3.9 seconds in this example,
+such as you might use to separate two movements, or two songs.
+Small pauses, such as .02 or .04 seconds, can be used as an expressive
+device between bars, like the <I>luftpause</I> in classical music.
+This command is only useful <B>between</B> bars,
+not between different staves in the same bar.
+</DD>
+<DT><CODE><A NAME="cen">midi</A>
+cents -100 temperament kirnberger</CODE></DT><DD>
+This command sets up the tuning and temperament, to A=415 and Kirnberger
+temperament in this example (a typical choice for baroque music).<BR>
+<B>cents</B> can, since
+<A HREF="changes.html">version 3.1u</A>,
+be any number; for example, -100 means a semitone down (A=415),
++250 means two-and-a-half semitones up.<BR>
+<B>cents</B> is a global command (it invokes the GM2
+<I>Master Fine Tuning</I> and <I>Master Coarse Tuning</I> sysexes)
+and applies to all channels.<BR>
+The <B>temperament</B> can be either <CODE>equal</CODE>
+(the default, in which the missing comma is shared by all twelve fifths), or
+<CODE><A HREF="../mus/mail.html#19981229">vanbiezen</A></CODE>
+(the missing comma is shared among six of the fifths F-C-G-D-A-E-B), or
+<CODE>
+<A HREF="http://en.wikipedia.org/wiki/Kirnberger_temperament#Kirnberger_III">
+kirnberger</A></CODE>
+(the comma is shared among the four fifths C-G-D-A-E, and C-E is perfect)
+</DD>
+<DT><CODE>midi barlines on</CODE> &nbsp;
+and &nbsp; <CODE>midi barlines off</CODE></DT><DD>
+If <I>barlines</I> are turned on, then marker-events are inserted
+into the MIDI output, to mark the barlines.
+</DD>
+<DT><CODE>midi off</CODE> &nbsp; and &nbsp; <CODE>midi on</CODE></DT><DD>
+These commands switch midi output off and on, and are useful for
+suppressing first-time bars, or for proofreading while typing a piece in
+(so as not to have to listen to the whole piece every time you save and make).
+</DD>
+
+
+</DL><A NAME="midi_newbar"><H4>MIDI New-Bar Commands</H4></A><P>
+The new-bar command <CODE>|</CODE> is the place to tell MIDI about
+tempo. First comes a time signature (this is just MIDI's understanding
+of the time signature; it doesn't get printed) and then comes the 
+length of the bar in <B>seconds</B>.  For example, the new-bar command
+for a piece in 4/4 time at 120 beats/min could be:<BR>
+<CODE>| 4/4 2.0</CODE>
+</P><P>
+As in the <A HREF="#barlines">bars</A> command, we can specify the lengths
+of parts of the bar. For example, if we wanted a <I>ritardando</I> we
+might use:<BR>
+<CODE>| 4/4 0.5 0.54 0.6 0.68</CODE>
+</P><P>
+This can also be used to generate swung quavers in jazz, or
+<I>in&eacute;gale</I> quavers in Baroque music or in Irish music, or for
+Viennese waltzes.  For example, an Irish Jig might begin:<BR>
+<CODE>| 6/8 .19 .14 .17 .19 .14 .17<BR>
+=1' treble 2# 6/8 8 [A B A] [A F D]</CODE>
+</P><P>
+Upbeats, or in general bars of varying lengths,
+have to be given their own ad-hoc lengths. For example:<BR>
+<CODE>| 1/4 .55<BR>
+=1 bass 2b 4 F<BR>
+| 4/4 2.2<BR>
+=1 2 B 4 A B</CODE>
+</P><P>
+As an alternative to seconds, you can also specify a tempo, in beats per
+minute. <I>Muscript</I> decides what a "beat" means by consulting its
+time-signature. In 2/4 or 3/4 or anything/4 then a beat is a crotchet, and
+in 2/2 or 3/2 or anything/2 then a beat is a minim. But in 3/8 or 6/8 or 9/8
+etc. the beat is a dotted crotchet, whereas in 2/8 or 4/8 or 5/8 or 7/8 etc.
+the beat is a quaver. Similarly for 3/16 or 6/16 or 9/16.
+(<I>Muscript</I> still needs to know the timesignature,
+so you still have respecify bars when their length varies.)
+</P><P>
+This tempo information is <B>persistent</B>; <I>muscript</I>
+remembers it from bar to bar, and re-applies it automatically.
+
+</P><A NAME="midi_in_a_stave"><H4>In-A-Stave MIDI Commands</H4></A><P>
+These are all <B>one-word</B> commands (no spaces!) that can intermix
+with notes and rhythms in a <A HREF="#staves">stave</A> line.
+They change settings for that particular stave
+(like <CODE>=1</CODE> or <CODE>=2</CODE>).  They take effect immediately,
+and remain in force on that same stave in subsequent bars.
+All these commands can be abbreviated to their first three letters.
+</P><DL>
+<DT><CODE>cha2</CODE> &nbsp; or &nbsp; <CODE>cha3+5</CODE></DT><DD>
+This sets the midi channel, to 2 in the first example.<BR>
+<A HREF="gm.html#perc">General-MIDI channel 9</A>
+is reserved for a "rhythm-set", i.e. drumkits, percussion, etc;
+if it's any other channel number, hopefully you have already
+<A HREF="#midi_global">assigned a patch</A> to it.<BR>
+If your synth is in "Patch mode" this command must specify
+the same Channel that the synth is listening to, see
+<A HREF="#cha">Patch mode</A> above.<BR>
+Since 3.1v, a single stave can emit notes on multiple channels,
+to channels 3 and 5 in the second example.
+This allows automatic doubling of different patches on the one stave.
+In conjunction with the
+<I><A HREF="#tra">transpose</A></I> global-midi option,
+it also allows doubling at the octave,
+eg: cello doubled by contrabass an octave down,
+or violin doubled by flute an octave above.
+</DD>
+
+<DT><CODE>tra-2</CODE></DT><DD>
+This causes notes to be generated 2 semitones lower than notated,
+which is what you might use on a stave for a trumpet in Bb.
+For a piccolo you might use <CODE>tra+12</CODE>
+(unless you've already given it a <CODE>treble8va</CODE> clef).
+</DD>
+
+<DT><CODE>vol73</CODE> &nbsp; or &nbsp; <CODE>vol+10</CODE>
+&nbsp; or &nbsp; <CODE>vol-10</CODE></DT><DD>
+This sets the volume, in a range from 0 to 127
+(the default volume is 100).<BR>
+Also allowed are incremental volume changes, such as <CODE>vol+10</CODE>
+or <CODE>vol-5</CODE><BR>
+The <CODE>G-emph</CODE> note-option works the same as
+<CODE>vol+10&nbsp;G&nbsp;vol-10</CODE> except that the note-option
+gets printed as part of the score, whereas the <CODE>vol</CODE>
+command does not get printed, it is part of the interpretation.
+The <CODE>vol</CODE> command uses MIDI's <I>velocity</I> parameter
+to set the starting-volume; changes of dynamic within the note
+are done with the <CODE>-cre</CODE> and <CODE>-dim</CODE>
+<A HREF="#options">note-options</A>, which use MIDI's <I>expression</I>
+controller.
+</DD>
+
+<DT><CODE>leg100</CODE></DT><DD>
+This sets the legato, to 100 or to 85 in these examples.
+<CODE>leg100</CODE> produces a full legato;
+you can actually go beyond 100, producing an over-legato.
+The default legato is 85, a sort of medium-d&eacute;tach&eacute;.
+The <CODE>-stacc</CODE> note-option decreases a note's legato by about half.
+</DD>
+
+<DT><CODE>vib80</CODE></DT><DD>
+This sets the vibrato depth, to 80 or 50 in these examples.
+As above in the <A HREF="#midi_global">Global MIDI</A> section,
+50 represents the default vibrato depth setting of this Patch,
+and 100 represents the maximum possible.
+</DD>
+
+<DT><CODE>pan73</CODE> &nbsp; or &nbsp; <CODE>pan+10</CODE>
+&nbsp; or &nbsp; <CODE>pan-10</CODE></DT><DD>
+This pans the channel.
+As in the <A HREF="#midi_global">Global MIDI</A> section,
+the pan can range from 0 (left) through 50 (centre) to 100 (right),
+but here incremental changes are also allowed, e.g. <CODE>pan+10</CODE>
+or <CODE>pan-5</CODE>
+</DD>
+
+<DT><CODE>cc73=108</CODE></DT><DD>
+This sets any of the MIDI
+<A HREF="gm.html#cc">Control-Change</A> parameters;
+in this example Controller 73 (attack-time) is set to 108 (0..127).
+Be aware that the actual effect that these CC parameters
+have on the sound is often quite synthesiser-dependent.
+</DD>
+
+</DL>
+
+<P>Back to <A HREF="#top">the top</A>
+or to <A HREF="samples/index.html">the samples</A>. . .</P>
+
+<A NAME="comments"><HR></A><H2>Comments</H2><P>
+Any line beginning with <B><CODE>%</CODE></B> is treated as a comment,
+and will appear as a comment in the PostScript output.
+In&nbsp;<CODE>-midi</CODE>&nbsp;mode it appears as a MIDI "marker" event
+at the start of the current bar.
+</P><P>
+Since <A HREF="changes.html">version 3.1h</A>,
+two mode-dependent, conditional comments are introduced.
+Any line beginning with <B><CODE>#P</CODE></B>
+is ignored as a comment except in PostScript-mode, when it just gets
+those two characters stripped of and is treated as a normal line.
+Likewise, any line beginning with <B><CODE>#M</CODE></B>
+is ignored as a comment except in MIDI-mode, when it gets
+those two characters stripped of and is treated as a normal line.
+This allows a line to be given a PostScript-version to be printed in the score,
+and a MIDI-version (e.g. ornamented) to be performed.
+</P><P>
+Otherwise, any line beginning with <B><CODE>#</CODE></B>
+is treated as a comment, and ignored completely.
+
+</P><A NAME="pagesize"><HR></A><H2>Page Size</H2>
+Output can be generated for various page sizes:<PRE><CODE>
+muscript -a4 foo &gt; foo.ps          <I>( A4, the default )</I>
+muscript -letter foo &gt; foo.ps      <I>( US Letter )</I>
+muscript -compromise foo &gt; foo.ps  <I>( A4 width, Letter height )</I>
+muscript -auto foo &gt; foo.ps        <I>( autodetect A4 and Letter )</I>
+</CODE></PRE><P>
+<I>Auto</I> only works as long as the output remains in PostScript
+form; if it is translated into PDF the autodetect power is lost
+and the page size becomes fixed by the translation process.
+Therefore, if you want to generate PDF to publish scores globally,
+you should use the <CODE>-compromise</CODE> option.
+See also the <A HREF="#tools">a42us</A> utility script.
+
+</P><P>Back <A HREF="#top">to the top</A> . . .
+
+</P><A NAME="download"><HR></A><H2>Download</H2>
+<P>The current version of <I>muscript</I> is available by http at
+<A HREF="http://www.pjb.com.au/muscript/muscript">
+www.pjb.com.au/muscript/muscript</A>.  To install <I>muscript</I>, save it
+to disc, move it into your $PATH, make it executable, and if necessary edit
+the first line to reflect where <I>perl</I> is installed on your system.
+</P><P>
+If you want to use the <CODE>-midi</CODE> option, you'll also need to install
+the <A HREF="http://interglacial.com/~sburke/midi-perl">MIDI-Perl</A> module
+written by <A HREF="http://search.cpan.org/~sburke">Sean&nbsp;Burke</A>.
+</P>
+
+</P><A NAME="tools"><HR></A><H2>Tools</H2><P>
+Various tools exist to manipulate
+<A HREF="#input_tools">muscript input</A> and
+<A HREF="#ps_tools">PostScript output</A> and
+<A HREF="#midi_tools">MIDI output</A>.
+To install one of the scripts, move it into your $PATH,
+make it executable, and if necessary edit the first line
+to reflect where <I>perl</I> is installed on your system.
+</P>
+
+<A NAME="input_tools"><H4>Tools for handling muscript input:</H4></A>
+<DL><DT>
+
+<CODE><A HREF= "http://www.pjb.com.au/muscript/8va">
+8va</A></CODE></DT><DD>
+This simple filter transposes up or down the octave.
+For example, in <I>vi</I>, <CODE>!!8va</CODE> raises the current bar one
+octave, or <CODE>!!8vab</CODE> lowers the current bar one octave.
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/8vab">
+8vab</A></CODE></DT><DD>
+This transposes down the octave. (It is the same file as <CODE>8va</CODE>;
+its behaviour changes according to the name under which it is invoked.)
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/transpose">
+transpose</A></CODE></DT><DD>
+This filter transposes up or down a given number of semitones.
+It now handles keysignatures, and persistence of accidentals within a bar.
+E.g. this would transpose its input up seven semitones:<BR>
+<CODE>transpose +7</CODE><BR>
+There is a <CODE>-k</CODE> option to force a keysignature onto the input.
+E.g. in <I>vi</I>, this would transpose the current line down 3 semitones,
+considering it to have a 4-flats keysig
+even if that's not explicit in the current line
+(i.e. if it was set earlier in the file):<BR>
+<CODE>!!transpose -3 -k 4b</CODE><BR>
+There is also a <CODE>-a</CODE> option which generates output
+without a keysig, using accidentals only, e.g:
+<CODE>!!transpose +2 -a</CODE><BR>
+There is also a <CODE>-s</CODE> option to transpose only one stave.
+E.g. this might convert a piece for flute and piano,
+into a piece for Bb-clarinet and piano:<BR>
+<CODE>transpose +2 -s 1</CODE><BR>
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/tempo">
+tempo</A></CODE></DT>
+<DD>This filter changes the <A HREF="#midi_newbar">midi tempo</A> of a
+<I>muscript</I> file by a fixed proportion.
+It has no effect on the PostScript output.
+For example, <CODE>tempo&nbsp;1.05</CODE> speeds a piece up by 5 percent.
+Or, <CODE>tempo&nbsp;0.95</CODE> makes a piece 5 percent slower.
+E.g. to generate multiple practice-versions of a piece, with different tempi:
+<PRE>for t in 0.73 0.81 0.90 1.00 ; do 
+   tempo $t a_piece | muscript -midi &gt; a_piece_$t.mid
+done
+</PRE>
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/4hands2score">
+4hands2score</A></CODE></DT>
+<DD>This converts <I>muscript</I> for piano-four-hands (i.e. with one player
+reading the left-hand page and the other reading the right-hand page)
+<A NAME="eps2jpg">into</A> a single score,
+for example for feeding into <I>muscript&nbsp;-midi</I> for proofreading.
+<BR>&nbsp;
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/muscript2video">
+muscript2video</A></CODE></DT>
+<DD>This converts <I>muscript</I> into an <I>.avi</I> video ready
+for uploading into <I>youtube</I>.
+You will have to repaginate the file specially to the 1280x720 format.
+It generates a soundtrack using <I>muscript&nbsp;-midi</I> feeding into
+<I>timidity</I>, and typesets each page using <I>muscript</I>
+and <I>eps2jpg</I> and synchronises the page-turns with the soundtrack.
+Then it uses <I>mencoder</I> to convert the <I>.jpg</I> files to the
+<I>.avi</I> file.<BR>
+This program was used to generate the <I>Youtube</I>-videos,
+for example, of the
+<B><A HREF="http://www.youtube.com/watch?v=TFXQxAQE8Cw">
+Trio with Guitar</A></B>
+
+</DD></DL>
+
+<A NAME="ps_tools"><H4>Tools for handling PostScript output:</H4></A>
+
+<DL><DT>
+
+<CODE><A HREF="http://www.pjb.com.au/muscript/muscriptps2svg">
+muscriptps2svg</A></CODE></DT>
+<DD>
+This script converts PostScript (or EPS) output produced by <I>muscript</I>
+(2.8i or greater) into SVG (Scaleable Vector Graphics) format.
+It has a <CODE>-p</CODE> option to convert a particular page.
+It needs the SVG Perl module, available from
+<A HREF="http://search.cpan.org/search?mode=module&query=SVG">
+search.cpan.org</A>
+
+</DD><DT>
+<CODE><A HREF= "http://www.pjb.com.au/muscript/eps2jpg">
+eps2jpg</A></CODE></DT>
+<DD>
+When the input file contains a <CODE>boundingbox</CODE> command,
+then <I>muscript</I> will generate Encapsulated-PostScript (EPS) output,
+which can be inserted into word-processing documents. 
+This script <I>eps2jpg</I> converts this Encapsulated-PostScript
+into JPG format, which can be used in web pages.
+
+</DD><DT>
+<CODE><A HREF="http://www.pjb.com.au/muscript/a42us">
+a42us</A></CODE></DT>
+<DD>This converts the <I>muscript</I> PostScript output from A4 page size
+to US Letter page size. There is also a <CODE>a42us -c</CODE> option which
+generates the global-distribution compromise format (A4 width and Letter
+height). See also <A HREF="#pagesize">PageSize</A>.
+
+</DD></DL>
+
+<A NAME="midi_tools"><H4>Tools for handling MIDI output:</H4></A>
+
+<DL>
+
+<DT><A HREF="http://www.pjb.com.au/midi/midiecho.html">
+<CODE>midiecho</CODE></A></DT><DD>
+Simulates a tape-delay reverb on a particular MIDI-channel
+by issuing repeated note_on events with diminishing volume.
+
+</DD><DT><A HREF="http://www.pjb.com.au/midi/midiedit.html">
+<CODE>midiedit</CODE></A></DT><DD>
+Edits a MIDI file in a human-readable text-format.
+
+</DD><DT><A HREF="http://www.pjb.com.au/midi/mididump.html">
+<CODE>mididump</CODE></A></DT> <DD>
+Dumps a MIDI file contents in a human-readable text-format.
+
+</DD><DT><A HREF="http://www.pjb.com.au/midi/midisox.html">
+<CODE>midisox</CODE></A></DT> <DD>
+Midisox is a tool for working on MIDI files,
+with a calling interface modelled, as far as possible, on that of
+<I><A HREF="http://sox.sourceforge.net/">SoX</A></I>,
+which is a well-established tool for working on audio files.
+
+</DD></DL>
+<P>Back <A HREF="#top">to the top</A> . . .</P>
+
+<A NAME="enhancements"><HR></A><H2>Future Enhancements</H2>
+<UL><LI> Titles should not be tied to the top of the page;
+at system-layout time, vertical space should be allocated for titles.
+</LI><LI> Dynamics, e.g. as note-options, should be recognised by MIDI.
+</LI><LI> Hairpin-style crescendo and diminuendo marks.
+</LI><LI> In close chords, the necessary note-heads might be placed
+automatically on the wrong side of the stem, instead of manually with an
+<B><A HREF="#cross">x</A></B>.
+</LI><LI> Beams, Ties and Slurs should be able to join
+notes on different staves within the same system.
+</LI><LI> Beams should be able to join stem-up with stem-down notes.
+</LI><LI> Turns need sharps flats and naturals, both above and below
+</LI><LI> MIDI should interpret trills, mordents, turns, fermata and repeats.
+</LI><LI> Syntax is needed for 8va and 8vab, and 1st and 2nd-time bars,
+so that MIDI can handle them too.
+</LI></UL>
+
+<HR><A NAME="soapbox"><H2>Soapbox</H2></A><P>
+What is really needed is an <I>ftp</I> archive of <B>scores</B> in
+<I>PostScript</I>, so that anyone can print them out and use them.
+I think it should standardise on gzipped files, and encourage the
+submission of A4 and USLetter versions of everything.  Of course the
+composers would have to be dead more than 70 years (or the pieces would
+have to be publicly copiable and redistributable) and someone would have
+had to re-typeset the pieces.  The reward is immortality, a permanent
+priceless contribution, no less.  The way to further the musical art is
+to make the scores freely and permanently available.  End of soapbox.
+</P><P>
+There do now exist
+<A HREF="http://www.gutenberg.org/music">www.gutenberg.org/music</A>,
+<A HREF="http://imslp.org/wiki/Main_Page">imslp.org</A>,
+<A HREF="http://www.mutopiaproject.org">www.mutopiaproject.org</A>,
+<A HREF="http://www.classicalmusicarchives.com">
+www.classicalmusicarchives.com</A>,
+<A HREF="http://icking-music-archive.org">icking-music-archive.org</A>,
+<A HREF="http://www.free-scores.com">www.free-scores.com</A>,
+<A HREF="http://www.cpdl.org">www.cpdl.org</A>,
+<A HREF="http://www.saers.com/recorder/">www.saers.com/recorder/</A>
+<A HREF="http://www.triodomine.com.ar/partiturasgratis.htm">
+www.triodomine.com.ar/partiturasgratis.htm</A>
+and
+<A HREF="http://www.partiture.org/menu.html">www.partiture.org</A>
+so feel free to support them. Typeset for them !
+</P><P>
+Back <A HREF="#top">to the top</A> . . .
+</P>
+
+<HR><H2><A NAME="others">Other Music-Typesetting software</A></H2>
+<P>You might also want to check out</P>
+<UL><LI>
+<B><A HREF="http://lilypond.org">
+Lilypond</A></B>, a program which generates PDF and MIDI output.
+The input text language is called <I>mudela</I>.
+Included is a utility <I>musicxml2ly</I> which imports MusicXML.
+</LI><LI>
+<B><A HREF="http://www.musicxml.com/for-developers/">
+MusicXML</A></B> is a widely adopted music-interchange format.
+</LI><LI>
+<B><A HREF="http://mscore.sourceforge.net/">MuseScore</A></B>
+(or <I>mscore</I>) is the MusE music typesetter, and will import MusicXML.
+</LI><LI>
+<B><A HREF="http://www.jfugue.org">JFugue</A></B>, an open-source library
+for programming music in Java, can read and write both MIDI and MusicXML.
+</LI><LI>
+<B><A HREF="http://delysid.org/freedots.html">
+FreeDots</A></B> translates MusicXML into Braille.
+</LI><LI>
+<B><A HREF="http://www.arkkra.com">Mup</A></B> is shareware written in C,
+which takes text input and produces PostScript or MIDI. 
+</LI><LI><B><A
+HREF="http://icking-music-archive.sunsite.dk/software/indexmt6.html#musixtex">
+MusiXTeX</A></B>, which forms the infrastructure for a great deal of
+<A HREF="http://icking-music-archive.sunsite.dk/software/indexmt6.html">
+related software</A>
+</LI><LI>
+<B><A HREF="http://abcnotation.org.uk/">abc</A></B>,
+designed primarily for folk and traditional tunes such as Irish, English and
+Scottish, which can be written on one stave in standard classical notation
+</LI><LI>
+<B><A HREF="http://icking-music-archive.sunsite.dk/software/indexmt6.html#mtx">
+M-Tx</A></B>, a music-from-text language that operates as a
+front end to PMX, which in turn is a front end to MusiXTeX
+</LI><LI> <B><A
+HREF="http://icking-music-archive.sunsite.dk/software/indexmt6.html#musixlyr">
+musixlyr</A></B>, a MusiXTeX extension for convenient lyrics handling
+</LI><LI>
+<B>PMX</B>
+is a pre-processor for MusiXTex.  It can also output a MIDI file.
+A version is available for MacOS.
+</LI><LI>
+<B><A HREF="http://rnvs.informatik.tu-chemnitz.de/~jan/noteedit/noteedit.html">
+noteedit</A></B> is a GUI utility to translate between Mup, MusiXTeX,
+PMX and Lilypond formats, and can import MIDI and MusicXML files.
+</LI><LI>
+<A HREF="http://www.music-notation.info/en/compmus/notationformats.html">
+www.music-notation.info/en/compmus/notationformats.html</A>
+and
+<A HREF="http://ace.acadiau.ca/score/others.htm">
+ace.acadiau.ca/score/others.htm</A>
+</LI><LI>
+<A HREF="http://www.inkguides.com/postscript.asp">www.inkguides.com</A>
+is a collection of PostScript and GhostScript resources
+</LI></UL>
+<P>Back <A HREF="#top">to the top</A> . . .</P>
+
+<HR>
+
+<CENTER>
+<P><I>Peter Billam</I> &nbsp;
+<A HREF="http://www.pjb.com.au"><I>http://www.pjb.com.au</I></A></P>
+</CENTER>
+</DIV></BODY></HTML>

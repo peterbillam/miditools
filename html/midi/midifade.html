@@ -1,0 +1,202 @@
+<HTML><HEAD><TITLE>midifade</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midifade</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#arguments">ARGUMENTS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<H3><a name="name">NAME</a></H3>
+<p>
+midifade - Provides faders generating midi-controller events
+</p>
+
+<hr />
+<H3><a name="synopsis">SYNOPSIS</a></H3>
+<pre>
+ midifade c13m71v120 c2m11v80 # 2 faders: cha2 cc11=80, cha13 cc71=120
+ midifade -o 128:0            # outputs to port 0 of client 128
+ midifade -v                  # prints the Version number
+ perldoc midifade             # read the manual :-)
+</pre>
+
+<hr />
+<H3><a name="description">DESCRIPTION</a></H3>
+<p><I>Midifade</I> is a Curses and ALSA application which provides on-screen faders,
+to control various midi-controllers on various midi-channels.</p>
+<p>It uses a simple user-interface:
+The Left and Right arrow keys move from one fader to the next,
+the Up and Down arrow keys adjust the value of the current fader by 1,
+the PageUp and PageDown keys adjust the value by 10,
+and the Home and End keys set it to maximum (127) or minimum (0).</p>
+<p>The faders are always displayed sorted by channel-number
+then by midi-controller-number.</p>
+<p>The available keystrokes are displayed in the bottom three
+lines of the screen.</p>
+<p>It uses the <I>Curses</I> CPAN module for the user-interface,
+and the <I>MIDI::ALSA</I> CPAN module to set up an ALSA client
+which can communicate with your synth.</p>
+
+<hr />
+<H3><a name="options">OPTIONS</a></H3>
+<dl>
+<dt><B><a name="o_128_0" class="item"><em>-o 128:0</em>
+&nbsp; or &nbsp;<em>-o TiMidity</em></a></B></dt>
+
+<dd>
+<p>These examples play into the ALSA port 128:0,
+or into the <I>TiMidity</I> client.
+This option allows <em>midifade</em> to use the same port-specification
+as the other alsa-utils, e.g. <em>aplaymidi</em> and <em>aconnect</em>. 
+For port 0 of a client, the &quot;:0&quot; part of the port specification
+can be omitted.
+The port specification is taken from the ALSA_OUTPUT_PORTS
+environment variable if none is given on the command line.
+<BR>
+Since
+<A HREF="#changes">Version 1.3</A>,
+you may supply a comma-separated list of ports,
+e.g. <B>-o&nbsp;20,128:1</B>
+</p><p>
+If the ALSA port is specified as <B>0</B> then <em>midifade</em> will start
+up without connecting to anything. This allows you, for example,
+to use <em>midifade</em> in one <I>xterm</I>
+(assumed here to be starting up as ALSA-client
+129 ; check with <em>aconnect -ol</em>) to control
+<em>ecasound</em> in another <I>xterm</I>:</p>
+<pre>
+ midifade -o 0 c0m9v102 c1m9v105 c2m9v96 c3m9v64</pre>
+<pre>
+ ecasound -c -r -Md:alsaseq,129:0 \
+  -a:1 -i drums.wav                -ea:200 -km:1,0,250,9,1 \
+  -a:2 -i synth-chords.wav -epp:30 -ea:120 -km:1,0,150,9,2 \
+  -a:3 -i bass-guitar_take-2.ewf   -ea:75  -km:1,0,100,9,3 \
+  -a:4 -i brass-lead.wav   -epp:70 -ea:50  -km:1,0,100,9,4 \
+  -a:1,2,3,4 -o loop,1 \
+  -a:5,6 -i loop,1 \
+  -a:5 -o alsa \
+  -a:6 -o current-mix.wav</pre>
+<p>Here I chose midi-controller 9 because it isn't defined in General-MIDI,
+and therefore General-MIDI-labels, useless in this context,
+do not appear in the <em>midifade</em> screen.
+</P><P>
+Note that <I>ecasound</I> numbers the channels 1 to 16,
+whereas <I>midifade</I> numbers them 0 to 15.
+<BR>
+See
+<A HREF="http://ecasound.sourceforge.net/ecasound/Documentation/ecasound_manpage.html">
+ecasound_manpage.html</A>
+and
+<A HREF="http://ecasound.sourceforge.net/ecasound/Documentation/examples.html">
+examples.html</A>
+in the <em>ecasound</em> documentation for details
+of the <B>-ea</B> and <B>-km</B> options.</p>
+</dd>
+<dt><B><a name="v" class="item"><em>-v</em></a></B></dt>
+
+<dd>
+<p>Prints version number.</p>
+</dd>
+</dl>
+
+<hr />
+<H3><a name="arguments">ARGUMENTS</a></H3>
+<dl>
+<dt><B><a name="c14m74v123" class="item"><em>c14m74v123</em></a></B></dt>
+
+<dd>
+<p>This example starts <em>midifade</em> up with a fader on channel 14 (0..15),
+midi-controller 74 (0..127), set initially to a value of 123 (0..127).
+(In <em>muscript</em>, that would be expressed <em>cha14 cc74=123</em>).
+&nbsp;
+Multiple arguments can be specified.
+&nbsp;
+The <B>c</B> and <B>m</B> and <B>v</B> bits must be in that order,
+all in one word with no spaces.
+&nbsp;
+The <B>v</B> bit is optional; its default value is 64.</p>
+</dd>
+</dl>
+
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>midifade</i> is available by http at
+<A HREF="free/midifade">www.pjb.com.au/midi/free/midifade</A><BR>
+To install it, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+You will also need to install the
+<I><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?Curses">Curses</A></I>
+CPAN modules
+</p>
+
+<hr />
+<H3><a name="changes">CHANGES</a></H3>
+<P>
+<BR><B>1.8</B>, 20130323, keystroke <B>D</B> can now delete the only fader
+<BR><B>1.7</B>, 20120831, <A HREF="#options">-o "string"</A> works
+<BR><B>1.6</B>, 20120820, display_clientstr called at start
+<BR><B>1.5</B>, 20111201, if <A HREF="#options">-o 0</A>
+then midifade starts up but connects to nothing
+<BR><B>1.4</B>, 20111103, uses
+<A HREF="../comp/lua/midialsa.html#parse_address">the new MIDI-ALSA 1.11</A>
+to handle ALSA-ports by their names
+<BR><B>1.3</B>, 20111028, OutputPort can be a comma-separated list
+<BR><B>1.2</B>, 20111027, add-new-fader dialogue allows 3-digit controller-nums
+<BR><B>1.1</B>, 20111023, much irrelevant code eliminated; q asks y/n first
+<BR><B>1.0</B>, 20111022, first working version
+</P>
+<hr />
+<H3><a name="author">AUTHOR</a></H3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+
+<hr />
+<H3><a name="credits">CREDITS</a></H3>
+<p>Based on the <I>Curses</I> and <I>MIDI::ALSA</I> CPAN modules.</p>
+
+<hr />
+<H3><a name="see_also">SEE ALSO</a></H3>
+<pre>
+ aconnect -oil
+ <a href="../muscript/index.html#midi_in_a_stave">http://www.pjb.com.au/muscript/index.html#midi_in_a_stave</a>
+ <a href="../muscript/gm.html#cc">http://www.pjb.com.au/muscript/gm.html#cc</a>
+ <a href="http://ecasound.sourceforge.net/ecasound/Documentation/examples.html">http://ecasound.sourceforge.net/ecasound/Documentation/examples.html</a>
+ <a href="http://search.cpan.org/perldoc?Curses">http://search.cpan.org/perldoc?Curses</a>
+ <a href="http://search.cpan.org/perldoc?MIDI::ALSA">http://search.cpan.org/perldoc?MIDI::ALSA</a>
+ <a href="index.html">http://www.pjb.com.au/midi</a></pre>
+
+</body>
+
+</html>

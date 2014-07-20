@@ -1,0 +1,314 @@
+<HTML><HEAD><TITLE>pjbsynth</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, csound, synth, Morse-Thue">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>pjbsynth</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+    <li><a href="#synopsis">SYNPOPSIS</a></li>
+    <li><a href="#description">DESCRIPTION</a></li>
+    <li><a href="#patches">PATCHES</a></li>
+    <li><a href="#standard_controller_numbers">
+	STANDARD CONTROLLER-NUMBERS</a></li>
+    <li><a href="#non_standard_controller_numbers">
+	NON-STANDARD CONTROLLER-NUMBERS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#installation">INSTALLATION</a></li>
+    <li><a href="#changes">CHANGES</a></li>
+    <li><a href="#bugs">BUGS</a></li>
+    <li><a href="#author">AUTHOR</a></li>
+    <li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>pjbsynth.csd - a Csound script for a low-tech old-fashioned synth</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ # after a full install:
+ pjbsynth -M 99         # to get a list of your MIDI-device numbers
+ pjbsynth -M 6          # connect your MIDI-device 6 to the synth
+ pjbsynth               # connects default MIDI-device 0 to the synth
+ pjbsynth -O null       # doesn't log to the screen
+ pjbsynth -T -F in.mid  # plays the MIDI-file in.mid
+ pjbsynth -i in.wav     # in.wav will appear as patch 91
+ pjbsynth -h            # read the manual</pre>
+<pre>
+ # after a minimal install, with copies of pjbsynth.csd
+ # and of the *.txt files in your current directory:
+ csound -M 99 pjbsynth.csd    # get a list of your MIDI-device numbers
+ csound -M 6 pjbsynth.csd     # connect your MIDI-device 6 to the synth
+ csound pjbsynth.csd          # connects MIDI-device 0 to the synth
+ csound -O null pjbsynth.csd  # doesn't log to the screen
+ csound -T -F in.mid pjbsynth.csd   # plays the MIDI-file in.mid
+ csound -i in.wav pjbsynth.csd  # in.wav will appear as patch 91
+ perldoc pjbsynth.csd           # read the manual</pre>
+<p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>This <em>csound</em> script takes MIDI input and produces audio output.
+It is still at an early release stage, and is likely to change
+even in important details like Patches and Controller-numbers.</p>
+<p>Channels 0-8 are dedicated to Audio signals.
+The basic Patches are simple, old-fashioned waveforms
+like sine, triangle, square, and sawtooth,
+plus some fractal waveforms, and also live or file audio.</p>
+<p>The Channel Controllers for these Audio channels
+can be set by the normal methods,
+or one or two of them can be driven by a built-in Low-Frequency-Oscillator
+by using the non-standard controllers cc20 to cc23, or cc24 to cc27,
+or by a built-in Attack-Envelope using cc52 to cc53.
+Other non-standard controllers offer also
+Ring modulation, Distortion, some unusual types of Loop, etc.</p>
+<p>Channel 9 is dedicated to a low-tech percussion-set
+using simple waveforms like sine or white noise.
+It is roughly modelled on General-MIDI Channel 9,
+see <a href="http://www.pjb.com.au/muscript/gm.html#perc">http://www.pjb.com.au/muscript/gm.html#perc</a></p>
+<p>Channels 10-15 are dedicated to the Low-Frequency-Oscillators,
+where MIDI-note number 60 means not middle-C,
+but 1 Cycle-per-second (i.e. eight octaves lower!).</p>
+<p>An example <em>setup1.mid</em> is included,
+which sets up <em>pjbsynth</em> with a few plausible sounds.</p>
+<p>
+</p>
+<hr />
+<h3><a name="patches">PATCHES</a></h3>
+<dl>
+<dt><strong><a name="8" class="item"><strong>Audio Patches</strong> for channels 0-8 (Note-number 60 is middle-C)</a></strong></dt>
+
+<dd>
+<pre>
+  0 = Sine wave       (modulating to triangle)
+  1 = Triangle wave   (modulating to spiky triangle)
+  2 = 65% Square wave (modulating to 100% square wave)
+  3 = Square wave     (modulating to castellated-square wave)
+  4 = Sawtooth wave   (modulating to fractalised sawtooth)
+  5 = 75%-Sawtooth    (modulating to fractalised 75% sawtooth)
+  6 = Sine wave       (modulating to 9 harmonics of a square wave)
+  7 = Fat Sine wave   (modulating to a 5-harmonic thin sine wave)
+  8 = Buzz            (round modulating to buzzy)
+  9 = Sawtooth wave   (modulating to square wave)
+ 10 = Rectified Sine  (modulating to rectified sine with harmonics)
+ 12 = Fat Sine
+ 13 = Thin Sine with 3rd harmonic
+ 14 = Thin Sine with 3rd and 5th harmonics
+ 15 = Rectified Sine
+ 20 = Mild Morse-Thue-fractal-frequency-modulated Triangle
+ 21 = Moderate Morse-Thue-fractal frequency-modulated Triangle
+ 22 = Moderate Rabbit-fractal frequency-modulated Triangle
+ 23 = Rabbit-fractal Triangle wave
+ 24 = Rabbit-fractal Square wave
+ 25 = Morse-Thue-fractal Triangle wave
+ 26 = Morse-Thue-fractal Square wave
+ 90 = Live stereo audio input (currently unimplemented)
+ 91 = Live audio input mixed down to mono</pre>
+</dd>
+<dt><strong><a name="15" class="item"><strong>LFO Patches</strong> for channels 10-15 (Note-number 60 is 1 cycle-per-second !)</a></strong></dt>
+
+<dd>
+<p>The Low-Frequency-Oscillators live in Channels 10 and above,
+and use Patches 100 and above.
+Their frequencies are eight octaves lower than the audio Patches,
+so that Note number 60 means 1 cycle-per-second.
+These two data-items, the Patch and the &quot;Note&quot;,
+are the only two that Low-Frequency-Oscillators need.</p>
+<pre>
+ 100 = Sine wave
+ 101 = Triangle wave
+ 102 = Square wave 65%
+ 103 = Square wave 90%
+ 104 = Square wave
+ 105 = Sawtooth wave Up
+ 106 = Intermediate Triangle/Sawtooth wave 90% Up
+ 107 = Intermediate Triangle/Sawtooth wave 75% Up
+ 108 = another Triangle wave
+ 109 = Intermediate Triangle/Sawtooth wave 75% Down
+ 110 = Intermediate Triangle/Sawtooth wave 90% Down
+ 111 = Sawtooth wave Down</pre>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h3><a name="standard_controller_numbers">STANDARD CONTROLLER-NUMBERS</a></h3>
+<p>See <a href="http://www.pjb.com.au/muscript/gm.html#cc">http://www.pjb.com.au/muscript/gm.html#cc</a></p>
+<pre>
+   1 = Modulation
+   5 = Portamento time
+   6 = Data Entry MSB
+   7 = Channel volume
+  10 = Pan
+  11 = Expression
+  38 = Data Entry LSB
+  64 = Sustain pedal
+  65 = Portamento on-off
+  71 = Filter Q (affects the cc74 filter)
+  72 = Release time
+  73 = Attack time
+  74 = Low-pass Filter frequency
+  75 = Decay time
+  76 = Vibrato rate
+  77 = Vibrato depth
+  78 = Vibrato delay
+  84 = Portamento from-note
+  91 = Reverb depth
+  92 = Tremolo depth
+  95 = Phaser depth
+ 100 = Registered Parameter LSB
+ 101 = Registered Parameter MSB</pre>
+<p>The Pitch-bend-range is a &quot;Registered Parameter&quot;,
+and should (but see BUGS below) be adjusted by:</p>
+<pre>
+ cc101=0, cc100=0, cc6=0..24 semitones, cc38=0, cc101=127, cc100=127</pre>
+<p>
+</p>
+<hr />
+<h3><a name="non_standard_controller_numbers">NON-STANDARD CONTROLLER-NUMBERS</a></h3>
+<p>cc20-23 connect a controller (cc21) to an LFO (cc20),
+and cc24-27 connect another controller (cc25) to an LFO (cc24).
+Similarly, cc52-55 connect a controller (cc53)
+to an Effect-Envelope launched at the start of each note
+(which also affects other notes ongoing in the same Channel).</p>
+<p>When being driven by an LFO or an Effect-Envelope in this way,
+the controller will ignore its standard MIDI Controller-Change commands.</p>
+<p>If in one channel cc21 and cc25 both attempt to connect the same controller
+(this would be an error) then the cc20-cc23 specification takes precedence.
+But multiple controllers in many channels may be driven by the same LFO
+without problem.</p>
+<pre>
+ 20 = LFO-channel (10..15; default 0=off)
+ 21 = an audio Channel-Controller that the LFO will control
+      (cc21=0 is special-cased to mean Pitch-Bend)
+ 22 = the minimum value of that audio Channel-Controller
+ 23 = the maximum value of that audio Channel-Controller</pre>
+<pre>
+ 24 = LFO-channel (10..15; default 0=off)
+ 25 = another audio Channel-Controller that this new LFO will control
+      (cc25=0 is special-cased to mean Pitch-Bend)
+ 26 = the minimum value of that audio Channel-Controller
+ 27 = the maximum value of that audio Channel-Controller</pre>
+<pre>
+ 52 = Effect-Envelope Attack-Time (0..127; default 0=off)
+ 53 = the audio Channel-Controller that this Effect-Envelope will control
+      (cc53=0 is special-cased to mean Pitch-Bend)
+ 54 = the initial value of that audio Channel-Controller
+ 55 = the  final  value of that audio Channel-Controller</pre>
+<p>There are several other non-standard CC's:</p>
+<pre>
+  14 = Choof (unimplemented)
+  15 = Clonk (unimplemented)
+  44 = Loop Type (0=Echo (default), 1=Loop, 2=Rabbit, 3=Morse-Thue)
+  45 = Loop Volume
+  46 = Loop Delay 1 (0..4 sec)
+  47 = Loop Delay 2
+  87 = Overdrive Distortion (modelled on SWH foverdrive_1196)
+  88 = Ring Modulator Channel (usually set to Patch 0)
+  90 = Tremolo rate (affects the cc92 tremolo)
+ 119 = Dump current settings to pjbsynth.state.py (unimplemented)
+       will use subinstr, srtcatk, fprintks to print non-default gkCC*
+       in either muscript, MIDI-Perl, MIDI.py, MIDI.lua, or .mid format</pre>
+<p>If cc87=0 then Distortion is switched off.</p>
+<p>If cc88=127 then Ring-Modulation is switched off.
+If cc88 points to another audio channel (0..8) then
+the latter's direct output will be suppressed
+and the current channel will be modulated with it.
+Usually, that other channel should be a simple wave-form like a sine,
+perhaps with portamento.</p>
+<p>
+</p>
+<hr />
+<h3><a name="installation">INSTALLATION</a></h3>
+<p>For a full installation, download the tarball:
+<a href="http://www.pjb.com.au/midi/free/pjbsynth-1.22.tar.gz">http://www.pjb.com.au/midi/free/pjbsynth-1.22.tar.gz</a> ,
+unpack it, and, as superuser: <em>make install</em> .
+This puts some files in <em>/usr/local/share/pjbsynth/</em>
+and copies a wrapper script to <em>/usr/local/bin/pjbsynth</em></p>
+<p>For a minimal installation, unpack the tarball and
+copy <em>pjbsynth.csd</em> and the <em>*.txt</em> files into your working directory.</p>
+<p>See the SYNOPSIS for the difference in usage.</p>
+<p>You will also need <em>csound</em> version 5 installed.</p>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<pre>
+ 20130117 1.22 fix two bugs reported by Pete Goodeve on csound 5.19
+ 20110120 1.21 Loop stuff moved to CCs 44-74; Rabbit and MT2 Loops
+ 20110104 1.20 standard cc71 means filter Q :-) so get rid of cc89
+ 20101228 1.19 cc85 and cc86 now do Loop, not just Echo
+ 20101224 1.18 two more modulating patches
+ 20101220 1.17 cc11 Expression
+ 20101219 1.16 tarball includes the up-to-date test_score
+ 20101219 1.15 fixed cc53=0 Envelope-driven Bend bug; other minor fixes
+ 20101217 1.14 fixed LFO bug, new modulating patches 0..6
+ 20101211      disentangled cc53=0 (Bend) from the other cc53 settings
+ 20101210 1.13 stereo phaser, cc52-55 allow attack-Envelope control
+ 20101202 1.12 Ring modulator, Distortion, Patch 91
+ 20101127 1.11 first uploaded to www.pjb.com.au
+ 20101110 1.10 first working version</pre>
+<pre>
+ TODO:
+  Choof CC using perhaps very mildly filtered pink noise
+  Clonk CC using very heavily damped sine at perhaps sqrt of note-pitch
+  Note=0 guaranteed silent (used to force a reread of Loop parameters)
+  MT and Rabbit CC somehow (two delay params), not just boring old Loop
+   (won't need Loop, MT and Rabbit simultaneously; how to express this?)
+  A filtered pink-noise patch
+  Stereo live audio through, patch 90
+  State dump
+  Give the Reverb an initial delay, somehow increasing with the reverb time</pre>
+<p>
+</p>
+<hr />
+<h3><a name="bugs">BUGS</a></h3>
+<p>The <em>phaser2</em> function needs a fast CPU,
+especially if several phasers are running simultaneously.</p>
+<p>The Registered-parameter controllers cc101 and cc100
+are handled by <em>csound</em> in some apparently undocumented way.
+<em>pjbsynth</em> treats a naked cc6 event as setting the Pitch-bend-range,
+but if you send a cc101 and cc100 first (like you're supposed to)
+then cc6 produces no effect.</p>
+<p>Changes in controller cc45 go unnoticed
+until a new note is struck in the channel;
+this is inconvenient if a loop is running and you want to fade it out...</p>
+<p>
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam   <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<pre>
+ <a href="http://www.csounds.com">http://www.csounds.com</a>
+ <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
+ <a href="http://www.pjb.com.au/muscript/gm.html">http://www.pjb.com.au/muscript/gm.html</a>
+ <a href="http://www.pjb.com.au/midi/midikbd.html">http://www.pjb.com.au/midi/midikbd.html</a>
+ aconnect (1)</pre>
+
+</body>
+
+</html>

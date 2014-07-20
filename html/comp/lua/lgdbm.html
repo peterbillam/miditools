@@ -1,0 +1,299 @@
+<HTML><HEAD><TITLE>lgdbm</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="stty, raw, cooked, Lua, module, luarocks">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><CENTER>
+<FONT COLOR="#800000"><I>lgdbm</I></FONT>
+</CENTER></H1>
+
+<!-- INDEX BEGIN -->
+<A NAME="index"></A>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+    <li><a href="#name">NAME</a></li>
+    <li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#description">DESCRIPTION</a></li>
+    <li><a href="#functions">FUNCTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#example">EXAMPLE</a></li>
+    <li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#author">AUTHOR</a></li>
+    <li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR></TABLE>
+
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<h2><a name="name">NAME</a></h2>
+<p> &nbsp; lgdbm &nbsp; - &nbsp;
+This is a Lua interface for gdbm, the GNU database manager.
+</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<PRE>
+ local G = require "gdbm"
+ print(G.version)
+ local d = assert(<A HREF="#open">G.open("/tmp/test.gdbm", "n")</A>)
+ <A HREF="#insert">d:insert("JAN", "January")</A>
+ <A HREF="#insert">d:insert("FEB", "February")</A>
+ if <A HREF="#exists">d:exists("JAN")</A> then print("JAN exists :-)") end
+ <A HREF="#replace">d:replace("JAN", "Janeiro")</A>
+ print("JAN is now", <A HREF="#fetch">d:fetch("JAN")</A>)
+ <A HREF="#close">d:close()</A>  -- don't forget to do this!
+</PRE><p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>
+This is a gdbm interface for Lua 5.2.
+<BR>
+gdbm is the GNU database manager,
+a replacement of the UNIX dbm library, available at
+<A HREF="http://www.gnu.org/software/gdbm/">www.gnu.org/software/gdbm/</A>
+<BR>
+If you're running Linux, you probably already have gdbm installed.
+</P><P>
+The code is in the public domain.
+</p><p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2>
+<P><CENTER><B>
+ <A HREF="#close">close</A>,
+ <A HREF="#delete">delete</A>,
+ <A HREF="#exists">exists</A>,
+ <A HREF="#export">export</A>,
+ <A HREF="#fetch">fetch</A>,
+ <A HREF="#firstkey">firstkey</A>,
+ <A HREF="#import">import</A>,<BR>
+ <A HREF="#insert">insert</A>,
+ <A HREF="#nextkey">nextkey</A>,
+ <A HREF="#open">open</A>,
+ <A HREF="#reorganize">reorganize</A>,
+ <A HREF="#replace">replace</A>,
+ <A HREF="#sync">sync</A>
+</B></CENTER></P>
+<dl>
+<dt><B><a name="open" class="item">db = G.open( filename, mode )</a></B></dt>
+<dd><P>
+Returns a <I>userdata</I> representing the open database.
+The <I>filename</I> is the name of the file
+(the complete name; <I>gdbm</I> does not append any characters to this name).
+</P><P>
+The <I>mode</I> is a string, which must start with one of the following:<BR>
+ &nbsp; <CODE><B>r</B></CODE> &nbsp; GDBM_READER - reader<BR>
+ &nbsp; <CODE><B>w</B></CODE> &nbsp; GDBM_WRITER - writer<BR>
+ &nbsp; <CODE><B>c</B></CODE> &nbsp; GDBM_WRCREAT -
+if database does not exist create new one<BR>
+ &nbsp; <CODE><B>n</B></CODE> &nbsp; GDBM_NEWDB -
+create a new, empty, database<BR>
+and the optional remaining characters can be any of the following:<BR>
+ &nbsp; <CODE><B>L</B></CODE> &nbsp; GDBM_NOLOCK<BR>
+ &nbsp; <CODE><B>M</B></CODE> &nbsp; GDBM_NOMMAP<BR>
+ &nbsp; <CODE><B>S</B></CODE> &nbsp; GDBM_SYNC<BR>
+For the meanings of these parameters see <I>man gdbm</I>.<BR>
+Be aware that <CODE><B>n</B></CODE> will delete any database which
+might already exist under that <I>filename</I>.
+</P></dd>
+
+<dt><B><a name="close" class="item">db:close()</a></B>
+&nbsp; or &nbsp; <B>G.close( db )</B></dt>
+<dd>
+It is important that every database opened is also closed
+(this is needed to update the reader/writer count on the file).
+<BR>&nbsp;</dd>
+
+<dt><B><a name="delete" class="item">db:delete( key )</a></B>
+&nbsp; or &nbsp; <B>G.delete( db, key )</B></dt>
+<dd>
+Deletes the <I>key</I> from the database,
+and returns <I>nil</I> if it wasn't there.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="exists" class="item">db:exists( key )</a></B></dt>
+<dd>
+Returns <I>true</I> or <I>false</I>
+<BR>&nbsp;</dd>
+
+<dt><B><a name="export" class="item">db:export( outputfile )</a></B></dt>
+<dd>
+Test for the existence of this routine before you try to use it !
+It's not very portable;
+it only exists if the variable GDBM_VERSION_MAJOR was defined.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="fetch" class="item">db:fetch( key )</a></B></dt>
+<dd>
+Returns the value of the given key, or <I>nil</I> if it doesn't exist.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="firstkey" class="item">db:firstkey()</a></B></dt>
+<dd>
+Returns the first key (in key order) in the database.
+This is used in conjunction with <I>nextkey(key)</I> to
+traverse the whole database.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="import" class="item">db:import( inputdb [,replace] )</a></B></dt>
+<dd>
+Test for the existence of this routine before you try to use it !
+It's not very portable;
+it only exists if the variable GDBM_VERSION_MAJOR was defined.<BR>
+<I>replace</I> is boolean.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="insert" class="item">db:insert( key, data )</a></B></dt>
+<dd>
+Insert only; returns <I>nil</I> if the key exists already.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="nextkey" class="item">db:nextkey( key )</a></B></dt> 
+<dd>
+Returns the next key after the given <I>key</I> argument,
+or <I>nil</I> if it was the last.  Starting from
+<I><A HREF="#firstkey">firstkey()</A></I>,
+this will traverse the whole database (in key order).
+<BR>&nbsp;</dd>
+
+<dt><B><a name="reorganize" class="item">db:reorganize()</a></B></dt>
+<dd>
+This routine should be used very infrequently.
+If you have had a lot of deletions and would like to shrink the space
+used by the gdbm file, this routine will reorganize the database.
+Gdbm will not shorten the length of a database except by using
+this reorganization.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="replace" class="item">db:replace( key, data )</a></B></dt>
+<dd>
+Replaces the contents, if the key exists,
+and returns <I>nil</I> otherwise.
+<BR>&nbsp;</dd>
+
+<dt><B><a name="sync" class="item">db:sync()</a></B></dt>
+<dd>
+Physically writes the current state of the database out to the disk file.
+It will not return until the disk file state is synchronized
+with the in-memory state of the database.
+<BR>&nbsp;</dd>
+
+</dl>
+<p>
+</p>
+
+<hr />
+<h2><a name="example">EXAMPLE</a></h2>
+<p>The following code from <I>test.lua</I>,
+by the module author Luiz Henrique de Figueiredo,
+creates table proxies for gdbm databases, and two "for" generators:
+"keys" and "entries", for convenient traversal of databases.
+</P><PRE>
+local gdbm = require "gdbm"
+local M = {
+  __index = function (t,k) return t.gdbm:fetch(k) end,
+  __newindex = function (t,k,v)
+    if v~=nil then t.gdbm:replace(k,v) else t.gdbm:delete(k) end
+  end
+}
+function gdbm.proxy(t)
+  return setmetatable({gdbm=t}, M)
+end
+local function keys(d,k)
+  if k==nil then return d:firstkey() else return d:nextkey(k) end
+end
+function gdbm.keys(d)
+ return keys,d
+end
+local function entries(d,k)
+  local v
+  if k==nil then k=d:firstkey() else k=d:nextkey(k) end
+  if k==nil then v=nil else v=d:fetch(k) end
+  return k,v
+end
+function gdbm.entries(d)
+  return entries,d
+end
+
+local t = d:proxy()
+t.JUL = "July"  -- proxy insert
+t.JAN =  nil    -- proxy delete
+
+if d.export and d.import then  -- check first!
+  F="test.flat" -- testing export and import
+  print("export  ",d:export(F))
+  print("import store",d:import(F))
+  print("import replace",d:import(F,true))
+end
+
+d:close()
+</PRE>
+<hr />
+<h2><a name="download">DOWNLOAD</a></h2>
+<p>This module is available as a LuaRock in
+<A HREF="http://rocks.moonscript.org/modules/luarocks/lgdbm">
+rocks.moonscript.org/modules/luarocks/lgdbm</A>
+so you should be able to install it with the command:</p>
+<pre>
+ $ su
+ Password:
+ # luarocks install --server=http://rocks.moonscript.org lgdbm</pre>
+<P>
+If this results in an error message such as:<BR><CODE>
+&nbsp; Error: Could not find expected file libgdbm.a, or libgdbm.so,<BR>
+&nbsp; or libgdbm.so.* for GDBM -- you may have to install GDBM in your<BR>
+&nbsp; system and/or pass GDBM_DIR or GDBM_LIBDIR to the luarocks command.<BR>
+&nbsp; Example: luarocks install lgdbm GDBM_DIR=/usr/local<BR></CODE>
+then you need to find the appropriate directory with:<BR><CODE>
+&nbsp; find /usr/lib -name 'libgdbm.*' -print<BR></CODE>
+and then invoke:<BR><CODE>
+&nbsp; luarocks install lgdbm GDBM_LIBDIR=/usr/lib/i386-linux-gnu/<BR></CODE>
+(or wherever) accordingly.
+</P><p>
+For detailed installation instructions, see also:
+<A HREF="http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/install.html">
+www.tecgraf.puc-rio.br/~lhf/ftp/lua/install.html</A>
+</p>
+
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>The Lua module is by Luiz Henrique de Figueiredo<BR>
+Comments, suggestions, and bug reports to lhf@tecgraf.puc-rio.br
+</p><p>
+This manual page was put together by Peter Billam<BR>
+See: &nbsp; <A HREF="http://www.pjb.com.au">www.pjb.com.au</A>, &nbsp;
+<A HREF="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</A>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<pre>
+ <A HREF="http://www.gnu.org/software/gdbm/">www.gnu.org/software/gdbm/</A>
+ <A HREF="http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/#lgdbm">www.tecgraf.puc-rio.br/~lhf/ftp/lua/#lgdbm</A>
+ <A HREF="http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/install.html">www.tecgraf.puc-rio.br/~lhf/ftp/lua/install.html</A>
+ <A HREF="http://rocks.moonscript.org/modules/luarocks/lgdbm">http://rocks.moonscript.org/modules/luarocks/lgdbm</A>
+ /usr/include/gdbm.h
+ man gdbm
+</pre>
+</DIV>
+</body>
+
+</html>

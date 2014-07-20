@@ -1,0 +1,137 @@
+<HTML><HEAD><TITLE>midiecho</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, MEI, XML::Parser">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>mei2mid</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>mei2mid - Perl script to convert MEI to MIDI</p>
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ mei2mid Example.mei &gt; Example.mid
+ mei2mid Example.mei | aplaymidi -
+ mei2mid -v      # prints version number</pre>
+<p>
+</p>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>
+This script converts a musical score in MEI format into a MIDI
+file.  It uses the XML::Parser module to read the xml input, and the
+MIDI-Perl module to put together the midi output.
+</p>
+<p>
+It was written to assist in debugging "muscript -mei".
+</p><p>
+It should be considered still an early alpha release,
+but seems to work correctly on the sample MEI files at
+<A HREF="http://www.lib.virginia.edu/digital/resndev/mei/">
+www.lib.virginia.edu/digital/resndev/mei/</A>
+</p><p>
+</p>
+<hr />
+<h3><a name="options">OPTIONS</a></h3>
+<dl>
+<dt><strong><a name="item__2dd"><em>-d</em></a></strong>
+<dd>
+Generates <strong>D</strong>ebugging output.
+</dd>
+<dt><strong><a name="item__2dv"><em>-v</em></a></strong>
+<dd>
+Prints <strong>V</strong>ersion number.
+</dd></dl>
+
+<p>
+</p>
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>mei2mid</i> is available by http at
+<A HREF="free/mei2mid">
+www.pjb.com.au/midi/free/mei2mid</A> (save it to disc,
+make it executable, and move it into your $PATH),<BR>
+or as part of
+<A HREF="free/midiscripts.tar.gz">
+www.pjb.com.au/midi/free/midiscripts.tar.gz</A>
+(unpack the <I>tar</I> archive somewhere in your $PATH).<BR>
+If necessary, edit the first lines to reflect
+where <I>perl</I> is installed on your system.
+</p><p>
+You'll also need to install the
+<A HREF="http://search.cpan.org/search?query=MIDI">MIDI-Perl</A>
+module and the
+<A HREF="http://search.cpan.org/search?query=XML::Parser">XML::Parser</A>
+module.
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<B>1.8</B>, 20070627 oct, dur and pname are propagated
+<BR><B>1.7</B>, 20070627 1.7 dur.ges is in midi-ticks
+<BR><B>1.6</B>, 20070625 tempo element, for within-bar midi-tempo changes
+<BR><B>1.5</B>, 20070622 triplets :-) but no other tuplets :-(
+<BR><B>1.0</B>, 20070607 copied from musicxml2mid
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  &nbsp;
+<a href="../comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on Roland Perry's
+<A HREF="http://www.lib.virginia.edu/digital/resndev/mei/">MEI</A>
+and on Larry Wall's <I>XML::Parser</I> module
+and Sean Burke's <I>MIDI::Perl</I> module.</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
+<a href="bassline.html">www.pjb.com.au/midi/bassline.html</a><BR>
+<a href="mididump.html">www.pjb.com.au/midi/mididump.html</a><BR>
+<a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
+<a href="midiedit.html">www.pjb.com.au/midi/midiedit.html</a><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+
+</body>
+
+</html>

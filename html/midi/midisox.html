@@ -1,0 +1,547 @@
+<HTML><HEAD><TITLE>midisox</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midisox</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#global_options">GLOBAL OPTIONS</a></li>
+	<li><a href="#file_options">INPUT AND OUTPUT FILES AND THEIR OPTIONS</a></li>
+	<li><a href="#effects">EFFECTS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#requirements">REQUIREMENTS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>midisox - a <I><A HREF="http://sox.sourceforge.net/">SoX</A></I>-like
+workalike, for handling MIDI files
+</p>
+
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ &gt; midisox [global-options]   \
+   [format-options] infile1 [[format-options] infile2] ...   \
+   [format-options] outfile   \
+   [effect [effect-options]] ...
+
+ &gt; sox chorus.wav chorus.wav mid8.wav chorus.wav out.wav
+ &gt; play out.wav
+ &gt; midisox chorus.mid chorus.mid mid8.mid chorus.mid out.mid
+ &gt; aplaymidi out.mid
+ &gt; midisox -M bass.mid pno.mid -v 1.1 horns.mid soar.mid verse.mid
+ &gt; midisox -M bass.mid pno.mid voice.mid - | aplaymidi -
+ &gt; midisox -M http://mid.com/drms.mid pno.mid voice.mid -d
+ &gt; muscript -midi chords | midisox -M - bass.mid -d
+ &gt; muscript -midi chords | midisox - -n stat
+ &gt; midisox -M "|midisox chords.mid - pitch -200" solo.mid out.mid
+ &gt; midisox impro.mid riff.mid trim 37.2 3.4
+ &gt; midisox --help ; midisox --help-effect=all
+</pre>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>
+<I>Midisox</I> is a tool for working on MIDI files,
+with a calling interface modelled, as far as possible, on that of
+<I><A HREF="http://sox.sourceforge.net/">SoX</A></I>,
+which is a well-established tool for working on audio files.
+</p><p>
+<I>Midisox</I> standardises all its files to a tick-rate of 1000 ticks/sec.
+This makes it possible to mix them together.
+But it does make it hard to load them into music-typesetting
+software afterwards and have the beats recognised.&nbsp;.&nbsp;.
+</p><p>
+<I>Midisox</I> assumes at various places that it is working on a
+<A HREF="../muscript/gm.html#patch">General-Midi</A> file:
+for example, the <A HREF="#pitch">pitch</A> effect will not try to transpose
+<A HREF="../muscript/gm.html#perc">the drumkit on Channel 9</A>.
+</p><p>
+<I>Midisox</I> is
+<A HREF="#download">available in three versions</A>,
+one in <I>Python3</I>, one in <I>Perl</I> and one in <I>Lua</I>.
+</p>
+
+<hr />
+<h3><a name="global_options">GLOBAL OPTIONS</a></h3>
+<dl>
+
+<dt><strong><a name="item__2dh"><em>-h, --help</em></a></strong>
+</dt><dd>
+<p>Show version number and <strong>H</strong>elpful usage information</p>
+</dd>
+
+<dt><strong><a name="item__2dhe"><em>--help-effect=NAME</em></a></strong>
+</dt><dd>
+<p>
+Show usage information on the specified effect (or "all").
+</p>
+</dd>
+
+<dt><strong><a name="item__2di"><em>--interactive</em></a></strong>
+</dt><dd>
+<p>
+Prompt before overwriting an existing file.
+</p>
+</dd>
+
+<dt><strong><a name="item__2dm">
+<em>-m | -M | --combine concatenate|merge|mix|sequence</em></a></strong>
+</dt><dd>
+<p>
+Select the input file combining method; -m means <I>mix</I>, -M <I>merge</I>.
+If the <I>mix</I> combining method is selected (with <B>-m</B>)
+then two or more input files must be given
+and will all be mixed together into one MIDI-track.
+A mixed file cannot be un-mixed.
+</p><p>
+If the <I>merge</I> combining method is selected (with <B>-M</B>),
+then the merged file contains all of the MIDI-tracks
+from all of the input files;
+un-merging is possible using multiple invocations of <I>midisox</I>
+with the <I>mixer</I> effect.
+The merging process attempts to avoid channel-conflicts
+by renumbering channels in the later files as necessary
+(however, a total of only fifteen MIDI-channels is available).
+</p><p>
+The default is <I>sequence</I>.
+</p>
+</dd>
+
+<dt><strong><a name="item__2dv"><em>--version</em></a></strong>
+</dt><dd>
+<p>
+Displays the <strong>v</strong>ersion number.
+</p>
+</dd>
+</dl>
+
+<hr />
+<h3><a name="file_options">INPUT AND OUTPUT FILES AND THEIR OPTIONS</a></h3>
+<p>
+There is only one file-format-option available:
+<dl>
+<dt><strong><a name="item__2dv"><em>-v, --volume FACTOR</em></a></strong>
+</dt><dd>
+<p>Adjusts the volume
+(specifically, the <I>velocity</I> parameter of all the notes)
+by a factor of <I>FACTOR</I>.
+A factor less than 1 decreases the volume; greater than 1 increases it.
+</dd></dl>
+Files can be either filenames, or<BR>
+<CODE><B>-&nbsp;</B></CODE> &nbsp; meaning STDIN or STDOUT accordingly<BR>
+<CODE><B>"|program [options] ..."</B></CODE> &nbsp; 
+specifies that the given program's stdout be used as an input file<BR>
+<CODE><B>http://wherever/whatever.mid</B></CODE> &nbsp; 
+will fetch any valid URL as an input file<BR>
+<CODE><B>-d</B></CODE> &nbsp; meaning the "<B>d</B>efault" output-device,
+i.e. the MIDI will be fed into <I>aplaymidi</I> so you can hear it<BR>
+<CODE><B>-n</B></CODE> &nbsp; meaning a <B>n</B>ull output-device
+(useful with the <I><A HREF="#stat">stat</A></I> effect)
+</p>
+
+<hr />
+<h3><a name="effects">EFFECTS</a>: &nbsp;
+<A HREF="#compand">compand</A>,
+<A HREF="#echo">echo</A>,
+<A HREF="#fade">fade</A>,
+<A HREF="#key">key</A>,
+<A HREF="#mixer">mixer</A>,
+<A HREF="#pad">pad</A>,
+<A HREF="#pan">pan</A>,
+<A HREF="#pitch">pitch</A>,
+<A HREF="#quantise">quantise</A>,
+<A HREF="#repeat">repeat</A>,
+<A HREF="#stat">stat</A>,
+<A HREF="#tempo">tempo</A>,
+<A HREF="#trim">trim</A>,
+<A HREF="#vol">vol</A>
+</h3>
+<dl>
+
+<dt><strong><em><a name="compand">
+compand &nbsp; gradient &nbsp; {channel:gradient}</a>
+</em></strong>
+</dt><dd>
+<p>
+Adjusts the velocity of all notes closer to (or away from) 100. &nbsp;
+If the <I>gradient</I> parameter is <CODE>0</CODE> every note gets volume 100,
+if it is <CODE>1.0</CODE> there is no effect,
+if it is greater than </CODE>1.0</CODE> there is expansion,
+and if it is negative the loud notes become soft and the soft notes loud.
+&nbsp; The default value is <CODE>0.5</CODE>. &nbsp;
+Individual channels can be given individual gradients. &nbsp;
+The syntax of this effect is not the same as its SoX equivalent.
+</p>
+</dd>
+
+<dt><strong><em><a name="echo">
+echo &nbsp; gain-in &nbsp; gain-out &nbsp;  &lt;delay &nbsp; decay&gt;</a>
+</em></strong>
+</dt><dd>
+<p>
+Adds echoing to the audio. &nbsp; Each  <I>delay decay</I>  pair gives the
+delay in milliseconds  and the decay of that echo. &nbsp; <I>Gain-in</I>
+and <I>gain-out</I> are ignored, they are there for compatibilty with SoX.
+The echo effect triples the number of channels in the MIDI, so
+doesn't work well if there are more than 5 channels initially.
+<BR>
+E.g.: <CODE>&nbsp;  echo 1 1 240 0.6 450 0.3</CODE>
+</p><p>
+For a more elaborately configurable echo effect, see
+<B><A HREF="./midiecho.html">midiecho</A></B>
+</p></dd>
+
+<dt><strong><em><a name="fade">
+fade &nbsp; fade-in-length &nbsp; [stop-time [fade-out-length]]
+</em></strong>
+</dt><dd>
+<p>
+Adds a fade effect to the beginning, end, or both of the MIDI. &nbsp;
+Fade-ins start from the beginning and ramp the volume
+(specifically, the <I>velocity</I> parameter of all the notes)
+from zero to full, over <I>fade-in-length</I> seconds. &nbsp;
+Specify 0 seconds if no fade-in is wanted.
+</p><p>
+For fade-outs, the MIDI will be truncated at <I>stop-time</I>,
+and the volume will be ramped from full down to zero
+starting at <I>fade-out-length</I> seconds before the <I>stop-time</I>. &nbsp;
+If <I>fade-out-length</I> is not specified,
+it defaults to the same value as <I>fade-in-length</I>. &nbsp;
+No fade-out is performed if <I>stop-time</I> is not specified. &nbsp;
+If the <I>stop-time</I> is specified as 0,
+it will be set to the end of the MIDI. &nbsp;
+Times are specified in seconds: <I>ss.frac</I>
+</p></dd>
+
+<dt><strong><a name="key"><em>key &nbsp; shift&nbsp; { channel:shift }</em></a></strong>
+</dt><dd>
+<p>
+Changes the key (i.e. pitch but not tempo).
+This is just an alias for <A HREF="#pitch">the pitch effect</A>.
+</p>
+</dd>
+
+<dt><strong><a name="mixer"><em>mixer &nbsp; &lt; channel[:to_channel] &gt;</em></a></strong>
+</dt><dd>
+<p>
+Reduces the number of MIDI channels, by selecting just some of them
+and combining these (if necessary) into one track. &nbsp;
+The <I>channel</I> parameters are the channel-numbers 0&nbsp;...&nbsp;15,
+for example &nbsp; <CODE>mixer&nbsp;9</CODE> &nbsp;  selects just the drumkit.
+&nbsp; If an optional <I>to_channel</I> is specified, the selected
+<I>channel</I> will be remapped to the <I>to_channel</I>; for example,
+&nbsp; <CODE>mixer&nbsp;3:1</CODE> &nbsp;
+will select just channel 3 and renumber it to channel 1.<BR>
+If a <I>channel</I> number begins with a minus (including <CODE>-0</CODE> !)
+then that channel will be suppressed, and the others transmitted.<BR>
+The syntax of this effect is not the same as its SoX equivalent.
+</p></dd>
+
+<dt><strong><a name="pad">
+<em>pad { length[@position] }</em></a></strong>
+&nbsp; &nbsp; or &nbsp; &nbsp;
+<strong><em>pad &nbsp; length_at_start &nbsp; length_at_end</em></strong>
+</dt><dd>
+<p>
+Pads the MIDI with silence, at the beginning, the end, or at specified
+points within the file. &nbsp; Both length and position are specified in
+seconds. &nbsp; <I>length</I> is the amount of silence to insert,
+and &nbsp; <I>position</I> the position at which to insert it. &nbsp;
+Any number of lengths and positions may be specified, provided
+that each specified position is not less that the previous one. &nbsp;
+<I>position</I> is optional for the first and last lengths specified,
+and if omitted they correspond to the beginning and end respectively. &nbsp;
+For example: &nbsp; <CODE>pad&nbsp;2&nbsp;2</CODE> &nbsp; adds two seconds of
+silence at each end,  whilst &nbsp; <CODE>pad&nbsp;2.5@180</CODE>
+&nbsp; inserts 2.5 seconds of silence 3 minutes into the MIDI. &nbsp;
+If silence is wanted only at the end, specify a zero-length pad at the start.
+</p>
+</dd>
+
+<dt><strong><a name="pan">
+<em>pan &nbsp; direction</em></strong>
+</dt><dd>
+<p>
+Pans all the MIDI-channels from one side to another.
+The <I>direction</I> is a value from -1 to 1;
+-1 represents far-left and 1 represents far-right.
+</p></dd>
+
+<dt><strong><a name="pitch"></a><em>pitch &nbsp; shift &nbsp; { channel:shift }</em></strong>
+</dt><dd>
+<p>
+Changes the pitch (i.e. key but not tempo). &nbsp; <I>shift</I> gives the
+pitch-shift, as positive or negative "cents" (i.e. 100ths of a semitone).
+However, currently all pitch-shifts get rounded to the nearest 100 cents,
+i.e. to the nearest semitone.
+&nbsp; Individual channels (0..15) can be given individual shifts.
+</p>
+</dd>
+
+<dt><strong><em><a name="quantise"></a>
+<em>quantise &nbsp; length { channel:length }</em></strong>
+&nbsp; &nbsp; or  &nbsp; &nbsp;
+<strong><em>quantize &nbsp; length { channel:length }</em></strong>
+</em></strong>
+</dt><dd>
+<p>
+Adjusts the beginnings of all the notes to be a multiple of
+<I>length</I> seconds since the previous note. &nbsp;
+If the <I>length</I> is greater than <CODE>30</CODE> then it is considered
+to be in milliseconds. &nbsp;
+Channels for which length is zero do not get quantised. &nbsp;
+<I>quantise</I> and <I>quantize</I> are synonyms. &nbsp;
+This is a MIDI-related effect, and is not present in Sox.
+</p>
+</dd>
+
+<dt><strong><a name="repeat"><em>repeat &nbsp; count</em></a></strong>
+</dt><dd>
+<p>
+Repeat the entire MIDI <I>count</I> times. &nbsp; Note that repeating
+one time doubles the length: the original MIDI plus the one repeat.
+</p></dd>
+
+<dt><strong><a name="stat"><em>stat &nbsp; [-freq]</em></a></strong>
+</dt><dd>
+<p>
+Does a statistical check on the MIDI, and prints results on <I>stderr</I>.
+<BR>
+This <I>sox</I>-compatible behaviour means if you want to
+<I>grep</I> the output, you redirect <I>stderr</I>, e.g.:<BR><CODE>
+ &nbsp; &nbsp; midisox mix3.mid -n stat 2&gt;&amp;1 | grep patch_changes_by_track 
+</CODE><BR>
+The MIDI is passed unmodified through the processing chain.<BR>
+The <I>-freq</I> option calculates the input's MIDI-pitch-spectrum
+(60&nbsp;=&nbsp;middle-C) and prints it to <I>stderr</I>
+before the rest of the stats.
+
+</p></dd>
+
+<dt><strong><a name="tempo"><em>tempo &nbsp; factor</em></a></strong>
+</dt><dd>
+<p>
+Changes the tempo (but not the pitch). &nbsp;
+<I>factor</I> gives the ratio of new tempo to the old tempo.
+So if <I>factor</I>&nbsp;&gt;&nbsp;1.0, then the MIDI will be speeded up.
+</p></dd>
+
+<dt><strong><a name="trim"><em>trim &nbsp; start [length]</em></a></strong>
+</dt><dd>
+<p>
+Outputs only the segment of the file starting at <I>start</I> seconds,
+and ending <I>length</I> seconds later,
+or at the end if <I>length</I> is not specified.
+To preserve instruments, however,
+the latest patch-setting event in each channel is preserved,
+even if it occurred before the start of the segment.
+</p></dd>
+
+<dt><strong><a name="vol"><em>vol &nbsp; increment &nbsp; { channel:increment }</em></a></strong>
+</dt><dd>
+<p>
+Adjusts the <B>vol</B>ume (<I>velocity</I>) of all notes by a fixed increment.
+&nbsp; If <I>increment</I> is -15 every note has its velocity reduced by
+fifteen, if it is 0 there is no effect, if it is +10 the velocity
+is increased by ten.  &nbsp;
+Individual channels can be given individual adjustments. &nbsp;
+The syntax of this effect is not the same as its SoX equivalent.
+</p></dd>
+
+</dl>
+
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+<B>Python3</B> &nbsp;
+The current version of <i>midisox</i> is available by http at
+<A HREF="free/midisox">www.pjb.com.au/midi/free/midisox</A><BR>
+To install <i>midisox</i>, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>python3</I>
+is installed on your system.
+You will also need to install the
+<I><A HREF="free/MIDI.py">MIDI.py</A></I> and
+<I><A HREF="free/TermClui.py">TermClui.py</A></I> modules in your $PYTHONPATH.
+</p><p>
+<B>Perl</B> &nbsp;
+The current version of <i>midisox_pl</i> is available by http at
+<A HREF="free/midisox_pl">www.pjb.com.au/midi/free/midisox_pl</A><BR>
+To install it, save it to disc,
+rename it <i>midisox</i>,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+You will also need to install the
+<I><A HREF="http://search.cpan.org/perldoc?MIDI">MIDI-Perl</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?LWP::Simple">LWP::Simple</A></I>
+CPAN modules.
+</p><p>
+<B>Lua</B> &nbsp;
+The current version of <i>midisox_lua</i> is available by http at
+<A HREF="free/midisox_lua">www.pjb.com.au/midi/free/midisox_lua</A><BR>
+To install it, save it to disc,
+rename it <i>midisox</i>,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>lua</I> is installed on your system.
+You will also need to install the
+<I><A HREF="../comp/lua/MIDI.html#download">MIDI.lua</A></I> module and the
+<I><A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luaposix</A></I> module
+(on debian: <I>aptitude&nbsp;install&nbsp;liblua5.1-posix1</I>).
+Fetching URLs as input files is believed to work either with the
+<I><A HREF="http://tassi.web.cs.unibo.it/lua/">freepops-luacurl</A></I>
+module (on debian: <I>aptitude&nbsp;install&nbsp;liblua5.1-curl0</I>),
+or with the
+<I><A HREF="http://luarocks.org/repositories/rocks/index.html#luacurl">
+luacurl</A></I> module. &nbsp;
+The Lua version runs considerably faster than the Python or Perl versions.
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<BR><B>5.5</B>, 20130507, All versions: in
+ <A HREF="#quantise">the quantise effect</A>
+ channels can be given individual lengths
+<BR><B>5.4</B>, 20130321, All versions: bug fixed in 
+ <A HREF="#quantise">the quantise effect</A>
+<BR><B>5.3</B>, 20120626, All versions:
+ compand effect default_gradient is 0.5 not 0.0
+<BR><B>5.2</B>, 20111224, All versions: in
+ <A HREF="#pitch">the pitch effect</A>
+ channels can be given individual shifts
+<BR><B>5.1</B>, 20111219, All versions:
+ <A HREF="#vol">the vol effect</A> is introduced
+<BR><B>5.0</B>, 20111201, All versions:
+ <A HREF="#compand">the compand effect</A> and
+ <A HREF="#quantise">the quantise effect</A> are introduced, and
+ <A HREF="#mixer">the mixer effect</A> will accept negative channels
+<BR><B>4.9</B>, 20110922, All versions:
+ <A HREF="#fade">fade</A> with stop_time == 0 fades at end of file
+<BR><B>4.8</B>, 20110910, Lua version fixes
+ <A HREF="#file_options">reading from pipes</A>
+<BR><B>4.7</B>, 20110710, Perl version
+ opus2score() interprets note_on with vol=0 as a note_off
+ and terminates unended notes at the end of the track
+<BR><B>4.6</B>, 20110111, Lua version
+ fixes an emtpy-string-is-true bug in gm_on_already
+<BR><B>4.5</B>, 20101026, Lua version stat -freq works
+<BR><B>4.4</B>, 20101021, Lua version function wget() uses luacurl to get URLs
+<BR><B>4.3</B>, 20100926, Python3 version bug fixed
+ appending to tuple in mixer()
+<BR><B>4.2</B>, 20100910, Python3 version fade effect handles absent params
+<BR><B>4.1</B>, 20100802, bug fixed in the Python3 <i>midisox</i>,
+ in <A HREF="#mixer">the mixer effect</A>
+<BR><B>4.0</B>, 20100306, bug fixed in <A HREF="#pan">the pan effect</A>
+<BR><B>3.9</B>, 20100203, <A HREF="#pitch">the pitch effect</A>
+ as synonym for <A HREF="#key">key</A>
+<BR><B>3.8</B>, 20091128, fetches any valid
+<A HREF="#file_options">URL as an input file</A>
+<BR><B>3.7</B>, 20091127,
+<A HREF="#file_options">"|cmd" pipe-style input files</A>
+<BR><B>3.6</B>, 20091113, <A HREF="#file_options">-d pseudo-output-file</A>
+ plays through <I>aplaymidi</I>
+<BR><B>3.5</B>, 20091112, <A HREF="#pad">pad</A> shifts from 0 ticks,
+ and <A HREF="#stat">stat</A> output tidied
+<BR><B>3.4</B>, 20091107, <A HREF="#mixer">the mixer effect</A>
+ does channel-remapping e.g. 3:1
+<BR><B>3.3</B>, 20091021, warns about mixing GM on and GM off or bank-select
+<BR><B>3.2</B>, 20091018, <A HREF="#stat">stat -freq</A>
+ detects the screen width
+<BR><B>3.1</B>, 20091018, does <A HREF="#pan">the pan effect</A>
+<BR><B>3.0</B>, 20091018, <A HREF="#stat">stat effect</A> gets the -freq option
+<BR><B>2.9</B>, 20091015, does <A HREF="#mixer">the mixer effect</A>
+<BR><B>2.8</B>, 20091014, echo channels are panned alternately right and left
+<BR><B>2.7</B>, 20091014, does <A HREF="#echo">the echo effect</A>
+<BR><B>2.6</B>, 20091013, does <A HREF="#key">the key effect</A>
+<BR><B>2.5</B>, 20091013, midi2ms_score not opus2ms_score
+<BR><B>2.4</B>, 20091012, uses midi2ms_score
+<BR><B>2.3</B>, 20091011, fixed infinite loop in pad() at the end
+<BR><B>2.2</B>, 20091010, to_millisecs() must now be called on the opus
+<BR><B>2.1</B>, 20091010, stat effect sorted, and more complete
+<BR><B>2.0</B>, 20091010, vol_mul() improves defensiveness and clarity
+<BR><B>1.9</B>, 20091010, <A HREF="#fade">the fade effect</A>
+fades-out correctly
+<BR><B>1.8</B>, 20091010, does <A HREF="#fade">the fade effect</A>,
+and trim works with one arg
+<BR><B>1.7</B>, 20091009, will read from - (i.e. stdin)
+<BR><B>1.6</B>, 20091009, does <A HREF="#repeat">the repeat effect</A>
+<BR><B>1.5</B>, 20091008, does -h, --help and --help-effect=NAME
+<BR><B>1.4</B>, 20091007, does <A HREF="#pad">the pad effect</A>
+<BR><B>1.3</B>, 20091007, does <A HREF="#tempo">the tempo effect</A>
+<BR><B>1.2</B>, 20091007, will write to - (i.e. stdout),
+and does <A HREF="#trim">trim</A>
+<BR><B>1.1</B>, 20091006, does sequence, concatenate
+and <A HREF="#stat">stat</A>
+<BR><B>1.0</B>, 20091003, first working version, does merge and mix
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="requirements">REQUIREMENTS</a></h3>
+<ul><li>
+The <A HREF="http://docs.python.org/3.1/">Python 3</A> version requires
+<I><a href="MIDI.html">MIDI.py</a></I> and
+<I><a href="TermClui.html">TermClui.py</a></I>
+</li><li>
+The Perl version requires Perl 5.8,
+<I><A HREF="http://search.cpan.org/~sburke">MIDI-Perl</A></I>,
+<I><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?LWP::Simple">LWP::Simple</A></I>
+</li><li>
+The Lua version requires Lua 5.1,
+<I><A HREF="../comp/lua/MIDI.html#download">MIDI.lua</A></I>,
+<I><A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luaposix</A></I>
+(on debian: <I>aptitude&nbsp;install&nbsp;liblua5.1-posix1</I>) and
+<I><A HREF="http://luaforge.net/frs/?group_id=117&release_id=1205">
+luacurl</A></I>
+(on debian: <I>aptitude&nbsp;install&nbsp;liblua5.1-curl0</I>)
+</li></ul>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<A HREF="http://sox.sourceforge.net/">sox.sourceforge.net</A><BR>
+<a href="MIDI.html">www.pjb.com.au/midi/MIDI.html</a><BR>
+<a href="TermClui.html">www.pjb.com.au/midi/TermClui.html</a><BR>
+<A HREF="http://search.cpan.org/perldoc?MIDI">
+search.cpan.org/perldoc?MIDI</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Term::Clui">
+search.cpan.org/perldoc?Term::Clui</A><BR>
+<A HREF="http://search.cpan.org/perldoc?LWP::Simple">
+search.cpan.org/perldoc?LWP::Simple</A> (in the <I>libwww-perl</I> package)<BR>
+<A HREF="http://luarocks.org/repositories/rocks/index.html#math-evol">
+luarocks.org/repositories/rocks</A><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+
+</body>
+
+</html>

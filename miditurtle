@@ -1,0 +1,347 @@
+#!/usr/bin/lua
+---------------------------------------------------------------------
+--     This Lua5 script is Copyright (c) 2011, Peter J Billam      --
+--                       www.pjb.com.au                            --
+--                                                                 --
+--  This script is free software; you can redistribute it and/or   --
+--         modify it under the same terms as Lua5 itself.          --
+---------------------------------------------------------------------
+-- 20130302
+--  The way to get those loops which evolve by adding and/or losing notes:
+--   fix a list of pitches (monotonically ascending will do)
+--   and then r/l along the list, like several r then several l,
+--   with "several" varying to produce some overall forward motion.
+--  Then a /48+/ rhythm, perhaps orthogonally to the R/L motions,
+--   or perhaps putting the 4 on the turning-points.
+--  Is this a case for a step command for miditurtle ?
+--   But step in notes, not events; so call it note somehow. E.g.:
+--   note---- note+++ note-- note++++ note -- note +++
+--  No: must specify the time between the steps :-(
+--  and miditurtle must switch out of play mode, presumably when it sees a note
+
+local Version = '1.0  for Lua5'
+local VersionDate  = '20110804';
+local Synopsis = [[
+Usage:
+miditurtle inputfile.mid outputfile.mid <<EOT
+  playto 30.7 jump -3.2 c3cc74=30
+  play 3.2 jump -3.2 c3cc74=70 pause 1.6
+  pitch -200 play 1.6 pitch 0
+  jump 3.5 reject cha9
+  playto 320 tempo 1.5 play 342 end
+EOT]]
+local MIDI = require 'MIDI'
+require 'DataDumper'
+local iarg=1; while arg[iarg] ~= nil do
+	if string.sub(arg[iarg],1,1) ~= "-" then break end
+	local first_letter = string.sub(arg[iarg],2,2)
+	if first_letter == 'v' then
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate)
+		os.exit(0)
+	elseif first_letter == 'h' then
+		print(Synopsis)
+		os.exit(0)
+	else
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate.."\n\n"..Synopsis)
+		os.exit(0)
+	end
+	iarg = iarg+1
+end
+----------------------------------------------------------------
+local function warn(str) io.stderr:write(str,'\n') ; io.stderr:flush() end
+local function warning(s) warn('warning: '..tostring(s)) end
+local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
+local function round(x) return math.floor(x+0.5) end
+local function dict(a)
+	local d = {}
+	if a == nil then return d end
+	for k,v in ipairs(a) do d[v] = true end
+	return d
+end
+local function pairsByKeys(t,f)   -- Programming in Lua p.173
+	local a = {}
+	for n in pairs(t) do a[#a+1] = n end
+	table.sort(a,f)
+	local i = 0
+	return function()
+		i = i + 1
+		return a[i], t[a[i]]
+	end
+end
+local function copy(t)
+	local new_table = {}
+	for k, v in pairs(t) do new_table[k] = v end
+	return new_table
+end
+----------------------------------------------------------------
+local in_file  = arg[iarg]
+local out_file = arg[iarg+1]
+local commands = io.read("*all")
+local fh = io.open(in_file, "rb")
+if (not fh) then die(" can't read from "..in_file) end
+local midi = fh:read('*all')
+fh:close()
+local in_score = MIDI.midi2ms_score(midi)
+
+local words = {}  -- and array of the command-words
+for w in string.gmatch(commands, "%s*[^%s]+") do
+	w = string.gsub(w, "%s+", "")
+	table.insert(words,w)
+end
+-- warn ("words="..DataDumper(words))
+
+local out_score = {in_score[1]}
+local in_time = 0   -- in ticks
+local out_time = 0  -- in ticks
+local cha2patch = {}  -- to avoid uselessly reissuing patch_change event
+local set_tempo = 0
+local last_marker_iword = 0
+local tempo_factor = 1.0
+local pitch_shift  = 0
+local iword = 1 ; while iword <= #words do -- loop through the command-words
+	local word = words[iword]
+	if word == 'jump' or word == 'jumpto' then
+		iword = iword + 1
+		local millisecs = round(1000*tonumber(words[iword]))
+		if millisecs then
+			if word == 'jumpto' then
+				in_time = millisecs  -- should check >0 and <end
+			else
+				in_time = in_time + millisecs  -- should check >0 and <end
+			end
+		else
+			die("strange "..word.." "..words[iword].." at word "..iword)
+		end
+		-- warn("sign="..sign.." millisecs="..millisecs)
+	elseif word == 'pause' then
+		iword = iword + 1
+		local secs = tonumber(words[iword])
+		if not secs or secs < 0 then
+			die("strange pause of "..words[iword].." at word "..iword)
+		end
+		local millisecs = round(1000*tonumber(secs))
+		out_time = out_time + millisecs
+	elseif word == 'tempo' then
+		iword = iword + 1
+		tempo_factor = tonumber(words[iword])
+		if not tempo_factor or tempo_factor < 0.01 then
+			die("strange tempo of "..words[iword].." at word "..iword)
+		end
+	elseif word == 'pitch' then
+		iword = iword + 1
+		pitch_shift = round(0.01 * tonumber(words[iword]))
+		if not pitch_shift then
+			die("strange pitch-shift of "..words[iword].." at word "..iword)
+		end
+	elseif word == 'play' or word == 'playto' then
+		iword = iword + 1
+		local millisecs = round(1000*tonumber(words[iword]))
+		if millisecs then
+			local start_time = in_time
+			local end_time   = in_time
+			if word == 'playto' then
+				end_time = millisecs  -- should check >0 and <end
+			else
+				end_time = in_time + millisecs  -- should check >0 and <end
+			end
+			-- extract the segment, and add its events to the out_score
+			local segment = MIDI.segment(in_score,start_time,end_time)
+			-- XXX segment() puts in patch_changes, which truncate notes.
+			-- should this be an option ?  Should I just not copy them here ?
+			for itrack = 2,#segment do  -- skip 1st element, which is ticks
+				if not out_score[itrack] then out_score[itrack] = {} end
+				local segment_time = start_time
+				local ot = out_time
+				local marker_array = {} -- put a marker in the out_score
+				for iw = last_marker_iword+1, iword do
+					table.insert(marker_array, words[iw])
+				end
+				local marker = {'marker', ot, table.concat(marker_array," ")}
+				last_marker_iword = iword  -- move along
+				table.insert(out_score[itrack], marker)
+				for k,segment_event in ipairs(segment[itrack]) do
+					local delta_time = segment_event[2] - segment_time
+					segment_time = segment_event[2]
+					local out_event = copy(segment_event)
+					ot = ot + round(delta_time/tempo_factor)
+					out_event[2] = ot
+					-- different tracks patch_change the same channel ?
+					if out_event[1] == 'patch_change' then
+						if cha2patch[out_event[3]] ~= out_event[4] then
+							table.insert(out_score[itrack], out_event)
+							cha2patch[out_event[3]] = out_event[4]
+						end
+					elseif out_event[1] == 'set_tempo' then
+						if out_event[3] ~= set_tempo then
+							table.insert(out_score[itrack], out_event)
+							set_tempo = out_event[3]
+						end
+					elseif out_event[1] == 'note' then
+						out_event[5] = out_event[5] + pitch_shift
+						table.insert(out_score[itrack], out_event)
+					else
+						table.insert(out_score[itrack], out_event)
+					end
+				end
+			end
+			in_time = end_time
+			out_time = out_time + round((end_time-start_time)/tempo_factor)
+		else  -- but must default to play to end, perhaps...
+			die("strange "..word.." "..words[iword].." at word "..iword)
+		end
+	elseif string.match(word, '^c%d+cc%d+=%d+$') then
+		local c ; local cc ; local v
+		c,cc,v = string.match(word, '^c(%d+)cc(%d+)=(%d+)$')
+		local out_event = {'control_change', out_time, c, cc, v}
+		table.insert(out_score[2], out_event)
+	elseif word == 'end' then
+		break
+	else
+		die("strange command "..word.." at word "..iword)
+	end
+	iword = iword + 1
+end
+-- warn ("out_score="..DataDumper(out_score))
+
+if out_file == '-' then
+	io.write(MIDI.score2midi(out_score))
+else
+	local fh = assert(io.open(out_file, "wb"))
+	if (not fh) then die("can't write to "..out_file) end
+	fh:write(MIDI.score2midi(out_score))
+end
+os.exit(0)
+
+--[=[
+
+=pod
+
+=head1 NAME
+
+miditurtle - turtle-sound for manipulating MIDI data
+
+=head1 SYNOPSIS
+
+ miditurtle in.mid - <<EOT | aplaymidi -
+ playto 30.7 jump -3.2 c3cc74=30
+ play 3.2 jump -3.2 c3cc74=70 pause 1.6
+ pitch -200 play 1.6 pitch 0
+ jump 3.5 filter -cha9
+ playto 320 tempo 1.5 play 342 end
+ EOT
+
+=head1 DESCRIPTION
+
+Remember turtle-graphics ?
+This script walks a turtle through a input-midi-file,
+generating an output-midi-file.
+It reads its turtle-commands from STDIN;
+the input-midi-file and output-midi-file are the two arguments.
+If the output-midi-file is B<-> then the output is written to STDOUT,
+but the input-file must be specified by name,
+because STDIN is reserved for the turtle-commands.
+
+=head1 TURTLE-COMMANDS
+
+All times and delta-times are in seconds.
+All times refer to the input-file, in seconds after the start.
+The turtle's default behaviour is always to advance steadily
+through the input, copying events to the end of the output.
+
+=over 3
+
+=item I<jumpto TIME>
+
+The turtle's position in the input will be moved to
+the time TIME (in seconds after the start).
+
+=item I<jump DELTATIME>
+
+The position in the input will be moved by the time-interval DELTATIME.
+It's like an incremental version of B<jumpto>.
+
+=item I<playto TIME>
+
+Events from the input will be copied to the output until
+the time TIME (in seconds after the start) is reached.
+
+=item I<play DELTATIME>
+
+Events from the input will be copied to the output until
+the time-interval DELTATIME has passed.
+It's like an incremental version of B<playto>.
+
+=item I<c3cc74=115>
+
+Appends to the output a control_change event.
+In this example the Filter-Frequency for Channel 3 is set to 115 (0..127).
+
+=item I<end>
+
+The output is written to the output-file and the program terminates.
+
+=item I<pause DELTATIME>
+
+Inserts a pause of DELTATIME seconds into the output.
+The turtle's position in the input is unchanged.
+
+=item I<filter -cha9>
+
+=item I<filter +cha9>
+
+These commands respectively filter out, and restore back in,
+Channel 9 (the percussion channel).
+The Channels are numbered from 0 to 15.
+
+=item I<pitch SHIFT>
+
+Changes the pitch (i.e. key but not tempo). SHIFT gives the pitch
+shift as positive or negative 'cents' (i.e. 100ths of a semitone).
+However, currently, all pitch-shifts are round to the nearest 100
+cents, i.e. to the nearest semitone.
+
+=item I<tempo FACTOR>
+
+Changes the tempo of the output. For example, B<tempo 1.5>
+makes the output one and a half times faster.
+The tempo changes are not cumulative,
+they are all relative to the tempo of the input-file.
+
+=back
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-v>
+
+Print the Version
+
+=back
+
+=head1 DOWNLOAD
+
+The up-to-date script is available at
+http://www.pjb.com.au/midi/free/miditurtle
+
+It's a Lua script, so you'll need to install Lua
+(e.g. I<aptitude install lua luarocks>)
+and you'll also need the MIDI module
+(e.g. I<luarocks install MIDI>).
+
+=head1 AUTHOR
+
+Peter J Billam, http://www.pjb.com.au/comp/contact.html
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/
+ http://www.pjb.com.au/midi/miditurtle.html
+ http://www.pjb.com.au/midi/free/miditurtle
+
+=cut
+
+]=]
+

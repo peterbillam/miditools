@@ -1,0 +1,311 @@
+<HTML><HEAD><TITLE>midiedit</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midiedit</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#curses_mode">CURSES MODE</a></li>
+	<li><a href="#dump_mode">DUMP MODE</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<a name="name"><HR></a>
+<h3>NAME</h3>
+<p>midiedit - Edits a MIDI file</p>
+
+<a name="synopsis"><HR></a>
+<h3>SYNOPSIS</h3>
+<pre>
+ midiedit filename.mid       # uses the new Curses app, with sound
+ midiedit -o 128:0 filename.mid    # uses ALSA port 128:0 as synth
+ midiedit -d filename.mid  # uses your EDITOR on a MIDI::Perl dump
+ midiedit -v               # prints the Version number
+</pre>
+
+<a name="description"><HR></a>
+<h3>DESCRIPTION</h3>
+<p>
+<B>Midiedit</B> is a MIDI-file editor which now (since version 1.3)
+has a choice of two user-interface modes.
+</p><p>
+In <A HREF="#curses_mode">the new default mode</A>,
+it uses <I>Curses</I> to offer a purpose-designed user-interface
+and <I>MIDI::ALSA</I> to play the notes to your synth.
+</p><p>
+In <A HREF="#dump_mode">the older lower-tech mode</A>,
+it uses your favourite text-editor to edit the human-readable text-format
+provided by <I>MIDI::Perl</I>'s $opus-&gt;dump function.
+</p>
+
+<a name="curses_mode"><HR></a>
+<h3>CURSES MODE</h3>
+<p>
+In the Curses mode, which is the default, <I>midiedit</I>
+edits a MIDI file with a purpose-designed user-interface
+which re-uses some keystrokes inspired by <I>vi</I>,
+e.g.: &nbsp; <B>i</B>=insert &nbsp; <B>m</B>=mark &nbsp; <B>g</B>=goto &nbsp;
+<B>k/Up/j/Down</B>=+-1event &nbsp;
+<B>u</B>=undo &nbsp; <B>^R</B>=redo  &nbsp;
+<B>/</B>=find &nbsp; <B>?</B>=reversefind &nbsp;
+<B>n</B>=findnext &nbsp; <B>N</B>=findprevious &nbsp;
+<B>w</B>=write &nbsp; <B>q</B>=quit &nbsp;
+<B>.</B>=last_edit_again, &nbsp;
+plus a few others, e.g.: &nbsp;
+<B>e</B>=edit_event &nbsp; <B>D</B>=delete_event &nbsp;
+<B>R</B>=define_a_range &nbsp; <B>r</B>=operate_on_that_range &nbsp;
+<B>f</B>=file_operations &nbsp; and
+<B>z</B>=all_sounds_off.
+</p><p>
+Inspired by <I>mplayer</I>, the <B>spacebar</B> toggles between Play and Pause,
+the <B>Left</B> and <B>Right</B> arrow keys move by 1 second,
+the <B>PageUp</B> and <B>PageDown</B> keys move by 10 seconds,
+and the <B>Home</B> and <B>End</B> keys move to the start and end of the file,
+and <B>[</B> and <B>]</B> or <B>{</B> and <B>}</B> change the Replay-speed.
+The available keystrokes are displayed in the bottom four lines of the screen.
+</p><p>
+The events are displayed in <B>note</B>-form, i.e. with a start-time
+and a duration. There are no separate note_on and note_off events,
+which solves the matching-ons-and-offs problem.
+All times are displayed in milliseconds.
+</p><p>
+The start-times can be displayed
+either as incremental times (since the previous event),
+or as absolute times (since the beginning).
+The <B>+</B> and <B>-</B> keys switch between these modes;
+the default mode is incremental.
+The behaviour of Edit, Insert and Delete adapts to the display-mode;
+for example with incremental times, deleting a note shortens the
+whole file by the deleted millisecond increment,
+but with absolute times deleting a note just removes that note
+and leaves the duration of the whole file unchanged.
+</p><p>
+Since <A HREF="#changes">version 3.0</A>,
+&nbsp; <B>/</B>=find also allows search criteria
+such as <B>&gt;62</B> or <B>&lt;25</B> or <B>&gt;=60</B>
+or <B>&lt;=72</B> or <B>!=9</B> or <B>&gt;59&amp;&lt;73</B>
+which, when combined with <B>.</B>=repeat_last_edit,
+make it easier to do things like
+"move that high bit of the piano solo into a different channel".
+</p><p>
+Since <A HREF="#changes">version 4.5</A>,
+a <I>Range</I> can be defined
+by pressing upper-case <B>R</B> once at each end of the desired range.
+Once defined, the <I>Range</I> can be operated on,
+using a lower-case <B>r</B>, in various ways<BR>
+( <B>c</B>=<A HREF="midisox.html#compand">compand</A>
+ <B>d</B>=delete
+ <B>f</B>=<A HREF="midisox.html#fade">fade</A>
+ <B>m</B>=<A HREF="midisox.html#mixer">mixer</A>
+ <B>p</B>=<A HREF="midisox.html#pitch">pitch</A>
+ <B>q</B>=<A HREF="midisox.html#quantise">quantise</A>
+ <B>r</B>=<A HREF="midisox.html#repeat">repeat</A>
+ <B>t</B>=<A HREF="midisox.html#tempo">tempo</A>
+ <B>v</B>=<A HREF="midisox.html#vol">vol</A>
+ <B>w</B>=write_to_file )<BR>
+largely modelled on the corresponding
+<I><A HREF="midisox.html#effects">midisox</A></I> effects.
+For details of what the <I>compand</I> effect does, see :<BR><CODE>
+ &nbsp; <A HREF="midisox.html#compand">midisox --help-effect=compand</A></CODE><BR>
+<B>f</B>=fade is currently unimplemented.
+</p><p>
+This user-interface is likely to evolve over the next months,
+as I use it more.
+</p><p>
+You can specify your choice of synth
+at the command line with a <B>-o&nbsp;128:0</B> option,
+or else with the <I>ALSA_OUTPUT_PORTS</I> environment variable.
+The special value <B>-o&nbsp;0</B> silences the output
+(e.g. you might want to edit something while listening to something else).
+&nbsp;
+Since <A HREF="#changes">Version 2.4</A>,
+you may supply a comma-separated list of ports, e.g.
+<B>-o&nbsp;Roland,TiMidity:1</B>
+</p><p>
+As well as the <I>MIDI-Perl</I> CPAN module,
+this mode also uses the <I>Curses</I> module for the user-interface,
+and the <I>MIDI::ALSA</I> module to play the file to your synth.
+The user-interface is likely to evolve over the next months.
+</p>
+
+<a name="dump_mode"><HR></a>
+<h3>DUMP MODE</h3>
+<p>
+In the older, low-tech <B>-d</B> mode, <I>midiedit</I>
+edits a MIDI file in the human-readable text-format
+provided by <I>MIDI::Perl</I>'s $opus-&gt;dump function.
+</p><p>
+<CODE>perldoc MIDI::Event</CODE> &nbsp;
+documents the format in which the various MIDI-events are represented.
+They are represented with incremental times (in ticks) and
+with separate note_on and note_off events,
+so you have to keep track of matching note_ons and note_offs.
+</p><p>
+The text format representing the MIDI is executable Perl source,
+so as you edit, you should preserve valid Perl syntax.
+If the edited file has syntax errors,
+you will be asked if you want to re-edit it,
+and if you reply <I>No</I> then the original file will not get over-written.
+</p><p>
+If you've changed the text, and then decide you want to quit without
+overwriting the MIDI file, then you have to deliberately mess up
+the Perl syntax (e.g. make sure the brackets are unbalanced).
+</p>
+<a name="download"><HR></a>
+<h3>DOWNLOAD</h3><p>
+The current version of <i>midiedit</i> is available by http at
+<A HREF="free/midiedit">
+www.pjb.com.au/midi/free/midiedit</A><BR>
+To install <i>midiedit</i>, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+</p>
+<a name="changes"><hr></a>
+<h3>CHANGES</h3>
+<p>
+<BR><B>6.5</B>, 20140703,
+ display_events controller_change events display GM controller-names
+<BR><B>6.4</B>, 20140702,
+ display_events patch_change events display GM patch-names
+<BR><B>6.3</B>, 20140612,
+ ask_filename handles backspace, range_write will not overwrite
+<BR><B>6.2</B>, 20140611,
+ File Include works corresponding to range_write,
+ filename-completion gets its trailing space stripped, and
+ range_write appends a marker to represent time-to-next-note
+<BR><B>6.1</B>, 20140610, range_write no longer has big pause at the start
+<BR><B>6.0</B>, 20130404, display_events remembers the Ped/* state by channel
+<BR><B>5.9</B>, 20130323, find_marker with null text finds the next marker
+<BR><B>5.8</B>, 20130321, bug fixed in range_quantise, as in version 5.4 of
+<A HREF="midisox.html#changes">midisox</A>
+<BR><B>5.7</B>, 20130302, range_repeat moves cursor down
+ if it lay after RangeEnd
+<BR><B>5.6</B>, 20130301, range_delete moves cursor up
+ if it lay after RangeEnd
+<BR><B>5.5</B>, 20130218, u=undo and ^R=redo seem to work
+<BR><B>5.4</B>, 20121028, replay_setup outputs bankchange before the patchchange
+<BR><B>5.3</B>, 20121001, replay_setup (and hence time_travel)
+ works both forwards and backwards
+<BR><B>5.2</B>, 20120930, KEY_UP uses event_travel() to cope with dt=0
+<BR><B>5.1</B>, 20120930, works with MIDI::ALSA 1.15; PolyOn=127 fixed
+<BR><B>5.0</B>, 20120916, edit_event uses p=pitch not n=note,
+to avoid conflict with n=find_next
+<BR><B>4.9</B>, 20120910, f=file_menu: f=fork n=new s=save q=quit
+<BR><B>4.8</B>, 20120908, KEY_UP uses time-travel(),
+ so as to get the right patch
+<BR><B>4.7</B>, 20120903, display_events clears lines after EOF;
+ needed by range_delete
+<BR><B>4.6</B>, 20120628, rw = range_write now works
+<BR><B>4.5</B>, 20120624, R and r range-operations largely work
+<BR><B>4.4</B>, 20120613, event-fields correctly displayed also in edit-mode
+<BR><B>4.3</B>, 20120612, more consistent redo and undo;
+ find_event uses time_travel
+<BR><B>4.2</B>, 20120609, can search for long gaps /l or short gaps /s
+<BR><B>4.1</B>, 20120608, becomes Paused at EOF; channel,note in bold if note-on
+<BR><B>4.0</B>, 20120604, j,k keys also available in Edit Mode
+<BR><B>3.9</B>, 20120604, '.'=repeat also offered in Edit Mode, if applicable
+<BR><B>3.8</B>, 20120604, find offers s=short_gap, l=long_gap
+ and t=time (==go_to)
+<BR><B>3.7</B>, 20120604, '.' repeats also edit of dt if IncrementalTimes
+<BR><B>3.6</B>, 20120529, tracks shorter than screen-height don't get extended
+with nulls
+<BR><B>3.5</B>, 20120527, add g = go_to()
+<BR><B>3.4</B>, 20120525, displays most recent Ped and *
+<BR><B>3.3</B>, 20120510, displays currently on notes
+<BR><B>3.2</B>, 20120502, can now insert bank_change (= 2 control_changes)
+<BR><B>3.1</B>, 20120326, ] and [ or } and { change the ReplaySpeed
+<BR><B>3.0</B>, 20120110,
+ find_match offers find &gt;5&amp;&lt;15&amp;!=9 searches
+<BR><B>2.9</B>, 20120108, '.' repeats last edit (if event-types match)
+<BR><B>2.8</B>, 20111126, find works if cha=0 or value=0
+<BR><B>2.7</B>, 20111107, edit_event dialogue updated as changes are made
+<BR><B>2.6</B>, 20111103, uses
+<A HREF="../comp/lua/midialsa.html#parse_address">the new MIDI-ALSA 1.11</A>
+ to handle ALSA-ports by their names
+<BR><B>2.5</B>, 20111029, column-titles better reflect the event-types
+<BR><B>2.4</B>, 20111028, the OutputPort can be a comma-separated list
+<BR><B>2.3</B>, 20111027, merges multiple tracks; z=all_sounds_off
+<BR><B>2.2</B>, 20111027, entering PAUSED mode causes all_sounds_off
+<BR><B>2.1</B>, 20111027, displays note-string in main window
+<BR><B>2.0</B>, 20111027, doesn't try to connect if $OutputPort undefined or "0"
+<BR><B>1.9</B>, 20111022, Phaser Depth and Poly On displayed correctly
+<BR><B>1.8</B>, 20111021, displays notes with ~ and _ correctly
+<BR><B>1.7</B>, 20110926, handles non-millisec-tick files correctly
+<BR><B>1.6</B>, 20110917, in edit-mode, display_this_event shows the changes
+as they are made
+<BR><B>1.5</B>, 20110910, Up/Down in edit-mode play the new note
+<BR><B>1.4</B>, 20110909, in edit mode, Up and Down don't leave edit-mode
+<BR><B>1.3</B>, 20110820, the new Curses app is the default
+<BR><B>1.2</B>, 20110708, displays helpful comments
+<BR><B>1.1</B>, 20060728, first working version
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>
+Based on the
+<B><A HREF="http://search.cpan.org/perldoc?MIDI">MIDI::Perl</A></B>
+and
+<B><A HREF="http://search.cpan.org/perldoc?Curses">Curses</A></B>
+and 
+<B><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></B>
+CPAN modules.<BR>
+The non-Curses mode also uses Peter Billam's
+<B><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></B>
+CPAN module.
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<A HREF="http://search.cpan.org/perldoc?MIDI">
+search.cpan.org/perldoc?MIDI</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Curses">
+search.cpan.org/perldoc?Curses</A><BR>
+<A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">
+search.cpan.org/perldoc?MIDI::ALSA</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Term::Clui">
+search.cpan.org/perldoc?Term::Clui</A><BR>
+<a href="http://search.cpan.org/~sburke">search.cpan.org/~sburke</a><BR>
+<a href="http://search.cpan.org/~pjb">search.cpan.org/~pjb</a><BR>
+<a href="bassline.html">www.pjb.com.au/midi/bassline.html</a><BR>
+<a href="mididump.html">www.pjb.com.au/midi/mididump.html</a><BR>
+<a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
+<a href="midisox.html">www.pjb.com.au/midi/midisox.html</a><BR>
+<a href="musicxml2mid.html">www.pjb.com.au/midi/musicxml2mid.html</a><BR>
+<a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+</p>
+</DIV>
+</body>
+
+</html>

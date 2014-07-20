@@ -1,0 +1,387 @@
+<HTML><HEAD><TITLE>WalshTransform.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="Hadamard Transform, Perl, Lua, Walsh Transform">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>WalshTransform.lua</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+
+<!-- INDEX BEGIN -->
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#mathematics">MATHEMATICS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+    <li><a href="#installation">INSTALLATION</a></li>
+    <li><a href="#perl">PERL</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#references">REFERENCES</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+
+<!-- INDEX END -->
+<p>
+</p>
+<hr />
+<h2><a name="name">NAME</a></h2>
+<p>WalshTransform.lua - Fast Hadamard and Walsh Transforms</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local WT = require 'WalshTransform' -- name doesn't matter of course
+ local f = {1.618, 2.718, 3.142, 4.669}  -- must be power-of-two long
+ local FH1 = WT.fht(f)   -- Hadamard transform
+ local fh2 = WT.fhtinv(FH1)
+ -- or
+ local FW2 = WT.fwt(f)   -- Walsh transform
+ local fw2 = WT.fwtinv(FW2)
+ local FH2 = WT.walsh2hadamard(FW2)</pre>
+<pre>
+ local PS  = WT.power_spectrum(f)</pre>
+<pre>
+ local whats_going_on = WT.biggest(9,WT.fwt(WT.sublist(time_series,-16)))
+ local EVENT1 = WT.fwt(WT.sublist(time_series,478,16))
+ local EVENT2 = WT.fwt(WT.sublist(time_series,2316,16))
+ local EVENT3 = WT.fwt(WT.sublist(time_series,3261,16))
+ EVENT1[1]=0.0; EVENT2[1]=0.0; EVENT3[1]=0.0 -- ignore constant
+ EVENT1 = WT.normalise(EVENT1) -- ignore scale
+ EVENT2 = WT.normalise(EVENT2)
+ EVENT3 = WT.normalise(EVENT3)
+ local TYPICAL_EVENT = WT.average(EVENT1, EVENT2, EVENT3)
+ ...
+ local NOW = WT.fwt(WT.sublist(time_series,-16))
+ NOW[1] = 0.0
+ NOW = WT.normalise(NOW)
+ if WT.distance(NOW, TYPICAL_EVENT) &lt; .28 then get_worried() end</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>These routines implement fast Hadamard and Walsh Transforms
+and their inverse transforms.</p>
+<p>Also included are routines
+for converting a Hadamard to a Walsh transform and vice versa,
+for calculating the Logical Convolution of two lists,
+or the Logical Autocorrelation of a list,
+and for calculating the Walsh Power Spectrum -
+in short, almost everything you ever wanted to do with a Walsh Transform.</p>
+<p>Intelligible speech can be reconstructed by transforming
+blocks of, say, 64 samples, deleting all but the several largest
+transform components, and inverse-transforming;
+in other words, these transforms extract from a time-series
+the most significant things that are going on.
+They should be useful for <strong>noticing important things</strong>,
+for example in software that monitors time-series data such as
+system or network administration data, share-price, currency,
+ecological, opinion poll, process management data, and so on.</p>
+<p>Not yet included are multi-dimensional Hadamard and Walsh Transforms,
+conversion between Logical and Arithmetic Autocorrelation Functions,
+or conversion between the Walsh Power Spectrum and the Fourier Power Spectrum.</p>
+<p>Version 1.17</p>
+<p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2>
+<dl>
+<dt><strong><a name="fht" class="item"><em>fht</em>(f)</a></strong></dt>
+
+<dd>
+<p>The argument <em>f</em> is the list of values to be transformed.
+The number of values must be a power of 2.
+<em>fht</em> returns a list <em>F</em> of the Hadamard transform.</p>
+</dd>
+<dt><strong><a name="fhtinv" class="item"><em>fhtinv</em>(F)</a></strong></dt>
+
+<dd>
+<p>The argument <em>F</em> is the list of values to be inverse-transformed.
+The number of values must be a power of 2.
+<em>fhtinv</em> returns a list <em>f</em> of the inverse Hadamard transform.</p>
+</dd>
+<dt><strong><a name="fwt" class="item"><em>fwt</em>(f)</a></strong></dt>
+
+<dd>
+<p>The argument <em>f</em> is the list of values to be transformed.
+The number of values must be a power of 2.
+<em>fwt</em> returns a list <em>F</em> of the Walsh transform.</p>
+</dd>
+<dt><strong><a name="fwtinv" class="item"><em>fwtinv</em>(F)</a></strong></dt>
+
+<dd>
+<p>The argument <em>F</em> is the list of values to be inverse-transformed.
+The number of values must be a power of 2.
+<em>fwtinv</em> returns a list <em>f</em> of the inverse Walsh transform.</p>
+</dd>
+<dt><strong><a name="walsh2hadamard" class="item"><em>walsh2hadamard</em>(F)</a></strong></dt>
+
+<dd>
+<p>The argument <em>F</em> is a Walsh transform;
+<em>walsh2hadamard</em> returns a list of the corresponding Hadamard transform.</p>
+</dd>
+<dt><strong><a name="hadamard2walsh" class="item"><em>hadamard2walsh</em>(F)</a></strong></dt>
+
+<dd>
+<p>The argument <em>F</em> is a Hadamard transform;
+<em>hadamard2walsh</em> returns a list of the corresponding Walsh transform.</p>
+</dd>
+<dt><strong><a name="logical_convolution" class="item"><em>logical_convolution(x, y)</em></a></strong></dt>
+
+<dd>
+<p>The arguments are references to two arrays of values <em>x</em> and <em>y</em>
+which must both be of the same size which must be a power of 2.
+<em>logical_convolution</em> returns a list of the logical (or dyadic) convolution
+of the two sets of values.  See the MATHEMATICS section ...</p>
+</dd>
+<dt><strong><a name="logical_autocorrelation" class="item"><em>logical_autocorrelation(x)</em></a></strong></dt>
+
+<dd>
+<p>The argument is a list of values <em>x</em>;
+the number of values must be a power of 2.
+<em>logical_autocorrelation</em> returns a list of the logical (or dyadic)
+autocorrelation of the set of values.  See the MATHEMATICS section ...</p>
+</dd>
+<dt><strong><a name="power_spectrum" class="item"><em>power_spectrum(x)</em></a></strong></dt>
+
+<dd>
+<p>The argument is a list of values <em>x</em>;
+the number of values must be a power of 2.
+<em>power_spectrum</em> returns a list of the Walsh Power Spectrum
+of the set of values.  See the MATHEMATICS section ...</p>
+</dd>
+<dt><strong><a name="biggest" class="item"><em>biggest(k, x)</em></a></strong></dt>
+
+<dd>
+<p>The first argument <em>k</em> is the number of elements of the array <em>x</em>
+which will be conserved;
+<em>biggest</em> returns an array in which the biggest <em>$k</em> elements
+are intact and in place, and the other elements are set to zero.
+If <em>$k</em> is 0 or negative, then <em>biggest</em> returns an array in which
+all elements less than the average (absolute) size have been set to zero.</p>
+</dd>
+<dt><strong><a name="sublist" class="item"><em>sublist(array, offset, length)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns a part of the <em>array</em> without,
+as <em>splice</em> does, munging the original array.
+It applies to arrays the same sort of syntax that Perl's
+<em>substr</em> applies to strings;
+the sublist is extracted starting at <em>offset</em> elements from the front
+of the array; if <em>offset</em> is negative the sublist starts that far from the
+end of the array instead; if <em>length</em> is omitted, everything to the end
+of the array is returned; if <em>length</em> is negative, the length is
+calculated to leave that many elements off the end of the array.</p>
+</dd>
+<dt><strong><a name="distance" class="item"><em>distance(array1, array2)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns the distance between the two arrays,
+according to the Euclidian Metric;
+in other words, the square root of the sum of the squares
+of the differences between the corresponding elements.</p>
+</dd>
+<dt><strong><a name="size" class="item"><em>size(array)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns the distance between the array and an array of zeroes,
+according to the Euclidian Metric;
+in other words, the square root of the sum of the squares of the elements.</p>
+</dd>
+<dt><strong><a name="normalise" class="item"><em>normalise(array)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns an array scaled so that its <em>size</em> is 1.0</p>
+</dd>
+<dt><strong><a name="average" class="item"><em>average(array1, array2, ... arrayN)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns an array in which each element is the average
+of the corresponding elements of all the argument arrays.</p>
+</dd>
+<dt><strong><a name="product" class="item"><em>product(array1, array2)</em></a></strong></dt>
+
+<dd>
+<p>This routine returns an array in which each element is the product
+of the corresponding elements of the argument arrays.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h2><a name="mathematics">MATHEMATICS</a></h2>
+<p>The Hadamard matrix is a square array of plus and minus ones,
+whose rows and columns are orthogonal to each other.
+Hence, the product of the matrix and its tranpose
+is the identity matrix times a constant <em>N</em> which is equal to the
+order of the matrix.
+If <em>N</em> is a power of two, symmetrical Hadamard matrices can
+be defined recursively:</p>
+<pre>
+         | 1  1 |
+ Had   = |      |
+    2    | 1 -1 |</pre>
+<pre>
+         | Had   Had  |
+         |    N     N |
+ Had   = |            |
+    2N   | Had  -Had  |
+         |    N     N |</pre>
+<p>Each row of the Hadamard matrix corresponds to
+a Hadamard Function <em>Had(j,k)</em> where j = 0...N-1</p>
+<p>Another way to describe a Hadamard matrix of dimension 2^N x 2^N is
+that the entry in row i and column j is (-1)^P, where P is the number
+of positions in which the binary expansion of i and j share a 1.
+From this definition it is immediate that the last row (and column) is a
+Thue-Morse (or Morse-Thue) sequence, and also that rows that are of the
+form 2^N - 2^j will be j-fold repetitions of the Thue-Morse sequence.</p>
+<p>The upper half of the Hadamard matrix are cycles of increasing
+wavelengths, and the lower half are Morse-Thue sequences on
+decreasing cell-sizes, much as the components of a
+Fourier analysis are sine-waves of different wavelengths.</p>
+<p>The Walsh matrix is derived from the Hadamard matrix by rearranging the rows
+so that the number of sign-changes is in increasing order.  Each row of the
+Walsh matrix corresponds to a Walsh Function <em>Wal(j,k)</em> where j = 0...N-1</p>
+<p>The one-dimensional Hadamard transform pair is defined by</p>
+<pre>
+ F(j) = (1/N) * Sigma f(k)*Had(j,k)
+ f(j) = Sigma F(k)*Had(j,k)</pre>
+<p>and the one-dimensional Walsh transform pair is defined by</p>
+<pre>
+ F(j) = (1/N) * Sigma f(k)*Wal(j,k)
+ f(j) = Sigma F(k)*Wal(j,k)</pre>
+<p>The two transforms are equivalent, and conversion between them
+only involves rearranging the order of the components.
+Since the Walsh functions are in order of increasing number of sign-changes,
+the Walsh transform is more Fourier-like,
+and for that reason is used more often,
+although it does use several per-cent more CPU time.</p>
+<p>Because all the matrix elements are either 1 or -1,
+these transforms involve almost no multiplications
+and are computationally very efficient.</p>
+<p>The Logical (or Dyadic) Convolution of two arrays x and y is defined by</p>
+<pre>
+ z(k) = (1/N) * Sigma x(k^j)*y(j)</pre>
+<p>where the ^ is used in its Perl sense, to mean bitwise exclusive-or.
+There exists a Logical (or Dyadic) Convolution Theorem, analogous to the
+normal case, that the Walsh transform of the logical convolution of two
+sequences is the product of their Walsh transforms,
+and that the Walsh transform of the product of two sequences is the
+logical convolution of their Walsh transforms.</p>
+<p>Likewise there exists a Logical Wiener-Khintchine Theorem,
+stating that the Walsh Power Spectrum
+is the Walsh transform of the Logical Autocorrelation Function.</p>
+<p>There exist linear transformations converting
+between Logical Convolution and the normal Arithmetic Convolution,
+and between the Walsh Power Spectrum and the normal Fourier Power Spectrum.</p>
+
+<p>
+</p>
+<hr />
+<h2><a name="installation">INSTALLATION</a></h2><p>
+This module is available as a LuaRock in
+<A HREF="http://luarocks.org/repositories/rocks/index.html#math-walshtransform">
+luarocks.org/repositories/rocks</A><BR>
+so you should be able to install it with the command:
+<CODE> &nbsp; <B>luarocks install math-walshtransform</B></CODE>
+</p><p>
+The source is available in
+<A HREF="http://cpansearch.perl.org/src/PJB/Math-WalshTransform-1.17/lua/">
+cpansearch.perl.org/src/PJB/Math-WalshTransform-1.17/lua/</A>
+for you to install by hand in your LUA_PATH
+</p><p>
+</p>
+<hr />
+<h2><a name="perl">PERL</a></h2>
+<p>This module is the translation into <em>Lua</em> of
+<A HREF="http://search.cpan.org/perldoc?Math::WalshTransform">
+the <em>Perl</em> CPAN module Math::WalshTransform,</A>
+and comes in its <code>./lua</code> subdirectory.
+The calling-interfaces are identical in both versions.</p>
+
+<p>
+</p>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter J Billam, www.pjb.com.au/comp/contact.html</p>
+<p>
+</p>
+<hr />
+<h2><a name="references">REFERENCES</a></h2>
+<p><em>Walsh Spectrometry,
+a form of spectral analysis well suited to binary computation</em>,
+J. E. Gibbs,
+National Physical Lab, Teddington, Middlesex, England,
+unpublished, 1967</p>
+<p><em>Hadamard transform image encoding</em>,
+W. K. Pratt, J. Kane and H. C. Andrews,
+Proc. IEEE,
+Vol. 57, Jan 1969, pp. 58-68</p>
+<p><em>Walsh function generation</em>,
+D. A. Swick,
+IEEE Transactions on Information Theory (Corresp.),
+Vol. IT-15 part 1, Jan 1969, p. 167</p>
+<p><em>Computation of the Hadamard transform and the R-transform in ordered form</em>,
+L. J. Ulman,
+IEEE Trans. Comput. (Corresp.),
+Vol. C-19, Apr 1970, pp. 359-360</p>
+<p><em>Computation of the Fast Hadamard Transform</em>,
+Ying Shum and Ronald Elliot,
+Proc. Symp. Appl. Walsh Functions,
+Washington D.C., 1972, pp. 177-180</p>
+<p><em>Logical Convolution and Discrete Walsh and Fourier Power Spectra</em>,
+Guener Robinson,
+IEEE Transactions on Audio and Electroacoustics,
+Vol. AU-20 No. 4, October 1972, pp. 271-280</p>
+<p><em>Speech processing with Walsh-Hadamard Transforms</em>,
+Ying Shum, Ronald Elliot and Owen Brown,
+IEEE Transactions on Audio and Electroacoustics,
+Vol. AU-21 No. 3, June 1973, pp. 174-179</p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<UL><LI>
+<a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/">http://www.pjb.com.au/comp/</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::WalshTransform">
+Math::WalshTransform CPAN module</A>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/lua/RungeKutta.html">
+RungeKutta.lua</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::RungeKutta">
+Math::RungeKutta CPAN module</A>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/lua/Evol.html">
+Evol.lua</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::Evol">
+Math::Evol CPAN module</A>
+</LI><LI>
+<a href="http://en.wikipedia.org/wiki/Thue-Morse_sequence">http://en.wikipedia.org/wiki/Thue-Morse_sequence</a>
+</LI><LI>
+<a href="http://mathworld.wolfram.com/WalshTransform.html">http://mathworld.wolfram.com/WalshTransform.html</a>
+</LI><LI>
+<a href="http://arxiv.org/abs/nlin/0510009">http://arxiv.org/abs/nlin/0510009</a>
+</LI><LI>
+<a href="http://arxiv.org/abs/cs/0703057">http://arxiv.org/abs/cs/0703057</a>
+</LI></UL>
+
+</body></html>

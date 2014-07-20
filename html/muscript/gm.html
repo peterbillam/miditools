@@ -1,0 +1,450 @@
+<HTML><HEAD> <TITLE>General MIDI numbers</TITLE> </HEAD>
+<LINK rel=stylesheet type="text/css" href="styles.css" title="Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
+</HEAD><BODY LINK="#000066" VLINK="#000066" ALINK="#000066"><DIV>
+
+<H1>
+<IMG SRC="logo.gif" ALT=" " WIDTH=73 HEIGHT=32>
+<FONT COLOR="#800000">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B><I>
+<A NAME="top">General MIDI numbers</A>
+</I></B></FONT></H1>
+
+<TABLE align=center><TR><TD>
+<UL><LI>
+<A HREF="#patch">General MIDI patch numbers</A>
+</LI><LI>
+<A HREF="#perc">General MIDI Percussion (on Channel 9)</A>
+</LI><LI>
+<A HREF="#cc">MIDI Controller numbers</A>
+</LI><LI>
+<A HREF="#perl">How this information came from the MIDI Perl module</A>
+</LI><LI>
+<A HREF="gm2.html">Is this page too wide for your screen ? Here's a narrower version.</A>
+</LI></UL>
+</TD></TR></TABLE>
+
+<A NAME="patch"><HR></A>
+<H2>General MIDI patch numbers</H2>
+<TABLE ALIGN="center" COLS=4 CELLSPACING=0 CELLPADDING=0><TR>
+<TH>0&nbsp;&nbsp;&nbsp;</TH><TD> Acoustic Grand</TD>
+<TH>32&nbsp;&nbsp;&nbsp;</TH><TD> Acoustic Bass</TD>
+<TH>64&nbsp;&nbsp;&nbsp;</TH><TD> Soprano Sax</TD>
+<TH>96&nbsp;&nbsp;&nbsp;</TH><TD> FX 1 (rain)</TD>
+</TR><TR>
+<TH>1&nbsp;&nbsp;&nbsp;</TH><TD> Bright Acoustic</TD>
+<TH>33&nbsp;&nbsp;&nbsp;</TH><TD> Electric Bass(finger)&nbsp;&nbsp;</TD>
+<TH>65&nbsp;&nbsp;&nbsp;</TH><TD> Alto Sax</TD>
+<TH>97&nbsp;&nbsp;&nbsp;</TH><TD> FX 2 (soundtrack)</TD>
+</TR><TR>
+<TH>2&nbsp;&nbsp;&nbsp;</TH><TD> Electric Grand</TD>
+<TH>34&nbsp;&nbsp;&nbsp;</TH><TD> Electric Bass(pick)</TD>
+<TH>66&nbsp;&nbsp;&nbsp;</TH><TD> Tenor Sax</TD>
+<TH>98&nbsp;&nbsp;&nbsp;</TH><TD> FX 3 (crystal)</TD>
+</TR><TR>
+<TH>3&nbsp;&nbsp;&nbsp;</TH><TD> Honky-Tonk</TD>
+<TH>35&nbsp;&nbsp;&nbsp;</TH><TD> Fretless Bass</TD>
+<TH>67&nbsp;&nbsp;&nbsp;</TH><TD> Baritone Sax</TD>
+<TH>99&nbsp;&nbsp;&nbsp;</TH><TD> FX 4 (atmosphere)</TD>
+</TR><TR>
+<TH>4&nbsp;&nbsp;&nbsp;</TH><TD> Electric Piano 1</TD>
+<TH>36&nbsp;&nbsp;&nbsp;</TH><TD> Slap Bass 1</TD>
+<TH>68&nbsp;&nbsp;&nbsp;</TH><TD> Oboe</TD>
+<TH>100&nbsp;&nbsp;&nbsp;</TH><TD> FX 5 (brightness)</TD>
+</TR><TR>
+<TH>5&nbsp;&nbsp;&nbsp;</TH><TD> Electric Piano 2</TD>
+<TH>37&nbsp;&nbsp;&nbsp;</TH><TD> Slap Bass 2</TD>
+<TH>69&nbsp;&nbsp;&nbsp;</TH><TD> English Horn</TD>
+<TH>101&nbsp;&nbsp;&nbsp;</TH><TD> FX 6 (goblins)</TD>
+</TR><TR>
+<TH>6&nbsp;&nbsp;&nbsp;</TH><TD> Harpsichord</TD>
+<TH>38&nbsp;&nbsp;&nbsp;</TH><TD> Synth Bass 1</TD>
+<TH>70&nbsp;&nbsp;&nbsp;</TH><TD> Bassoon</TD>
+<TH>102&nbsp;&nbsp;&nbsp;</TH><TD> FX 7 (echoes)</TD>
+</TR><TR>
+<TH>7&nbsp;&nbsp;&nbsp;</TH><TD> Clav</TD>
+<TH>39&nbsp;&nbsp;&nbsp;</TH><TD> Synth Bass 2</TD>
+<TH>71&nbsp;&nbsp;&nbsp;</TH><TD> Clarinet</TD>
+<TH>103&nbsp;&nbsp;&nbsp;</TH><TD> FX 8 (sci-fi)</TD>
+</TR><TR>
+<TH>8&nbsp;&nbsp;&nbsp;</TH><TD> Celesta</TD>
+<TH>40&nbsp;&nbsp;&nbsp;</TH><TD> Violin</TD>
+<TH>72&nbsp;&nbsp;&nbsp;</TH><TD> Piccolo</TD>
+<TH>104&nbsp;&nbsp;&nbsp;</TH><TD> Sitar</TD>
+</TR><TR>
+<TH>9&nbsp;&nbsp;&nbsp;</TH><TD> Glockenspiel</TD>
+<TH>41&nbsp;&nbsp;&nbsp;</TH><TD> Viola</TD>
+<TH>73&nbsp;&nbsp;&nbsp;</TH><TD> Flute</TD>
+<TH>105&nbsp;&nbsp;&nbsp;</TH><TD> Banjo</TD>
+</TR><TR>
+<TH>10&nbsp;&nbsp;&nbsp;</TH><TD> Music Box</TD>
+<TH>42&nbsp;&nbsp;&nbsp;</TH><TD> Cello</TD>
+<TH>74&nbsp;&nbsp;&nbsp;</TH><TD> Recorder</TD>
+<TH>106&nbsp;&nbsp;&nbsp;</TH><TD> Shamisen</TD>
+</TR><TR>
+<TH>11&nbsp;&nbsp;&nbsp;</TH><TD> Vibraphone</TD>
+<TH>43&nbsp;&nbsp;&nbsp;</TH><TD> Contrabass</TD>
+<TH>75&nbsp;&nbsp;&nbsp;</TH><TD> Pan Flute</TD>
+<TH>107&nbsp;&nbsp;&nbsp;</TH><TD> Koto</TD>
+</TR><TR>
+<TH>12&nbsp;&nbsp;&nbsp;</TH><TD> Marimba</TD>
+<TH>44&nbsp;&nbsp;&nbsp;</TH><TD> Tremolo Strings</TD>
+<TH>76&nbsp;&nbsp;&nbsp;</TH><TD> Blown Bottle</TD>
+<TH>108&nbsp;&nbsp;&nbsp;</TH><TD> Kalimba</TD>
+</TR><TR>
+<TH>13&nbsp;&nbsp;&nbsp;</TH><TD> Xylophone</TD>
+<TH>45&nbsp;&nbsp;&nbsp;</TH><TD> Pizzicato Strings</TD>
+<TH>77&nbsp;&nbsp;&nbsp;</TH><TD> Shakuhachi</TD>
+<TH>109&nbsp;&nbsp;&nbsp;</TH><TD> Bagpipe</TD>
+</TR><TR>
+<TH>14&nbsp;&nbsp;&nbsp;</TH><TD> Tubular Bells</TD>
+<TH>46&nbsp;&nbsp;&nbsp;</TH><TD> Orchestral Harp</TD>
+<TH>78&nbsp;&nbsp;&nbsp;</TH><TD> Whistle</TD>
+<TH>110&nbsp;&nbsp;&nbsp;</TH><TD> Fiddle</TD>
+</TR><TR>
+<TH>15&nbsp;&nbsp;&nbsp;</TH><TD> Dulcimer</TD>
+<TH>47&nbsp;&nbsp;&nbsp;</TH><TD> Timpani</TD>
+<TH>79&nbsp;&nbsp;&nbsp;</TH><TD> Ocarina</TD>
+<TH>111&nbsp;&nbsp;&nbsp;</TH><TD> Shanai</TD>
+</TR><TR>
+<TH>16&nbsp;&nbsp;&nbsp;</TH><TD> Drawbar Organ</TD>
+<TH>48&nbsp;&nbsp;&nbsp;</TH><TD> String Ensemble 1</TD>
+<TH>80&nbsp;&nbsp;&nbsp;</TH><TD> Lead 1 (square)</TD>
+<TH>112&nbsp;&nbsp;&nbsp;</TH><TD> Tinkle Bell</TD>
+</TR><TR>
+<TH>17&nbsp;&nbsp;&nbsp;</TH><TD> Percussive Organ</TD>
+<TH>49&nbsp;&nbsp;&nbsp;</TH><TD> String Ensemble 2</TD>
+<TH>81&nbsp;&nbsp;&nbsp;</TH><TD> Lead 2 (sawtooth)</TD>
+<TH>113&nbsp;&nbsp;&nbsp;</TH><TD> Agogo</TD>
+</TR><TR>
+<TH>18&nbsp;&nbsp;&nbsp;</TH><TD> Rock Organ</TD>
+<TH>50&nbsp;&nbsp;&nbsp;</TH><TD> SynthStrings 1</TD>
+<TH>82&nbsp;&nbsp;&nbsp;</TH><TD> Lead 3 (calliope)</TD>
+<TH>114&nbsp;&nbsp;&nbsp;</TH><TD> Steel Drums</TD>
+</TR><TR>
+<TH>19&nbsp;&nbsp;&nbsp;</TH><TD> Church Organ</TD>
+<TH>51&nbsp;&nbsp;&nbsp;</TH><TD> SynthStrings 2</TD>
+<TH>83&nbsp;&nbsp;&nbsp;</TH><TD> Lead 4 (chiff)</TD>
+<TH>115&nbsp;&nbsp;&nbsp;</TH><TD> Woodblock</TD>
+</TR><TR>
+<TH>20&nbsp;&nbsp;&nbsp;</TH><TD> Reed Organ</TD>
+<TH>52&nbsp;&nbsp;&nbsp;</TH><TD> Choir Aahs</TD>
+<TH>84&nbsp;&nbsp;&nbsp;</TH><TD> Lead 5 (charang)</TD>
+<TH>116&nbsp;&nbsp;&nbsp;</TH><TD> Taiko Drum</TD>
+</TR><TR>
+<TH>21&nbsp;&nbsp;&nbsp;</TH><TD> Accordion</TD>
+<TH>53&nbsp;&nbsp;&nbsp;</TH><TD> Voice Oohs</TD>
+<TH>85&nbsp;&nbsp;&nbsp;</TH><TD> Lead 6 (voice)</TD>
+<TH>117&nbsp;&nbsp;&nbsp;</TH><TD> Melodic Tom</TD>
+</TR><TR>
+<TH>22&nbsp;&nbsp;&nbsp;</TH><TD> Harmonica</TD>
+<TH>54&nbsp;&nbsp;&nbsp;</TH><TD> Synth Voice</TD>
+<TH>86&nbsp;&nbsp;&nbsp;</TH><TD> Lead 7 (fifths)</TD>
+<TH>118&nbsp;&nbsp;&nbsp;</TH><TD> Synth Drum</TD>
+</TR><TR>
+<TH>23&nbsp;&nbsp;&nbsp;</TH><TD> Tango Accordion</TD>
+<TH>55&nbsp;&nbsp;&nbsp;</TH><TD> Orchestra Hit</TD>
+<TH>87&nbsp;&nbsp;&nbsp;</TH><TD> Lead 8 (bass+lead)&nbsp;&nbsp;</TD>
+<TH>119&nbsp;&nbsp;&nbsp;</TH><TD> Reverse Cymbal</TD>
+</TR><TR>
+<TH>24&nbsp;&nbsp;&nbsp;</TH>
+<TD> Acoustic Guitar(nylon)&nbsp;&nbsp;</TD>
+<TH>56&nbsp;&nbsp;&nbsp;</TH><TD> Trumpet</TD>
+<TH>88&nbsp;&nbsp;&nbsp;</TH><TD> Pad 1 (new age)</TD>
+<TH>120&nbsp;&nbsp;&nbsp;</TH><TD> Guitar Fret Noise</TD>
+</TR><TR>
+<TH>25&nbsp;&nbsp;&nbsp;</TH><TD> Acoustic Guitar(steel)</TD>
+<TH>57&nbsp;&nbsp;&nbsp;</TH><TD> Trombone</TD>
+<TH>89&nbsp;&nbsp;&nbsp;</TH><TD> Pad 2 (warm)</TD>
+<TH>121&nbsp;&nbsp;&nbsp;</TH><TD> Breath Noise</TD>
+</TR><TR>
+<TH>26&nbsp;&nbsp;&nbsp;</TH><TD> Electric Guitar(jazz)</TD>
+<TH>58&nbsp;&nbsp;&nbsp;</TH><TD> Tuba</TD>
+<TH>90&nbsp;&nbsp;&nbsp;</TH><TD> Pad 3 (polysynth)</TD>
+<TH>122&nbsp;&nbsp;&nbsp;</TH><TD> Seashore</TD>
+</TR><TR>
+<TH>27&nbsp;&nbsp;&nbsp;</TH><TD> Electric Guitar(clean)</TD>
+<TH>59&nbsp;&nbsp;&nbsp;</TH><TD> Muted Trumpet</TD>
+<TH>91&nbsp;&nbsp;&nbsp;</TH><TD> Pad 4 (choir)</TD>
+<TH>123&nbsp;&nbsp;&nbsp;</TH><TD> Bird Tweet</TD>
+</TR><TR>
+<TH>28&nbsp;&nbsp;&nbsp;</TH><TD> Electric Guitar(muted)</TD>
+<TH>60&nbsp;&nbsp;&nbsp;</TH><TD> French Horn</TD>
+<TH>92&nbsp;&nbsp;&nbsp;</TH><TD> Pad 5 (bowed)</TD>
+<TH>124&nbsp;&nbsp;&nbsp;</TH><TD> Telephone Ring</TD>
+</TR><TR>
+<TH>29&nbsp;&nbsp;&nbsp;</TH><TD> Overdriven Guitar</TD>
+<TH>61&nbsp;&nbsp;&nbsp;</TH><TD> Brass Section</TD>
+<TH>93&nbsp;&nbsp;&nbsp;</TH><TD> Pad 6 (metallic)</TD>
+<TH>125&nbsp;&nbsp;&nbsp;</TH><TD> Helicopter</TD>
+</TR><TR>
+<TH>30&nbsp;&nbsp;&nbsp;</TH><TD> Distortion Guitar</TD>
+<TH>62&nbsp;&nbsp;&nbsp;</TH><TD> SynthBrass 1</TD>
+<TH>94&nbsp;&nbsp;&nbsp;</TH><TD> Pad 7 (halo)</TD>
+<TH>126&nbsp;&nbsp;&nbsp;</TH><TD> Applause</TD>
+</TR><TR>
+<TH>31&nbsp;&nbsp;&nbsp;</TH><TD> Guitar Harmonics</TD>
+<TH>63&nbsp;&nbsp;&nbsp;</TH><TD> SynthBrass 2</TD>
+<TH>95&nbsp;&nbsp;&nbsp;</TH><TD> Pad 8 (sweep)</TD>
+<TH>127&nbsp;&nbsp;&nbsp;</TH><TD> Gunshot</TD>
+</TR></TABLE>
+<P>&nbsp;</P>
+
+<A NAME="perc"><HR></A>
+<H2>General MIDI Percussion (on Channel 9)</H2>
+<TABLE ALIGN="center" COLS=6 CELLSPACING=0 CELLPADDING=0>
+<TR><TH>Bass&nbsp;&nbsp;</TH><TH>KeyNum</TH><TH>Sound</TH><TD>&nbsp;</TD>
+<TH>Treble&nbsp;&nbsp;</TH><TH>KeyNum</TH><TH>Sound</TH></TR>
+<TR><TD>A_</TD><TD> 33</TD><TD> Metronome Click</TD>
+<TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD>&nbsp;</TD></TR>
+<TR><TD>B_b</TD><TD> 34</TD><TD> Metronome Bell</TD>
+<TD>&nbsp;</TD><TD>&nbsp;</TD></TR>
+<TR><TD>B_</TD><TD> 35</TD><TD> Acoustic Bass Drum</TD>
+<TD>&nbsp;</TD><TD>C</TD><TD> 60</TD><TD> Hi Bongo</TD></TR>
+<TR><TD>C</TD><TD> 36</TD><TD> Bass Drum 1</TD>
+<TD>&nbsp;</TD><TD>C#</TD><TD> 61</TD><TD> Low Bongo</TD></TR>
+<TR><TD>C#</TD><TD> 37</TD><TD> Side Stick</TD>
+<TD>&nbsp;</TD><TD>D</TD><TD> 62</TD><TD> Mute Hi Conga</TD></TR>
+<TR><TD>D</TD><TD> 38</TD><TD> Acoustic Snare</TD>
+<TD>&nbsp;</TD><TD>D#</TD><TD> 63</TD><TD> Open Hi Conga</TD></TR>
+<TR><TD>Eb</TD><TD> 39</TD><TD> Hand Clap</TD>
+<TD>&nbsp;</TD><TD>E</TD><TD> 64</TD><TD> Low Conga</TD></TR>
+<TR><TD>E</TD><TD> 40</TD><TD> Electric Snare</TD>
+<TD>&nbsp;</TD><TD>F</TD><TD> 65</TD><TD> High Timbale</TD></TR>
+<TR><TD>F</TD><TD> 41</TD><TD> Low Floor Tom</TD>
+<TD>&nbsp;</TD><TD>F#</TD><TD> 66</TD><TD> Low Timbale</TD></TR>
+<TR><TD>F#</TD><TD> 42</TD><TD> Closed Hi-Hat</TD>
+<TD>&nbsp;</TD><TD>G</TD><TD> 67</TD><TD> High Agogo</TD></TR>
+<TR><TD>G</TD><TD> 43</TD><TD> High Floor Tom</TD>
+<TD>&nbsp;</TD><TD>G#</TD><TD> 68</TD><TD> Low Agogo</TD></TR>
+<TR><TD>G#</TD><TD> 44</TD><TD> Pedal Hi-Hat</TD>
+<TD>&nbsp;</TD><TD>A</TD><TD> 69</TD><TD> Cabasa</TD></TR>
+<TR><TD>A</TD><TD> 45</TD><TD> Low Tom</TD>
+<TD>&nbsp;</TD><TD>Bb</TD><TD> 70</TD><TD> Maracas</TD></TR>
+<TR><TD>Bb</TD><TD> 46</TD><TD> Open Hi-Hat</TD>
+<TD>&nbsp;</TD><TD>Bn</TD><TD> 71</TD><TD> Short Whistle</TD></TR>
+<TR><TD>Bn</TD><TD> 47</TD><TD> Low-Mid Tom</TD>
+<TD>&nbsp;</TD><TD>c</TD><TD> 72</TD><TD> Long Whistle</TD></TR>
+<TR><TD>c</TD><TD> 48</TD><TD> Hi-Mid Tom</TD>
+<TD>&nbsp;</TD><TD>c#</TD><TD> 73</TD><TD> Short Guiro</TD></TR>
+<TR><TD>c#</TD><TD> 49</TD><TD> Crash Cymbal 1</TD>
+<TD>&nbsp;</TD><TD>d</TD><TD> 74</TD><TD> Long Guiro</TD></TR>
+<TR><TD>d</TD><TD> 50</TD><TD> High Tom</TD>
+<TD>&nbsp;</TD><TD>d#</TD><TD> 75</TD><TD> Claves</TD></TR>
+<TR><TD>eb</TD><TD> 51</TD><TD> Ride Cymbal 1</TD>
+<TD>&nbsp;</TD><TD>e</TD><TD> 76</TD><TD> Hi Wood Block</TD></TR>
+<TR><TD>e</TD><TD> 52</TD><TD> Chinese Cymbal</TD>
+<TD>&nbsp;</TD><TD>f</TD><TD> 77</TD><TD> Low Wood Block</TD></TR>
+<TR><TD>f</TD><TD> 53</TD><TD> Ride Bell</TD>
+<TD>&nbsp;</TD><TD>f#</TD><TD> 78</TD><TD> Mute Cuica</TD></TR>
+<TR><TD>f#</TD><TD> 54</TD><TD> Tambourine</TD>
+<TD>&nbsp;</TD><TD>g</TD><TD> 79</TD><TD> Open Cuica</TD></TR>
+<TR><TD>g</TD><TD> 55</TD><TD> Splash Cymbal</TD>
+<TD>&nbsp;</TD><TD>g#</TD><TD> 80</TD><TD> Mute Triangle</TD></TR>
+<TR><TD>g#</TD><TD> 56</TD><TD> Cowbell</TD>
+<TD>&nbsp;</TD><TD>a</TD><TD> 81</TD><TD> Open Triangle</TD></TR>
+<TR><TD>a</TD><TD> 57</TD><TD> Crash Cymbal 2</TD>
+<TD>&nbsp;</TD><TD></TD><TD> 82</TD><TD> </TD></TR>
+<TR><TD>bb</TD><TD> 58</TD><TD> Vibraslap</TD>
+<TD>&nbsp;</TD><TD></TD><TD> 83</TD><TD> </TD></TR>
+<TR><TD>bn</TD><TD> 59</TD><TD> Ride Cymbal 2</TD>
+<TD>&nbsp;</TD><TD></TD><TD> 84</TD><TD> </TD></TR>
+</TABLE>
+<P>&nbsp;</P>
+
+<A NAME="cc"><HR></A>
+<H2>MIDI Controller numbers</H2>
+<TABLE ALIGN="center" COLS=4 CELLSPACING=0 CELLPADDING=0><TR>
+<TH>0&nbsp;&nbsp;&nbsp;</TH><TD> Bank Select (MSB)</TD>
+<TH>32&nbsp;&nbsp;&nbsp;</TH><TD> Bank Select (LSB)</TD>
+<TH>64&nbsp;&nbsp;&nbsp;</TH><TD> Sustain Pedal</TD>
+<TH>96&nbsp;&nbsp;&nbsp;</TH><TD> Data Increment</TD>
+</TR><TR>
+<TH>1&nbsp;&nbsp;&nbsp;</TH><TD> Modulation (MSB)</TD>
+<TH>33&nbsp;&nbsp;&nbsp;</TH><TD> Modulation (LSB)</TD>
+<TH>65&nbsp;&nbsp;&nbsp;</TH><TD> Portamento on/off</TD>
+<TH>97&nbsp;&nbsp;&nbsp;</TH><TD> Data Decrement</TD>
+</TR><TR>
+<TH>2&nbsp;&nbsp;&nbsp;</TH><TD> Breath Control (MSB)</TD>
+<TH>34&nbsp;&nbsp;&nbsp;</TH><TD> Breath Control (LSB)</TD>
+<TH>66&nbsp;&nbsp;&nbsp;</TH><TD> Sostenuto Pedal</TD>
+<TH>98&nbsp;&nbsp;&nbsp;</TH><TD> non-reg param lsb</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>67&nbsp;&nbsp;&nbsp;</TH><TD> Soft Pedal</TD>
+<TH>99&nbsp;&nbsp;&nbsp;</TH><TD> non-reg param msb</TD>
+</TR><TR>
+<TH>4&nbsp;&nbsp;&nbsp;</TH><TD> Foot Control (MSB)</TD>
+<TH>36&nbsp;&nbsp;&nbsp;</TH><TD> Foot Control (LSB)</TD>
+<TH>68&nbsp;&nbsp;&nbsp;</TH><TD> Legato Pedal</TD>
+<TH>100&nbsp;&nbsp;&nbsp;</TH><TD> Reg-Param (LSB)</TD>
+</TR><TR>
+<TH>5&nbsp;&nbsp;&nbsp;</TH><TD> Portamento Time MSB&nbsp;&nbsp;</TD>
+<TH>37&nbsp;&nbsp;&nbsp;</TH><TD> Portamento Time LSB&nbsp;&nbsp;</TD>
+<TH>69&nbsp;&nbsp;&nbsp;</TH><TD> Hold 2</TD>
+<TH>101&nbsp;&nbsp;&nbsp;</TH><TD> Reg-Param (MSB)</TD>
+</TR><TR>
+<TH>6&nbsp;&nbsp;&nbsp;</TH><TD> Data Entry (MSB)</TD>
+<TH>38&nbsp;&nbsp;&nbsp;</TH><TD> Data Entry (LSB)</TD>
+<TH>70&nbsp;&nbsp;&nbsp;</TH><TD> Sound Variation</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>7&nbsp;&nbsp;&nbsp;</TH><TD> Channel Volume MSB</TD>
+<TH>39&nbsp;&nbsp;&nbsp;</TH><TD> Channel Volume LSB</TD>
+<TH>71&nbsp;&nbsp;&nbsp;</TH><TD> Resonance</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>8&nbsp;&nbsp;&nbsp;</TH><TD> Balance (MSB)</TD>
+<TH>40&nbsp;&nbsp;&nbsp;</TH><TD> Balance (LSB)</TD>
+<TH>72&nbsp;&nbsp;&nbsp;</TH><TD> Release Time</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>73&nbsp;&nbsp;&nbsp;</TH><TD> Attack Time</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>10&nbsp;&nbsp;&nbsp;</TH><TD> Pan (MSB)</TD>
+<TH>42&nbsp;&nbsp;&nbsp;</TH><TD> Pan (LSB)</TD>
+<TH>74&nbsp;&nbsp;&nbsp;</TH><TD> Cut-off Frequency</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>11&nbsp;&nbsp;&nbsp;</TH><TD> Expression (MSB)</TD>
+<TH>43&nbsp;&nbsp;&nbsp;</TH><TD> Expression (LSB)</TD>
+<TH>75&nbsp;&nbsp;&nbsp;</TH><TD> Decay Time</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>12&nbsp;&nbsp;&nbsp;</TH><TD> Effects Controller 1</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>76&nbsp;&nbsp;&nbsp;</TH><TD> Vibrato Rate</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>13&nbsp;&nbsp;&nbsp;</TH><TD> Effects Controller 2</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>77&nbsp;&nbsp;&nbsp;</TH><TD> Vibrato Depth</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TH><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>78&nbsp;&nbsp;&nbsp;</TH><TD> Vibrato Delay</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>16&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 1 (MSB)</TD>
+<TH>48&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 1 (LSB)</TD>
+<TH>80&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 5</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>17&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 2 (MSB)</TD>
+<TH>49&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 2 (LSB)</TD>
+<TH>81&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 6</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>18&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 3 (MSB)</TD>
+<TH>50&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 3 (LSB)</TD>
+<TH>82&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 7</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TH>19&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 4 (MSB)</TD>
+<TH>51&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 4 (LSB)</TD>
+<TH>83&nbsp;&nbsp;&nbsp;</TH><TD> Gen Purpose 8</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>84&nbsp;&nbsp;&nbsp;</TH><TD> Portamento Control</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>120&nbsp;&nbsp;&nbsp;</TH><TD> All Sound Off</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>121&nbsp;&nbsp;&nbsp;</TH><TD> Reset All  Controllers</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>122&nbsp;&nbsp;&nbsp;</TH><TD> Local Control</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>91&nbsp;&nbsp;&nbsp;</TH><TD> Reverb Depth</TD>
+<TH>123&nbsp;&nbsp;&nbsp;</TH><TD> All Notes Off</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>92&nbsp;&nbsp;&nbsp;</TH><TD> Tremolo Depth</TD>
+<TH>124&nbsp;&nbsp;&nbsp;</TH><TD> Omni Off</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>93&nbsp;&nbsp;&nbsp;</TH><TD> Chorus Depth</TD>
+<TH>125&nbsp;&nbsp;&nbsp;</TH><TD> Omni On</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>94&nbsp;&nbsp;&nbsp;</TH><TD> Celeste (De-tune)</TD>
+<TH>126&nbsp;&nbsp;&nbsp;</TH><TD> Mono On (Poly Off)</TD>
+</TR><TR>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TD>&nbsp;</TD><TD> &nbsp;</TD>
+<TH>95&nbsp;&nbsp;&nbsp;</TH><TD> Phaser Depth</TD>
+<TH>127&nbsp;&nbsp;&nbsp;</TH><TD> Poly On (Mono Off)</TD>
+</TR></TABLE><P>
+Controller numbers 64 to 69 are ON/OFF;
+if the 3rd byte is 64 or greater that means ON.
+</P><P>
+To set a Registered Parameter,
+first send controllers 101 and 100 with the required Number,
+then send controllers 6 and 38 with the two bytes of data,
+then send controllers 101 and 100 with the numbers 127.<BR>
+Some useful Registered Parameters are:
+<BR>Pitch Bend Sensitivity:
+cc101=0, cc100=0, cc6=0..24 semitones, cc38=0, cc101=127, cc100=127
+<BR>Modulation Depth Range:
+cc101=0, cc100=5, cc6=0..6, cc38=0..127, cc101=127, cc100=127
+</P>
+
+<A NAME="perl"><HR></A>
+The patches and percussion lists came from the
+<A HREF="http://search.cpan.org/perldoc?MIDI">MIDI-Perl</A>
+module (you need to install MIDI-Perl anyway, to
+<A HREF="index.html#download">get muscript's MIDI output working</A>)
+using a little Perl script such as the following&nbsp;.&nbsp;.&nbsp;.
+<PRE>#! /usr/bin/perl
+use MIDI;
+print "\nGeneral MIDI patch numbers:\n";
+foreach (sort {$a<=>$b} keys %MIDI::number2patch) {
+   print "$_ $MIDI::number2patch{$_}\n";
+}
+print "\nGeneral MIDI Percussion (on Channel 9):\n";
+foreach (sort {$a<=>$b} keys %MIDI::notenum2percussion) {
+   print "$_ $MIDI::notenum2percussion{$_}\n";
+}
+</PRE>
+
+<HR>
+
+<CENTER><P><I>
+See also: &nbsp;
+<A HREF="http://www.pjb.com.au">www.pjb.com.au</A> &nbsp;
+<A HREF="http://www.pjb.com.au/midi/index.html">www.pjb.com.au/midi</A> &nbsp;
+<A HREF="http://www.pjb.com.au/muscript/index.html">
+www.pjb.com.au/muscript</A>
+</I></P></CENTER>
+</DIV></BODY></HTML>

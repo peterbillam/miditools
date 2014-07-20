@@ -1,0 +1,208 @@
+<HTML><HEAD><TITLE>midiclick</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midiclick</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#requirements">REQUIREMENTS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>midiclick - generates a metronome click-track on MIDI channel 9
+</p>
+
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ &nbsp; midiclick -t 108           # tempo is (starts at) 108 beats/min
+ &nbsp; midiclick -t 108 -b 4      # Four beats in a bar
+ &nbsp; midiclick -Q -t 108 -b 4   # Quiet mode; no User-Interface
+ &nbsp; midiclick -o 14:1 -t 108   # Output to ALSA-port 14:1
+ &nbsp; midiclick -p               # Starts up in Paused mode
+ &nbsp; xterm -g 80x7-1+1 -exec 'midiclick -t 165 -b 5' &amp;
+ &nbsp; perldoc midiclick
+
+ &nbsp; ~&gt; midiclick -o 128:0 -t 144 -b 5
+ &nbsp; ALSA client 129                midiclick pid=2157
+ &nbsp; Output port 129:1 is connected to 128:0
+ &nbsp; Tempo 144 beats/min            BarLength 5 beats
+ &nbsp; Playing                        Volume 100
+ &nbsp; _
+ &nbsp;  t=Tempo  b=Barlength  &lt;spacebar&gt;=PAUSE  v=Volume  q=Quit
+</pre>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3>
+<p>
+The MIDI::ALSA module is used to create an ALSA client.
+</p><p>
+The keyboard interface, allows real-time adjustment of the delay
+parameters.  If you don't want the interface (e.g. in a Makefile), the
+-Q option sets Quiet-mode.
+</p><p>
+This is <I>midiclick</I> version 1.2
+</p>
+
+<hr />
+<h3><a name="options">OPTIONS</a></h3>
+<dl>
+
+
+<dt><strong><a name="option_t"><em>-t 72</em></a></strong>
+</dt><dd>
+<p>The <strong>t</strong>empo will be set;
+to 72 beats per minute in this example.
+The default is 120.</p>
+</dd>
+
+<dt><strong><a name="option_b"><em>-b 3</em></a></strong>
+</dt><dd>
+<p>The <strong>b</strong>ar-length will be set;
+the bell will sound every 3 beats in this example.
+The default is 0, which means every beat clicks and there are no bells.</p>
+</dd>
+
+<dt><strong><a name="option_v"><em>-v</em></a></strong>
+</dt><dd>
+<p>This option sets the <strong>v</strong>olume (or <B>v</B>elocity)
+of the MIDI output. The default is 100.</p>
+</dd>
+
+<dt><strong><a name="option_p"><em>-p</em></a></strong>
+</dt><dd>
+<p>This option starts <I>midiclick</I> in the
+<strong>p</strong>aused state;
+you can then start it Playing with spacebar.
+This option is ignored in
+<A HREF=#option_Q">-Q Quiet</A> mode.
+</p>
+</dd>
+
+<dt>
+<strong><a name="option_o"><em>-o 128:0</em></a>
+&nbsp; or &nbsp;<em>-o TiMidity</em></strong><BR>
+</dt><dd>
+<p>
+This option sets the ouput-port to which the midi output will be sent.
+You can check out the available ports with the command
+<I>aplaymidi -l</I> or <I>aconnect -ol</I>.
+The default ouput-port
+is the environment variable $ALSA_OUTPUT_PORTS
+</p><p>
+Since <A HREF="#changes">Version 1.3</A>,
+you may supply a comma-separated list of ports, e.g. <I>-o&nbsp;20,128:1</I>
+</p>
+</dd>
+
+<dt><strong><a name="option_Q"><em>-Q</em></a></strong>
+</dt><dd>
+<p>This option runs <I>midiclick</I> in <B>Q</B>uiet mode;
+there is no user-interface, and the metronome just runs
+with its Tempo and BarLength as given on the command-line,
+until it is interrupted.  It can be useful in scripts.</p>
+</dd>
+
+<dt><strong><a name="option_h"><em>-h</em></a></strong>
+</dt><dd>
+<p>Shows <strong>h</strong>elpful usage information</p>
+</dd>
+
+<dt><strong><a name="option_V"><em>-V</em></a></strong>
+</dt><dd>
+<p>
+Displays the <strong>V</strong>ersion number.
+</p>
+</dd>
+
+</dl>
+
+<hr />
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>midiclick</i> is available by http at
+<A HREF="free/midiclick">www.pjb.com.au/midi/free/midiclick</A><BR>
+To install it, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>perl</I> is installed on your system.
+You will also need to install the
+<I><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></I> and
+<I><A HREF="http://search.cpan.org/perldoc?Term::ReadKey">Term::ReadKey</A></I>
+CPAN modules
+</p>
+<hr />
+<h3><a name="changes">CHANGES</a></h3>
+<p>
+<BR><B>1.4</B>, 20111103, uses
+<A HREF="../comp/lua/midialsa.html#parse_address">the new MIDI-ALSA 1.11</A>
+to handle ALSA-ports by their names
+<BR><B>1.3</B>, 20111028, <A HREF="#option_o">OutputPort</A>
+can be a comma-separated list
+<BR><B>1.2</B>, 20110911, <A HREF="option_b">-b</A> defaults to 0 beats
+<BR><B>1.1</B>, 20110608,
+<A HREF="option_t">-t</A>
+and
+<A HREF="option_b">-b</A>
+work;
+<A HREF="option_v">-v</A>
+and
+<A HREF="option_p">-p</A>
+introduced
+<BR><B>1.0</B>, 20110606, first working version, edited down from
+<A HREF="midiecho.html">midiecho</A>
+</p>
+
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="requirements">REQUIREMENTS</a></h3>
+<ul><li>
+<A HREF="http://alsa.opensrc.org/Main_Page">ALSA</A>
+</li><li>
+<I><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></I>
+</li><li>
+<I><A HREF="http://search.cpan.org/perldoc?Term::ReadKey">Term::ReadKey</A></I>
+</li></ul>
+
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">
+search.cpan.org/perldoc?MIDI::ALSA</A><BR>
+<A HREF="http://search.cpan.org/perldoc?Term::ReadKey">
+search.cpan.org/perldoc?Term::ReadKey</A><BR>
+<A HREF="index.html">www.pjb.com.au/midi</A><BR>
+<A HREF="../muscript/gm.html#perc">www.pjb.com.au/muscript/gm.html#perc</A><BR>
+</p>
+
+</body>
+
+</html>

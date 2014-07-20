@@ -1,0 +1,354 @@
+<HTML><HEAD><TITLE>RungeKutta.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="Numerical integration, Lua, Perl, Runge-Kutta">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>RungeKutta.lua</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#caller_supplied_functions">CALLER-SUPPLIED FUNCTIONS</a></li>
+	<li><a href="#other_functions">OTHER FUNCTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#traps_for_the_unwary">TRAPS FOR THE UNWARY</a></li>
+	<li><a href="#installation">INSTALLATION</a></li>
+	<li><a href="#perl">PERL</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#references">REFERENCES</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+</ul>
+
+<p>
+</p>
+<hr />
+<h2><a name="name">NAME</a></h2>
+<p>RungeKutta.lua - Integrating Systems of Differential Equations</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local RK = require 'RungeKutta'
+ function dydt(t, y) -- the derivative function
+   -- y is the table of the values, dydt the table of the derivatives
+   -- the table can be an array (1...n), or a dictionary; whichever,
+   -- the same indices must be used for the return table: dydt
+   local dydt = {}; ... ; return dydt 
+ end
+ y = initial_y(); t=0; dt=0.4;  -- the initial conditions
+ -- For automatic timestep adjustment ...
+ while t &lt; tfinal do
+    t, dt, y = RK.rk4_auto(y, dydt, t, dt, 0.00001)
+    display(t, y)
+ end</pre>
+<pre>
+ -- Or, for fixed timesteps ...
+ while t &lt; tfinal do
+   t, y = RK.rk4(y, dydt, t, dt)  -- Merson's 4th-order method
+   display(t, y)
+ end
+ -- alternatively, though not so accurate ...
+ t, y = RK.rk2(y, dydt, t, dt)   -- Heun's 2nd-order method</pre>
+<pre>
+ -- or, also available ...
+ t, y = RK.rk4_classical(y, dydt, t, dt) -- Runge-Kutta 4th-order
+ t, y = RK.rk4_ralston(y, dydt, t, dt)   -- Ralston's 4th-order</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>RungeKutta.lua offers algorithms for the numerical integration
+of simultaneous differential equations of the form</p>
+<pre>
+ dY/dt = F(t,Y)</pre>
+<p>where Y is an array of variables whose initial values Y(0) are
+known, and F is a function known from the dynamics of the problem.</p>
+<p>The Runge-Kutta methods all involve evaluating the derivative function
+F(t,Y) more than once, at various points within the timestep, and
+combining the results to reach an accurate answer for the Y(t+dt).
+This module only uses explicit Runge-Kutta methods; the implicit methods
+involve, at each timestep, solving a set of simultaneous equations
+involving both Y(t) and F(t,Y), and this is generally intractable.</p>
+<p>Three main algorithms are offered.  <em>rk2</em> is Heun's 2nd-order
+Runge-Kutta algorithm, which is relatively imprecise, but does have
+a large range of stability which might be useful in some problems.  <em>rk4</em>
+is Merson's 4th-order Runge-Kutta algorithm, which should be the normal
+choice in situations where the step-size must be specified.  <em>rk4_auto</em>
+uses the step-doubling method to adjust the step-size of <em>rk4</em> automatically
+to achieve a specified precision; this saves much fiddling around trying
+to choose a good step-size, and can also save CPU time by automatically
+increasing the step-size when the solution is changing only slowly.</p>
+<p>This module is the translation into <em>Lua</em> of
+<A HREF="http://search.cpan.org/perldoc?Math::RungeKutta">
+the <em>Perl</em> CPAN module Math::RungeKutta,</A>
+and comes in its <code>./lua</code> subdirectory.
+There also exists a translation into <em>JavaScript</em>
+which comes in its <code>./js</code> subdirectory.
+The calling-interfaces are identical in all three versions.</p>
+<p>This module has been designed to be robust and easy to use, and should
+be helpful in solving systems of differential equations which arise
+within a <em>Lua</em> context, such as economic, financial, demographic
+or ecological modelling, mechanical or process dynamics, etc.</p>
+<p>Version 1.07</p>
+<p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2>
+<dl>
+<dt><strong><a name="rk2" class="item"><em>rk2</em>( y, dydt, t, dt )</a></strong></dt>
+
+<dd>
+<p>where the arguments are:
+ <em>y</em> an array of initial values of variables,
+ <em>dydt</em> the function calculating the derivatives,
+ <em>t</em> the initial time,
+ <em>dt</em> the timestep.</p>
+<p>The algorithm used is that derived by Ralston, which uses Lotkin's bound
+on the derivatives, and minimises the solution error (gamma=3/4).
+It is also known as the Heun method, though unfortunately several other
+methods are also known under this name. Two function evaluations are needed
+per timestep, and the remaining error is in the 3rd and higher order terms.</p>
+<p><em>rk2</em> returns t, y where these are now the new values
+at the completion of the timestep.</p>
+</dd>
+<dt><strong><a name="rk4" class="item"><em>rk4</em>( y, dydt, t, dt )</a></strong></dt>
+
+<dd>
+<p>The arguments are the same as in <em>rk2</em>.</p>
+<p>The algorithm used is that developed by Merson,
+which performs five function evaluations per timestep.
+For the same timestep, <em>rk4</em> is much more accurate than <em>rk4_classical</em>,
+so the extra function evaluation is well worthwhile.</p>
+<p><em>rk4</em> returns t, y where these are now the new values
+at the completion of the timestep.</p>
+</dd>
+<dt><strong><a name="rk4_auto" class="item"><em>rk4_auto</em>( y, dydt, t, dt, epsilon )</a></strong></dt>
+
+<dt><strong><em>rk4_auto</em>( y, dydt, t, dt, errors )</strong></dt>
+
+<dd>
+<p>In the first form the arguments are:
+ <em>y</em> an array of initial values of variables,
+ <em>dydt</em> the function calculating the derivatives,
+ <em>t</em> the initial time,
+ <em>dt</em> the initial timestep,
+ <em>epsilon</em> the errors per step will be about epsilon*ymax</p>
+<p>In the second form the last argument is:
+ <em>errors</em> an array of maximum permissible errors.</p>
+<p>The first <em>epsilon</em> calling form is useful when all the elements of
+<em>y</em> are in the same units and have the same typical size (e.g. y[10]
+is population aged 10-11 years, y[25] is population aged 25-26 years).
+The default value of the 4th argument is <em>epsilon = 0.00001</em>.</p>
+<p>The second <em>errors</em> form is useful otherwise
+(e.g. y[1] is gross national product, y[2] is interest rate).
+In this calling form, the permissible errors are specified in
+absolute size for each variable; they won't get scaled at all.</p>
+<p><em>rk4_auto</em> adjusts the timestep automatically to give the
+required precision.  It does this by trying one full-timestep,
+then two half-timesteps, and comparing the results.
+(Merson's method, as used by <em>rk4</em>, was devised to be able
+to give an estimate of the remaining local error; for the
+record, it is <em>0.2*(ynp1[i]-eta4[i])</em> in each term.
+<em>rk4_auto</em> does not exploit this feature because it only
+works for linear <em>dydt</em> functions of the form <em>Ay + bt</em>.)</p>
+<p><em>rk4_auto</em> needs 14 function evaluations per double-timestep, and
+it has to re-do 13 of those every time it adjusts the timestep.</p>
+<p><em>rk4_auto</em> returns t, dt, y where these
+are now the new values at the completion of the timestep.</p>
+</dd>
+<dt><strong><a name="rk4_auto_midpoint" class="item"><em>rk4_auto_midpoint</em>()</a></strong></dt>
+
+<dd>
+<p><em>rk4_auto</em> performs a double timestep within dt, and returns
+the final values; the values as they were at the midpoint do
+not normally get returned.  However, if you want to draw a
+nice smooth graph, or to update a nice smoothly-moving display,
+those values as they were at the midpoint would be useful to you.
+Therefore, <em>rk4_auto_midpoint</em> provides a way of retrieving them.</p>
+<p>Note that you must call <em>rk4_auto</em> first, which returns the values at
+time t+dt, then <em>rk4_auto_midpoint</em> subsequently, which returns the
+values at t+dt/2, in other words you get the two sets of values out
+of their chronological order. Sorry about this.  For example,</p>
+<pre>
+ while t &lt; tfinal do
+   t, dt, y = rk4_auto(y, dydt, t, dt, epsilon)
+   t_midpoint, y_midpoint = rk4_auto_midpoint()
+   update_display(t_midpoint, y_midpoint)
+   update_display(t, y)
+ end</pre>
+<p><em>rk4_auto_midpoint</em> returns t, y where these were the
+values at the midpoint of the previous call to <em>rk4_auto</em>.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h2><a name="caller_supplied_functions">CALLER-SUPPLIED FUNCTIONS</a></h2>
+<dl>
+<dt><strong><a name="dydt" class="item"><em>dydt</em>( t, y )</a></strong></dt>
+
+<dd>
+<p>This subroutine will be passed by reference as the second argument to
+<em>rk2</em>, <em>rk4</em> and <em>rk4_auto</em>. The name doesn't matter of course.
+It must expect the following arguments:
+ <em>t</em> the time (in case the equations are time-dependent),
+ <em>y</em> the array of values of variables.</p>
+<p>It must return an array of the derivatives
+of the variables with respect to time.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h2><a name="other_functions">OTHER FUNCTIONS</a></h2>
+<p>The following functions are not the usual first choice,
+but are supplied in case you need them:</p>
+<dl>
+<dt><strong><a name="rk4_classical" class="item"><em>rk4_classical</em>( y, dydt, t, dt )</a></strong></dt>
+
+<dd>
+<p>The arguments and the return values are the same as in <em>rk2</em> and <em>rk4</em>. &nbsp;
+The algorithm used is the classic, elegant, 4th-order Runge-Kutta
+method, using four function evaluations per timestep:</p>
+<PRE> k0 = dt * F(y(n))
+ k1 = dt * F(y(n) + 0.5*k0)
+ k2 = dt * F(y(n) + 0.5*k1)
+ k3 = dt * F(y(n) + k2)
+ y(n+1) = y(n) + (k0 + 2*k1 + 2*k2 + k3) / 6</PRE>
+</dd>
+<dt><strong><a name="rk4_ralston" class="item"><em>rk4_ralston</em>( y, dydt, t, dt )</a></strong></dt>
+
+<dd>
+<p>The arguments and the return values are the same as in <em>rk2</em> and <em>rk4</em>.</p>
+<p>The algorithm used is that developed by Ralston, which optimises
+<em>rk4_classical</em> to minimise the error bound on each timestep.
+This module does not use it as the default 4th-order method <em>rk4</em>,
+because Merson's algorithm generates greater accuracy, which allows
+the timestep to be increased, which more than compensates for
+the extra function evaluation.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+
+
+<h2><a name="traps_for_the_unwary">TRAPS FOR THE UNWARY</a></h2>
+<p>Alas, things can go wrong in numerical integration.</p>
+<p>One of the most fundamental is <strong>instability</strong>. If you choose a timestep
+<em>dt</em> much larger than time-constants implied in your derivative
+function <em>dydt</em>, then the numerical solution will oscillate wildy,
+and bear no relation to the real behaviour of the equations.
+If this happens, choose a shorter <em>dt</em>.</p>
+<p>Some of the most difficult problems involve so-called <strong>stiff</strong>
+derivative functions. These arise when <em>dydt</em> introduces a wide
+range of time-constants, from very short to long. In order to avoid
+instability, you will have to set <em>dt</em> to correspond to the shortest
+time-constant; but this makes it impossibly slow to follow the
+evolution of the system over longer times.  You should try to separate
+out the long-term part of the problem, by expressing the short-term
+process as the finding of some equilibrium, and then assume that that
+equilibrium is present and solve the long-term problem on its own.</p>
+<p>Similarly, numerical integration doesn't enjoy problems where
+time-constants change suddenly, such as balls bouncing off hard
+surfaces, etc. You can often tackle these by intervening directly
+in the <em>y</em> array between each timestep. For example, if <em>y[17]</em>
+is the height of the ball above the floor, and <em>y[20]</em> is the
+vertical component of the velocity, do something like</p>
+<pre>
+ if y[17]&lt;0.0 then y[17] = -0.9*y[17]; y[20] = -0.9*y[20] end</pre>
+<p>and thus, again, let the numerical integration solve just the
+smooth part of the problem.</p>
+<p>
+</p>
+<hr />
+<h2><a name="installation">INSTALLATION</a></h2><p>
+This module is available as a LuaRock in
+<A HREF="http://luarocks.org/repositories/rocks/index.html#math-rungekutta">
+luarocks.org/repositories/rocks</A><BR>
+so you should be able to install it with the command:
+<CODE> &nbsp; <B>luarocks install math-rungekutta</B></CODE>
+</p><p>
+The source is in
+<A HREF="http://cpansearch.perl.org/src/PJB/Math-RungeKutta-1.07/lua/">
+cpansearch.perl.org/src/PJB/Math-RungeKutta-1.07/lua/</A>
+for you to install by hand in your LUA_PATH
+</p><p>
+</p>
+<hr />
+<h2><a name="perl">PERL</a></h2>
+<p>This module is the translation into <em>Lua</em> of
+<A HREF="http://search.cpan.org/perldoc?Math::RungeKutta">
+the <em>Perl</em> CPAN module Math::RungeKutta,</A>
+and comes in its <code>./lua</code> subdirectory.
+There also exists a translation into <em>JavaScript</em>
+which comes in its <code>./js</code> subdirectory.
+The calling-interfaces are identical in all three versions.</p>
+<p>
+</p>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h2><a name="references">REFERENCES</a></h2>
+<p><em>On the Accuracy of Runge-Kutta's Method</em>,
+M. Lotkin, MTAC, vol 5, pp 128-132, 1951</p>
+<p><em>An Operational Method for the study of Integration Processes</em>,
+R. H. Merson,
+Proceedings of a Symposium on Data Processing,
+Weapons Research Establishment, Salisbury, South Australia, 1957</p>
+<p><em>Numerical Solution of Ordinary and Partial Differential Equations</em>,
+L. Fox, Pergamon, 1962</p>
+<p><em>A First Course in Numerical Analysis</em>, A. Ralston, McGraw-Hill, 1965</p>
+<p><em>Numerical Initial Value Problems in Ordinary Differential Equations</em>,
+C. William Gear, Prentice-Hall, 1971</p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<UL><LI>
+<a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/">http://www.pjb.com.au/comp/</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::RungeKutta">
+Math::RungeKutta CPAN module</A>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/lua/WalshTransform.html">
+WalshTransform.lua</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::WalshTransform">
+Math::WalshTransform CPAN module</A>
+</LI><LI>
+<a href="http://www.pjb.com.au/comp/lua/Evol.html">
+Evol.lua</a>
+</LI><LI>
+<A HREF="http://search.cpan.org/perldoc?Math::Evol">
+Math::Evol CPAN module</A>
+</LI><LI>
+<a href="http://www.xmds.org/">http://www.xmds.org/</a></p>
+</LI></UL>
+
+</body></html>

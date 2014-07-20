@@ -1,0 +1,777 @@
+#!/usr/local/bin/lua
+---------------------------------------------------------------------
+--     This Lua5 script is Copyright (c) 2014, Peter J Billam      --
+--                       www.pjb.com.au                            --
+--                                                                 --
+--  This script is free software; you can redistribute it and/or   --
+--         modify it under the same terms as Lua5 itself.          --
+---------------------------------------------------------------------
+local Version = '1.2'
+local VersionDate  = '21apr2014';
+
+-- only useful in initial error-checking, before curses starts
+local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
+
+require 'DataDumper'
+
+local ALSA   = nil
+pcall(function() ALSA = require 'midialsa' end)
+if not ALSA then
+	die([[you need to install midialsa, e.g.:
+  luarocks install midialsa]])
+end
+
+local CURSES = nil -- www.pjb.com.au/comp/lua/lcurses_c.html
+pcall(function() CURSES = require 'curses' end)
+if not CURSES then
+	die([[you need to install luaposix, e.g.:
+  luarocks install luaposix]])
+end
+local POSIX = nil -- www.pjb.com.au/comp/lua/lcurses_c.html
+pcall(function() POSIX = require 'posix' end)
+if not POSIX then
+	die([[you need to install luaposix, e.g.:
+  luarocks install luaposix]])
+end
+
+local stdscr
+local Synopsis = [[
+  midithru -i Pro,Key -o TiM
+  xterm -font 9x15bold -geometry 66x23-1+1 -e midithru &
+  perldoc midithru   # read the manual :-)
+]]
+local ClientName  = 'midithru'
+local OutputPort  = os.getenv("ALSA_OUTPUT_PORTS")   -- -o
+local InputPort   = nil    -- -i
+local Cha2Client     = {}  -- key 0..15, val number
+local Cha2Patch      = {}  -- key 0..15, val 0..127
+local Cha2BankMSB    = {}
+local Cha2BankLSB    = {}
+local Cha2Controller = {}  -- key 0..15, val {ccnum,val}
+for i=0,15 do Cha2Controller[i] = {} end
+local Clientnumber2Clientname = {}   -- cache for ALSA.listclients()
+local PreviousConnectedTo   = ""
+local PreviousConnectedFrom = ""
+local COLS     = 80   -- will be adjusted by check_lines_and_cols()
+local LINES    = 24
+local LineSelf = 1
+local LineFrom = nil
+local LineCha  = 4
+local LineTo   = 21
+local ColCha   = 2
+local ColFrom  = 10
+local ColPatch = 29
+local ColCC    = 56
+
+--------------------- infrastructure from MIDI.lua ---------------------
+
+local Number2patch = {   -- General MIDI patch numbers:
+[0]='Acoustic Grand',
+[1]='Bright Acoustic',
+[2]='Electric Grand',
+[3]='Honky-Tonk',
+[4]='Electric Piano 1',
+[5]='Electric Piano 2',
+[6]='Harpsichord',
+[7]='Clav',
+[8]='Celesta',
+[9]='Glockenspiel',
+[10]='Music Box',
+[11]='Vibraphone',
+[12]='Marimba',
+[13]='Xylophone',
+[14]='Tubular Bells',
+[15]='Dulcimer',
+[16]='Drawbar Organ',
+[17]='Percussive Organ',
+[18]='Rock Organ',
+[19]='Church Organ',
+[20]='Reed Organ',
+[21]='Accordion',
+[22]='Harmonica',
+[23]='Tango Accordion',
+[24]='Acoustic Guitar(nylon)',
+[25]='Acoustic Guitar(steel)',
+[26]='Electric Guitar(jazz)',
+[27]='Electric Guitar(clean)',
+[28]='Electric Guitar(muted)',
+[29]='Overdriven Guitar',
+[30]='Distortion Guitar',
+[31]='Guitar Harmonics',
+[32]='Acoustic Bass',
+[33]='Electric Bass(finger)',
+[34]='Electric Bass(pick)',
+[35]='Fretless Bass',
+[36]='Slap Bass 1',
+[37]='Slap Bass 2',
+[38]='Synth Bass 1',
+[39]='Synth Bass 2',
+[40]='Violin',
+[41]='Viola',
+[42]='Cello',
+[43]='Contrabass',
+[44]='Tremolo Strings',
+[45]='Pizzicato Strings',
+[46]='Orchestral Harp',
+[47]='Timpani',
+[48]='String Ensemble 1',
+[49]='String Ensemble 2',
+[50]='SynthStrings 1',
+[51]='SynthStrings 2',
+[52]='Choir Aahs',
+[53]='Voice Oohs',
+[54]='Synth Voice',
+[55]='Orchestra Hit',
+[56]='Trumpet',
+[57]='Trombone',
+[58]='Tuba',
+[59]='Muted Trumpet',
+[60]='French Horn',
+[61]='Brass Section',
+[62]='SynthBrass 1',
+[63]='SynthBrass 2',
+[64]='Soprano Sax',
+[65]='Alto Sax',
+[66]='Tenor Sax',
+[67]='Baritone Sax',
+[68]='Oboe',
+[69]='English Horn',
+[70]='Bassoon',
+[71]='Clarinet',
+[72]='Piccolo',
+[73]='Flute',
+[74]='Recorder',
+[75]='Pan Flute',
+[76]='Blown Bottle',
+[77]='Skakuhachi',
+[78]='Whistle',
+[79]='Ocarina',
+[80]='Lead 1 (square)',
+[81]='Lead 2 (sawtooth)',
+[82]='Lead 3 (calliope)',
+[83]='Lead 4 (chiff)',
+[84]='Lead 5 (charang)',
+[85]='Lead 6 (voice)',
+[86]='Lead 7 (fifths)',
+[87]='Lead 8 (bass+lead)',
+[88]='Pad 1 (new age)',
+[89]='Pad 2 (warm)',
+[90]='Pad 3 (polysynth)',
+[91]='Pad 4 (choir)',
+[92]='Pad 5 (bowed)',
+[93]='Pad 6 (metallic)',
+[94]='Pad 7 (halo)',
+[95]='Pad 8 (sweep)',
+[96]='FX 1 (rain)',
+[97]='FX 2 (soundtrack)',
+[98]='FX 3 (crystal)',
+[99]='FX 4 (atmosphere)',
+[100]='FX 5 (brightness)',
+[101]='FX 6 (goblins)',
+[102]='FX 7 (echoes)',
+[103]='FX 8 (sci-fi)',
+[104]='Sitar',
+[105]='Banjo',
+[106]='Shamisen',
+[107]='Koto',
+[108]='Kalimba',
+[109]='Bagpipe',
+[110]='Fiddle',
+[111]='Shanai',
+[112]='Tinkle Bell',
+[113]='Agogo',
+[114]='Steel Drums',
+[115]='Woodblock',
+[116]='Taiko Drum',
+[117]='Melodic Tom',
+[118]='Synth Drum',
+[119]='Reverse Cymbal',
+[120]='Guitar Fret Noise',
+[121]='Breath Noise',
+[122]='Seashore',
+[123]='Bird Tweet',
+[124]='Telephone Ring',
+[125]='Helicopter',
+[126]='Applause',
+[127]='Gunshot',
+}
+
+-------------------- infrastructure from pjblib.lua --------------------
+
+local function _debug(s)
+    local DEBUG = io.open('/tmp/debug', 'a')
+    DEBUG:write(s.."\n")
+    DEBUG:close()
+end
+
+local function deepcopy(object)  -- http://lua-users.org/wiki/CopyTable
+    local lookup_table = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for index, value in pairs(object) do
+            new_table[_copy(index)] = _copy(value)
+        end
+        return setmetatable(new_table, getmetatable(object))
+    end
+    return _copy(object)
+end
+
+local function sorted_keys(t, f)
+    local a = {}
+    for k,v in pairs(t) do a[#a+1] = k end
+    table.sort(a, f)
+    return  a
+end
+
+local function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
+    if not s or string.len(s)<2 then return {s} end
+    if not pattern then return {s} end
+    if maxNb and maxNb <2 then return {s} end
+    local result = { }
+    local theStart = 1
+    local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+    local nb = 1
+    while theSplitStart do
+        table.insert( result, string.sub(s,theStart,theSplitStart-1) )
+        theStart = theSplitEnd + 1
+        theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+        nb = nb + 1
+        if maxNb and nb >= maxNb then break end
+    end
+    table.insert( result, string.sub(s,theStart,-1) )
+    return result
+end
+local function which(s)
+	local f
+	for i,d in ipairs(split(os.getenv('PATH'), ':')) do
+		f=d..'/'..s;
+		if POSIX.access(f, 'rx') then
+			return f
+		end
+	end
+	return nil
+end
+
+local function warn(str) io.stderr:write(str,'\n') end
+local function round(x) return math.floor(x+0.5) end
+
+function GetTerminalSize()  -- from ~/lua/lib/readkey.lua
+    local width, height
+	local xwininfo = which('xwininfo')  -- do we have xwininfo ?
+	local windowid = os.getenv('WINDOWID')
+	if xwininfo and windowid then
+		local p = io.popen(xwininfo..' -id '..windowid)
+		local txt = ''
+		if p then txt = p:read('*all'); p:close() end
+		local pixwidth  = tonumber(string.match(txt, 'Width:%s(%d+)') or 0)
+		local pixheight = tonumber(string.match(txt, 'Height:%s(%d+)') or 0)
+		width, height   = string.match(txt, '-geometry%s(%d+)x(%d+)')
+		width  = tonumber(width)
+		height = tonumber(height)
+		if width and width>0.5 and height and height>0.5 then
+			return width, height, pixwidth, pixheight
+		end
+	end
+	return CURSES.cols(), CURSES.lines(), nil, nil
+end
+
+------------------ midithru-specific infrastructure -----------------
+
+local function is_noteoff(alsaevent)
+	if alsaevent[1] == ALSA.SND_SEQ_EVENT_NOTEOFF then return true end
+	if alsaevent[1] == ALSA.SND_SEQ_EVENT_NOTEON and alsaevent[8][3] == 0 then
+		return true
+	end
+	return false
+end
+
+local function reread_clientnames()
+	for k,v in pairs(ALSA.listclients()) do -- just use the first word
+		if string.len(v) < 13 then
+			Clientnumber2Clientname[k] = string.gsub(v," ","")
+		else
+			Clientnumber2Clientname[k] = string.match(v,"^(%g*)")
+		end
+	end
+end
+
+local function check_lines_and_cols()
+	-- CURSES.lines() and CURSES.cols() don't seem to get updated :-(
+	--  the kernel SIGWINCH handler has been over-ridden :-(
+	-- also bad: SIGWINCH now interrupts the current system call,
+	--  e.g. sleep or ALSA.input()
+	COLS, LINES = GetTerminalSize()
+	if LINES>22 then LineSelf=1 else LineSelf=0 end
+	if LINES>24 then
+		LineFrom=LineSelf+2
+		LineCha=LineFrom+3
+	elseif LINES>19 then    -- 1.2
+		LineFrom=LineSelf+1
+		LineCha=LineFrom+2  -- 1.2
+	else
+		LineFrom=nil
+		LineCha=LineSelf+2
+	end
+	if LINES>23 then LineTo=LineCha+17 else LineTo=LineCha+16 end
+	-- _debug('LINES='..LINES..' LineSelf='..LineSelf
+	--   ..' LineFrom='..tostring(LineFrom)..' LineCha='..LineCha
+	--   ..' LineTo='..LineTo)
+	if COLS > 65 then ColCha = 2 else ColCha = 1 end
+	if COLS > 63 then ColFrom = ColCha+9 else ColFrom = ColCha+5 end
+	ColPatch = ColFrom + 17
+	ColCC    = ColPatch + 27
+	-- _debug('COLS='..COLS..' ColCha='..ColCha
+	--   ..' ColFrom='..tostring(ColFrom)..' ColPatch='..ColPatch
+	--   ..' ColCC='..ColCC)
+end
+
+local function park_and_refresh()
+	if LINES > (LineTo+1) then
+		stdscr:move(LineTo+1, 0)
+	else
+		stdscr:move(LineTo, COLS-1)
+	end
+	stdscr:refresh()
+end
+
+local function display_cha(cha, source_client)
+	local line = LineCha+cha
+	local source_client = Cha2Client[cha]
+	stdscr:move(line, 0)
+	stdscr:clrtoeol()
+	--     1    28=Keystation   24=Acoustic Guitar(nylon)  cc11=83
+	-- must write the fields one by one using ColCha,ColFrom,ColPatch,ColCC !
+	stdscr:mvaddstr(line, ColCha,    string.format("%3d", cha))
+	stdscr:mvaddstr(line, ColFrom-1, string.format("%d=%s",
+	  source_client, Clientnumber2Clientname[source_client] ))
+	local patchstr = ""
+	if Cha2BankMSB[cha] and Cha2BankMSB[cha]>0 then -- assume bank0 means GM
+		if Cha2Patch[cha] then patchstr = tostring(Cha2Patch[cha]) end
+		local bankstr  = tostring(Cha2BankMSB[cha])
+		if Cha2BankLSB[cha] then
+			bankstr = bankstr..","..tostring(Cha2BankLSB[cha])
+		end
+		patchstr = string.format("bank %s patch %s", bankstr, patchstr)
+	elseif cha == 9 then
+		patchstr = "percussion"
+	elseif Cha2Patch[cha] then
+		patchstr = string.format("%d=%s",
+		  Cha2Patch[cha], Number2patch[Cha2Patch[cha]])
+	end
+	stdscr:mvaddstr(line, ColPatch-1, patchstr)
+	if Cha2Controller[cha][1] then
+		stdscr:mvaddstr(line, ColCC-1, string.format("cc%d=%d",
+		  Cha2Controller[cha][1], Cha2Controller[cha][2]))
+	end
+end
+
+function display_self()
+	local id = ALSA.id()
+	local s=string.format("ALSA-client  %s  %d:0 (in)  %d:1 (out)",
+	  ClientName,id,id)
+	stdscr:mvaddstr(LineSelf, round((COLS - string.len(s))/2), s)
+end
+
+local function display_connectedfrom()
+	if LineFrom == nil then return end
+	reread_clientnames()
+	local src_client_nums = {}
+	for k,v in ipairs(ALSA.listconnectedfrom()) do
+    	-- an array of 3-element arrays {{outputport,dest_client,dest_port},}
+		table.insert(src_client_nums, v[2])
+	end
+	if #src_client_nums < 1 then
+		stdscr:move(LineFrom,0)
+		stdscr:clrtoeol()
+		stdscr:mvaddstr(LineFrom, round(COLS/2 - 15),
+		  "not connected from any clients")
+		return
+	end
+	local a = {}
+	table.sort(src_client_nums)
+	for k,v in ipairs(src_client_nums) do
+		a[#a+1] = tostring(v).."="..Clientnumber2Clientname[v]
+	end
+	local s = table.concat(a,", ")
+	if COLS > (string.len(s) + 16) then s = "connected from "..s
+	elseif COLS > (string.len(s) + 6) then s = "from "..s
+	end
+	-- check if s has changed, and if not return immediately
+	-- if s == PreviousConnectedFrom then return end
+	stdscr:move(LineFrom,0)
+	stdscr:clrtoeol()
+	stdscr:mvaddstr(LineFrom, round((COLS-string.len(s)) / 2), s)
+	-- PreviousConnectedFrom = s
+end
+
+local function display_connectedto()
+	reread_clientnames()
+	local destclient_nums = {}
+	for k,v in ipairs(ALSA.listconnectedto()) do
+    	-- an array of 3-element arrays { {outputport,dest_client,dest_port}, }
+		table.insert(destclient_nums, v[2])
+	end
+	if #destclient_nums < 1 then
+		stdscr:move(LineTo,0)
+		stdscr:clrtoeol()
+		stdscr:mvaddstr(LineTo, round(COLS/2 - 14),
+		  "not connected to any clients")
+		return
+	end
+	local a = {}
+	table.sort(destclient_nums)
+	for k,v in ipairs(destclient_nums) do
+		a[#a+1] = tostring(v).."="..Clientnumber2Clientname[v]
+	end
+	local s = "connected to "..table.concat(a,", ")
+	stdscr:move(LineTo,0)
+	stdscr:clrtoeol()
+	stdscr:mvaddstr(LineTo, round((COLS-string.len(s)) / 2), s)
+end
+
+local function display_headers()
+	stdscr:move(LineCha-1,0)
+	stdscr:clrtoeol()
+	local s = "Channel"
+	if ColFrom < 8 then s = "Cha" end
+	stdscr:mvaddstr(LineCha-1, ColCha, s)
+	stdscr:mvaddstr(LineCha-1, ColFrom, "From")
+	stdscr:mvaddstr(LineCha-1, ColPatch, "Patch")
+	s = "Latest CC"
+	if (COLS-ColCC) < 9 then s = "CC" end
+	stdscr:mvaddstr(LineCha-1, ColCC, s)
+end
+
+local function display_channels()
+	display_headers()
+	for k,cha in ipairs(sorted_keys(Cha2Client)) do
+		display_cha(cha)
+	end
+end
+
+
+----------------------- command-line arguments ----------------------
+
+local iarg=1; while arg[iarg] ~= nil do
+	if arg[iarg] == '-n' then
+		iarg = iarg+1
+		ClientName = arg[iarg]
+	elseif arg[iarg] == '-i' then
+		iarg = iarg+1
+		InputPort = arg[iarg]
+	elseif arg[iarg] == '-o' then
+		iarg = iarg+1
+		OutputPort = arg[iarg]
+		if OutputPort == '0' then OutputPort = nil end
+	elseif arg[iarg] == '-v' then
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate)
+		os.exit(0)
+	else
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate.."\n\n"..Synopsis)
+		os.exit(0)
+	end
+	iarg = iarg+1
+end
+
+ALSA.client( ClientName, 1, 1, false )
+if InputPort then
+	for k,port in ipairs(split(InputPort, ',')) do
+		if not ALSA.connectfrom( 0, port ) then
+			die("  can't connect from "..port)
+		end
+	end
+end
+-- see comp.music.midi 20140413
+--  "SND_SEQ_EVENT_PORT_UNSUBSCRIBED v. listconnectedto()"
+local HaveSystemConnection = true
+if tonumber(ALSA.Version) < 1.20 then
+	ALSA.connectfrom( 0, 'System:1' )  -- Announce
+end
+if OutputPort then
+	for k,port in ipairs(split(OutputPort, ',')) do
+		if not ALSA.connectto( 1, port ) then
+			die("  can't connect to "..port)
+		end
+	end
+end
+
+CURSES.initscr()
+CURSES.cbreak()
+CURSES.echo(false)  -- not noecho !
+stdscr = CURSES.stdscr()  -- it's a userdatum
+check_lines_and_cols()
+stdscr:clear()
+display_self()
+display_connectedfrom()
+display_connectedto()
+park_and_refresh()
+
+-- SIGWINCH=28 is not core posix, see man signal
+POSIX.signal( 28, function (signo)  -- SIGWINCH handler
+	check_lines_and_cols()
+	stdscr:clear()
+	display_self()
+	display_connectedfrom()
+	display_headers()
+	display_channels()
+	display_connectedto()
+	park_and_refresh()
+end )
+
+while true do  -- the event loop
+	local alsaevent = ALSA.input()
+	if   alsaevent[1] == ALSA.SND_SEQ_EVENT_PORT_UNSUBSCRIBED
+	  or alsaevent[1] == ALSA.SND_SEQ_EVENT_PORT_SUBSCRIBED then
+		display_connectedfrom()
+		if HaveSystemConnection then display_connectedto() end
+		park_and_refresh()
+	else
+		if alsaevent[1] then
+			ALSA.output( alsaevent )  -- straight-through
+		end
+		-- not always a valid alsaevent :-( because the kernel's SIGWINCH
+		-- handler get disabled :-( and SIWINCH interrupts system-calls
+	end
+	local source_client = alsaevent[6][1]
+	local source_port   = alsaevent[6][2]
+	local cha           = alsaevent[8][1]
+	if not alsaevent[1] or not cha then goto next end
+	if source_client == 0 then goto next end -- skip if client=0=System
+	if type(cha) == "number" then   -- not sysexes!
+		Cha2Client[cha] = source_client
+	end
+
+	if not Clientnumber2Clientname[source_client] then reread_clientnames() end
+
+	local need_to_redisplay_channels = false
+	if alsaevent[1] == ALSA.SND_SEQ_EVENT_CONTROLLER then
+		if     alsaevent[8][5] == 0  then
+			Cha2Patch[cha] = nil
+			Cha2BankMSB[cha] = alsaevent[8][6]
+		elseif alsaevent[8][5] == 32 then
+			Cha2Patch[cha] = nil
+			Cha2BankLSB[cha] = alsaevent[8][6]
+		else
+			Cha2Controller[cha] = { alsaevent[8][5], alsaevent[8][6] }
+		end
+		need_to_redisplay_channels = true
+	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_PGMCHANGE then
+		Cha2Patch[cha] = alsaevent[8][6]
+	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_SYSEX then
+		-- GM1 is f0,7e,7f,09,01,f7  GM2 is f0,7e,7f,09,03,f7
+		local gm1 = string.format("%c%c%c%c%c%c",0xf0,0x7e,0x7f,0x09,0x01,0xf7)
+		local gm2 = string.format("%c%c%c%c%c%c",0xf0,0x7e,0x7f,0x09,0x03,0xf7)
+		if alsaevent[8][1] == gm1 or alsaevent[8][1] == gm2 then
+			Cha2BankMSB = {}
+			Cha2BankLSB = {}
+		end
+		need_to_redisplay_channels = true
+	end
+	display_channels() -- even if it's just a note the From might have changed
+	park_and_refresh()
+	::next::
+end
+CURSES.endwin()
+os.exit()
+
+------------------------ ~/lua/pjblib.lua ------------------------
+
+local P = require 'posix'
+
+local function pairsByKeys(t,f)   -- Programming in Lua p.173
+    local a = {}
+    for n in pairs(t) do a[#a+1] = n end
+    table.sort(a,f)
+    local i = 0
+    return function() i = i+1; return a[i], t[a[i]] end
+end
+
+local function qw(s)  -- t = qw[[ foo  bar  baz ]]
+    local t = {} ; for x in s:gmatch("%S+") do t[#t+1] = x end ; return t
+end
+
+
+local function sleep(t)
+    local sec = math.floor(t)
+    local ns = (1000000000 * (t-sec))
+    P.nanosleep(sec,ns)
+end
+
+local function splice(array, offset, length, list)
+    local result = {}
+    if not offset then return {} end
+    if not length then length = -1 end
+    for i = 1,(offset-1) do result[#result+1] = array[i] end
+    if type(list) == 'table' then
+        for i,v in pairs(list) do result[#result+1] = v end
+    else
+        result[#result+1] = list
+    end
+    if length < 0 then
+        for i = offset, (#array+1-length) do result[#result+1] = array[i] end
+    else 
+        for i = (offset+length), #array   do result[#result+1] = array[i] end
+    end
+    return result
+end
+
+--[=[
+
+=pod
+
+=head1 NAME
+
+midithru - a straight-through ALSA-MIDI client with a helpful display
+
+=head1 SYNOPSIS
+
+  midithru  -i Pro,Key -o TiM
+  xterm -font 9x15bold -geometry 66x23-1+1 -e midithru &
+  xterm -font 7x14bold -geometry 66x23-1-1 -e midithru -n thru-2 &
+  midithru -v
+  perldoc midithru
+
+=head1 DESCRIPTION
+
+I<midithru> is a simple Straight-Through ALSA-MIDI client that displays
+real-time information about the MIDI-channels passing through it,
+such as which ALSA-client they most recently came from,
+which Patch they have most recently been set to,
+and what the latest Controller-Change was. For example:
+
+           ALSA-client  midithru  129:0 (in)  129:1 (out)
+       connected from 32=ProKeys, 130=aplaymidi, 131=midikbd
+
+ Channel  From             Patch                      Latest CC
+    0    24=ProKeys       17=Percussive Organ        cc64=127
+    1    28=Keystation    24=Acoustic Guitar(nylon)  cc11=83
+    2    130=aplaymidi    33=Electric Bass(finger)
+    3    14=MidiThrough   4=Electric Piano           cc64=0
+    9    130=aplaymidi    percussion
+   12    130=aplaymidi    bank 5,5 patch 2
+
+                     connected to 20=Roland
+
+If I<bank> has not been set,
+the patches are named by their General-MIDI names.
+
+To quit I<midithru>, type I<Ctrl-C> twice.
+
+Within a window 66x23 (or larger) it displays comfortably.
+The smallest window in which it works properly is 58x20,
+though it still works down to 58x19 by omitting the I<connected from> line.
+
+I<midithru> is written in I<Lua>
+and requires the modules I<alsamidi> and I<luaposix>
+
+Because SIGWINCH is not Posix, I<luaposix> does not support it,
+and indeed disables the kernel's SIGWINCH handler so that even
+I<tput>, I<resize>, C<$LINES>
+and C<$COLS> do not get updated.
+Therefore I<midithru> uses I<xwininfo>, if it's available,
+to detect changes in window size.
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-i ProKeys,Keystation>
+
+Set the ALSA I<input-client>, to my I<ProKeys Sono 88>
+and my I<Keystation 49e> in this example.
+As in the example, multiple input-clients may be specified,
+separated by commas.
+The clients are identified by a case-significant start-of-string match,
+or by their ALSA client-numbers.
+By default, no client is connected to the input.
+
+=item I<-o TiM>
+
+Set the ALSA I<output-client>, to I<TiMidity> in this example.
+The clients are identified by a case-significant start-of-string match,
+or by their ALSA client-numbers.
+As usual, a particular I<port> within the client can be specified,
+e.g. I<-o 14:3>
+
+Multiple output-clients may be specified, separated by commas.
+
+By default, the environment variable I<ALSA_OUTPUT_PORTS> is used,
+if it is set.
+
+For compatibility with I<midifade>,
+the I<-o 0> option is a special case, and means the I<midithru>
+output is not connected to anything; this leaves you free to connect
+it later
+(remember that the I<midithru> client produces its output on port 1 !)
+using e.g.
+
+  xterm -font 9x15bold -geometry 66x23-1+1 -e midithru -o 0 &
+  ...
+  aconnect midithru:1 TiMidity
+  arecordmidi -p midithru:1 -b 60 -t 1000 /tmp/session.mid
+
+=item I<-n midithru2>
+
+Set the ALSA client-name, to I<midithru2> in this example.
+This is useful if you want to start up more than one I<midithru>,
+and then connect to them by name with I<aconnect>.
+The default client-name is I<midithru>.
+
+=item I<-v>
+
+Print the Version
+
+=back
+
+=head1 DOWNLOAD
+
+This program is available at
+ http://www.pjb.com.au/midi/free/midithru
+
+or as part of the tarball
+ http://www.pjb.com.au/midi/free/midiscripts.tar.gz
+
+To install I<midithru>, save it to disc, move it into your I<$PATH>,
+make it executable, and if necessary edit the first line
+to reflect where I<lua> is installed on your system. 
+You will also need the I<midialsa> and I<luaposix> modules installed.
+
+The documentation is on the web at
+ http://www.pjb.com.au/midi/midithru.html
+
+=head1 CHANGES
+
+ 20140421 1.2 handles LINES=20 correctly
+ 20140420 1.1 displays connected from; adapts somewhat to screen size
+ 20140412 1.0 first working version
+
+=head1 AUTHOR
+
+Peter J Billam, http://www.pjb.com.au/comp/contact.html
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/
+ http://www.pjb.com.au/midi/
+ http://www.pjb.com.au/midi/midithru.html
+ http://www.pjb.com.au/midi/midifade.html
+ http://luarocks.org/repositories/rocks/index.html#midialsa
+ http://www.pjb.com.au/comp/lua/midialsa.html
+ http://luarocks.org/repositories/rocks/index.html#luaposix
+ http://luaposix.github.io/luaposix/
+ perldoc midithru
+ man aconnect
+ man curses
+ man xwininfo
+
+=cut
+
+]=]

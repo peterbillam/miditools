@@ -1,0 +1,78 @@
+#! /usr/bin/perl
+my $Version = '1.3';
+my $VersionDate = '05jun2013';
+eval 'require MIDI'; if ($@) {
+   die "you'll need to install the MIDI::Perl module from www.cpan.org\n";
+}
+import MIDI;
+
+# check format of options args...
+while (@ARGV and $ARGV[$[] =~ /^-(\w)/) {
+	if ($1 eq 'v')      { shift;
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+		print "$n version $Version $VersionDate\n";
+		exit 0;
+	} else {
+		my $n = $0; $n =~ s#^.*/([^/]+)$#$1#;
+		print "usage:\n";
+		my $synopsis = 0;
+		while (<DATA>) {
+			if (/^=head1 SYNOPSIS/) { push @Synopsis,$_; $synopsis=1; next; }
+			if ($synopsis && /^=head1/) { last; }
+			if ($synopsis)      { print $_; next; }
+		}
+		exit 1;
+	}
+}
+
+my $opus = MIDI::Opus->new({ 'from_file' => $ARGV[$[] || '-'});
+print '$newopus = ';   # 1.3
+$opus->dump({ 'dump_tracks' => 1 });
+
+__END__
+
+=pod
+
+=head1 NAME
+
+mididump - dumps a MIDI file in a text format provided by MIDI::Perl
+
+=head1 SYNOPSIS
+
+ mididump filename.mid
+ muscript -midi filename | mididump
+ mididump filename.mid | grep patch_change
+ mididump filename.mid > /tmp/filename.dump
+ 
+ #! /usr/bin/perl
+ use MIDI;
+ my $newopus;
+ do '/tmp/filename.dump';
+ # $newopus is now a Midi Opus identical to the original filename.mid
+
+=head1 DESCRIPTION
+
+Dumps (displays) a MIDI file, in the human-readable
+text-format provided by I<MIDI::Perl>'s $opus->dump function.
+
+Assuming you've installed MIDI::Perl, then C<perldoc MIDI::Event>
+should document the format in which the various MIDI-events are represented.
+
+=head1 AUTHOR
+
+Peter J Billam  http://www.pjb.com.au/comp/contact.html
+
+=head1 CREDITS
+
+Based on Sean Burke's I<MIDI::Perl> CPAN module.
+
+=head1 SEE ALSO
+
+ http://search.cpan.org/~sburke
+ http://search.cpan.org/~pjb
+ http://www.pjb.com.au/muscript
+ http://www.pjb.com.au/midi
+ perldoc MIDI::Opus
+
+=cut
+

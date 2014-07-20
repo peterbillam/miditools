@@ -1,0 +1,222 @@
+<HTML><HEAD><TITLE>miditurtle</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>miditurtle</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+
+<ul>
+
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#turtle_commands">TURTLE-COMMANDS</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<h3><a name="name">NAME</a></h3>
+<p>miditurtle - turtle-sound for manipulating MIDI data
+<p>
+</p>
+<hr />
+<h3><a name="synopsis">SYNOPSIS</a></h3>
+<pre>
+ miditurtle in.mid - &lt;&lt;EOT | aplaymidi -
+ playto 30.7 jump -3.2 c3cc74=30
+ play 3.2 jump -3.2 c3cc74=70 pause 1.6
+ pitch -200 play 1.6 pitch 0
+ jump 3.5 filter -cha9
+ playto 320 tempo 1.5 play 342 end
+ EOT
+
+ perldoc miditurtle   # read the manual (even though it's in Lua!)</pre>
+<p>
+</P>
+<hr />
+<h3><a name="description">DESCRIPTION</a></h3><p>
+Remember turtle-graphics ?  This script walks a turtle through a
+input-midi-file, generating an output-midi-file.
+It reads its turtle-commands from STDIN;
+the input-midi-file and output-midi-file are the two arguments.
+If the output-midi-file is - then the output is written to STDOUT,
+but the input-file must be specified by name,
+because STDIN is reserved for the turtle-commands.
+</p>
+<hr />
+
+<h3><a name="turtle_commands">TURTLE-COMMANDS</a> : &nbsp;
+<A HREF="#jumpto">jumpto</A>, &nbsp;
+<A HREF="#jump">jump</A>, &nbsp;
+<A HREF="#playto">playto</A>, &nbsp;
+<A HREF="#play">play</A>, &nbsp;
+<A HREF="#cc">cc</A>, &nbsp;
+<A HREF="#end">end</A>, &nbsp;
+<A HREF="#pause">pause</A>, &nbsp;
+<A HREF="#filter">filter</A>, &nbsp;
+<A HREF="#pitch">pitch</A>, &nbsp;
+<A HREF="#tempo">tempo</A>
+</h3>
+<P>
+All times and delta-times are in seconds.
+All times refer to the input-file, in seconds after the start.
+The turtle's default behaviour is always to advance steadily through the input,
+copying events to the end of the output.
+</P>
+
+<dl>
+<dt><strong><a name="jumpto" class="item"><em>jumpto TIME</em></a></strong></dt>
+<dd>
+The turtle's position in the input will be moved to the time TIME
+(in seconds after the start).
+</dd>
+
+<dt><strong><a name="jump" class="item"><em>jump DELTATIME</em></a></strong></dt>
+<dd>
+The position in the input will be moved by the time-interval
+DELTATIME.  It's like an incremental version of
+<A HREF="#jumpto">jumpto.</A>
+</dd>
+
+<dt><strong><a name="playto" class="item"><em>playto TIME</em></a></strong></dt>
+<dd>
+Events from the input will be copied to the output until the time
+TIME (in seconds after the start) is reached.
+</dd>
+
+<dt><strong><a name="play" class="item"><em>play DELTATIME</em></a></strong></dt>
+<dd>
+Events from the input will be copied to the output until the
+time-interval DELTATIME has passed.  It's like an incremental version of
+<A HREF="#playto">playto.</A>
+</dd>
+
+<dt><strong><a name="cc" class="item"><em>c3cc74=115</em></a></strong></dt>
+<dd>
+Appends to the output
+<A HREF="../muscript/gm.html#cc">a control_change event.</A>
+In this example the Filter-Frequency for Channel 3 is set to 115 (0..127).
+</dd>
+
+<dt><strong><a name="end" class="item"><em>end</em></a></strong></dt>
+<dd>
+The output is written to the output-file and the program terminates.
+</dd>
+
+<dt><strong><a name="pause" class="item"><em>pause DELTATIME</em></a></strong></dt>
+<dd>
+Inserts a pause of DELTATIME seconds into the output.
+The turtle's position in the input is unchanged.
+</dd>
+
+<dt><strong><a name="filter" class="item"><em>filter -cha9</em></a></strong></dt>
+<dt><strong><em>filter +cha9</em></strong></dt>
+<dd>
+These commands respectively filter out, and restore back in, Channel 9
+(the percussion channel).  The Channels are numbered from 0 to 15.
+</dd>
+
+<dt><strong><a name="pitch" class="item"><em>pitch SHIFT</em></a></strong></dt>
+<dd>
+Changes the pitch (i.e. key but not tempo). SHIFT gives the pitch
+shift as positive or negative 'cents' (i.e. 100ths of a semitone).
+However, currently, all pitch-shifts are round to the nearest 100
+cents, i.e. to the nearest semitone.
+</dd>
+
+<dt><strong><a name="tempo" class="item"><em>tempo FACTOR</em></a></strong></dt>
+<dd>
+Changes the tempo of the output. For example, tempo 1.5 makes the
+output one and a half times faster.  The tempo changes are not
+cumulative, they are all relative to the tempo of the input-file.
+</dd>
+
+</dl>
+
+<hr />
+<h3><a name="options">OPTIONS</a>
+</h3>
+<dl>
+
+<dt><strong><a name="v" class="item"><em>-v</em></a></strong></dt>
+<dd>
+Prints the Version
+</dd>
+</dl>
+
+<p>
+</p>
+<hr />
+
+<h3><a name="download">DOWNLOAD</a></h3>
+<p>
+The current version of <i>miditurtle</i> is available by http at
+<A HREF="free/miditurtle">
+www.pjb.com.au/midi/free/miditurtle</A><BR>
+To install <i>miditurtle</i>, save it to disc,
+move it into your $PATH, make it executable, and if necessary
+edit the first line to reflect where <I>lua</I> is installed on your system.
+</p><p>
+It is a Lua script, so you'll need to install Lua e.g.<BR>
+ &nbsp; &nbsp; <CODE> aptitude install lua luarocks</CODE><BR>
+and you'll also need
+<A HREF="http://luarocks.org/repositories/rocks/index.html#midi">
+the MIDI module</A>
+ e.g.<BR>
+ &nbsp; &nbsp;  <CODE>luarocks install MIDI</CODE>
+</p>
+<hr />
+
+<h3><a name="changes">CHANGES</a></h3>
+<pre>
+ 20110804 1.0 tempo command seems to work
+ 20110804 output file can be - (stdout)
+ 20110803 add marker and cNccNN=NN
+ 20110801 use jumpto, jump, playto and play
+ 20110801 suppresses useless patch_changes
+ 20110731 first usefulness
+ 20110731 are play and jump working ?
+ 20110730 like 1D turtle-graphics through a MIDI file
+</pre>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h3><a name="credits">CREDITS</a></h3>
+<p>Based on
+<A HREF="../comp/lua/MIDI.html">the MIDI.lua <I>Lua</I> module.</A>
+</p>
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<pre>
+ <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
+ <a href="http://www.pjb.com.au/midi">http://www.pjb.com.au/midi</a>
+ <a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a>
+</pre>
+
+</body>
+</html>

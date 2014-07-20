@@ -1,0 +1,118 @@
+#! /usr/bin/perl
+#
+# 8va: transposes muscript scores up one octave. Peter J Billam, nov98
+# see http://www.pjb.com.au/muscript/
+#
+#########################################################################
+#        This Perl script is Copyright (c) 2002, Peter J Billam         #
+#               c/o P J B Computing, www.pjb.com.au                     #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+#
+# 20140115 -f = Force option introdued, like transpose
+# 20020721 complete rewrite, does both 8ba and 8vab, and seems to work :-)
+# 20010426 handles note-options better
+
+my $newline_was_escaped = 0;
+my @words; my ($one, $two, $three, $four);
+my $Basso = $0 =~ /b$/;
+my $Force = 0;
+while ($ARGV[$[] =~ /^-([a-z])/) {
+	if      ($1 eq 'b') { shift; $Basso = 1;
+	} elsif ($1 eq 'f') { shift; $Force = 1;
+	}
+}
+
+while (<>) {
+	chop;
+   if (/^=\d/ || $newline_was_escaped || $Force) {
+		$newline_was_escaped = /\\$/;
+		@words = split (' ', $_);
+		foreach (@words) {
+			if (/^([\[<]*)([A-Ga-g])([_~b#nrlx]*)([-,'{}\(\)\]>].*)?$/) { # note
+				$one = $1; $two = $2; $three = $3; $four = $4;
+				if ($Basso) {
+					if ($three =~ /~/) { $three =~ s/~//;
+					} elsif ($two =~ /^[a-g]$/) { $two =~ tr/[a-g]/[A-G]/;
+					} elsif ($three !~ /_/) { $three = "_$three";
+					} else { $three =~ s/_/__/;
+					}
+				} else {
+					if ($three =~ /_/) { $three =~ s/_//;
+					} elsif ($two =~ /^[A-G]$/) { $two =~ tr/[A-G]/[a-g]/;
+					} elsif ($three !~ /~/) { $three = "~$three";
+					} else { $three =~ s/~/~~/;
+					}
+				}
+				$_ = "$one$two$three$four";
+			}
+		}
+		print join (' ', @words), "\n";
+   } else {
+		$newline_was_escaped = 0;
+   	print "$_\n";
+	}
+}
+
+__END__
+
+=pod
+
+=head1 8va and 8vab
+
+8va or 8vab - Transposes muscript text up or down an octave
+
+=head1 SYNOPSIS
+
+  8va file
+
+  8va -b file
+
+  8vab file
+
+or from within an editor, for example from within I<vi>,
+
+  !!8va
+
+Or, new in Jan 2014, the B<-f> option is introduced for compatibility
+with I<transpose>; it B<f>orces lines to be transposed even if they
+do not look like stave lines.
+This can be useful within an editor to transpose continuation-lines,
+or lines that set variables, or lines that start with B<#M> or B<#P>
+
+  !!8va -f
+
+=head1 DESCRIPTION
+
+This Perl script transposes I<muscript> text up or down one octave.
+It transposes down if the program name under which it is invoked ends
+in "b", or if it is invoked with the I<-b> option.
+
+=head1 AUTHOR
+
+Peter J Billam <pj@pjb.com.au>
+
+=head1 INSTALLATION
+
+Edit the first line if necessary
+to reflect where Perl is installed on your system.
+Choose some directory in your PATH (we'll use /usr/bin as an example).
+Move the script to /usr/bin/8va and make it executable.  
+For example,
+
+  cp 8va /usr/bin/8va
+  chmod 755 /usr/bin/8va
+
+Then, if you wish to use the I<8vab> form to
+transpose downwards, link /usr/bin/8va to /usr/bin/8vab.
+
+  ln /usr/bin/8va /usr/bin/8vab
+
+=head1 SEE ALSO
+
+http://www.pjb.com.au/muscript, perl(1).
+
+=cut
+

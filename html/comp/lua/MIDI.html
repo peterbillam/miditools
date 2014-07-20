@@ -1,0 +1,522 @@
+<HTML><HEAD><TITLE>MIDI.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, Lua, module, luarock, score, opus">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>MIDI.lua</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+
+<!-- INDEX BEGIN -->
+<!-- INDEX BEGIN -->
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#events">EVENTS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#data_types">DATA TYPES</a></li>
+	<li><a href="#public_access_tables">PUBLIC-ACCESS TABLES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+<p>
+</p>
+<hr />
+<h2><a name="name">NAME</a></h2>
+<p>MIDI.lua - Reading, writing and manipulating MIDI data</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local MIDI = require 'MIDI'</pre>
+<pre>
+ local my_score = {
+    96,  -- ticks per beat
+    {    -- first track
+        {'patch_change', 0, 1, 8},
+        {'note', 5, 96, 1, 25, 98},
+        {'note', 101, 96, 1, 29, 98},
+    },  -- end of first track
+ }</pre>
+<pre>
+ -- Going through a score within a Lua program...
+ channels = {[2]=true, [3]=true, [5]=true, [8]=true, [13]=true}
+ for itrack = 2,#my_score do  -- skip 1st element, which is ticks
+    for k,event in ipairs(my_score[itrack]) do
+       if event[1] == 'note' then
+          -- for example, do something to all notes
+       end
+       -- to work on events in only particular channels...
+       channelindex = MIDI.Event2channelindex[event[1]]
+       if channelindex and channels[event[channelindex]] then
+          -- do something to channels 2,3,5,8 and 13
+       end
+    end
+ end</pre>
+<pre>
+ local midifile = assert(io.open('f.mid','w'))
+ midifile:write(MIDI.score2midi(my_score))
+ midifile:close()</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>This module offers functions: &nbsp;
+<a href="#concatenate_scores"><B>concatenate_scores()</B></a>, &nbsp;
+<a href="#grep"><B>grep()</B></a>, &nbsp;
+<a href="#merge_scores"><B>merge_scores()</B></a>, &nbsp;
+<a href="#mix_opus_tracks"><B>mix_opus_tracks()</B></a>, &nbsp;
+<a href="#mix_scores"><B>mix_scores()</B></a>, &nbsp;
+<a href="#midi2opus"><B>midi2opus()</B></a>, &nbsp;
+<a href="#midi2score"><B>midi2score()</B></a>, &nbsp;
+<a href="#opus2midi"><B>opus2midi()</B></a>, &nbsp;
+<a href="#opus2score"><B>opus2score()</B></a>, &nbsp;
+<a href="#play_score"><B>play_score()</B></a>, &nbsp;
+<a href="#score2midi"><B>score2midi()</B></a>, &nbsp;
+<a href="#score2opus"><B>score2opus()</B></a>, &nbsp;
+<a href="#score2stats"><B>score2stats()</B></a>, &nbsp;
+<a href="#score_type"><B>score_type()</B></a>, &nbsp;
+<a href="#segment"><B>segment()</B></a>, &nbsp;
+<a href="#timeshift"><B>timeshift()</B></a> and &nbsp;
+<a href="#to_millisecs"><B>to_millisecs()</B></a>, &nbsp;
+where &quot;midi&quot; means the MIDI-file bytes (as can be put in a .mid file,
+or piped into aplaymidi), and <I>opus</I> and <I>score</I> are list-structures
+as inspired by Sean Burke's MIDI-Perl CPAN module.</p>
+<p>The <I>opus</I> is a direct translation of the midi-file-events
+(see <a href="#opus2midi">opus2midi()</a>),
+where the times are delta-times, in ticks, since the previous event:</p>
+<pre>
+ {'note_on',  dtime, channel, note, velocity}       -- in an <I>opus</I>
+ {'note_off', dtime, channel, note, velocity}       -- in an <I>opus</I></pre>
+<p>The <I>score</I> is more human-centric
+(see <a href="#score2opus">score2opus()</a>);
+it uses absolute times, and
+combines the separate note_on and note_off events into one &quot;note&quot;
+event, with a duration:</p>
+<pre>
+ {'note', start_time, duration, channel, note, velocity} -- in a <I>score</I></pre>
+<p>
+MIDI.lua is a call-compatible translation into Lua of the Python module
+<A HREF="http://www.pjb.com.au/midi/free/MIDI.py">MIDI.py</A>;<BR> see
+<A HREF="http://www.pjb.com.au/midi/MIDI.html">
+www.pjb.com.au/midi/MIDI.html</A>
+</p>
+<p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2><P>
+<a href="#concatenate_scores"><B>concatenate_scores()</B></a>, &nbsp;
+<a href="#grep"><B>grep()</B></a>, &nbsp;
+<a href="#merge_scores"><B>merge_scores()</B></a>, &nbsp;
+<a href="#mix_opus_tracks"><B>mix_opus_tracks()</B></a>, &nbsp;
+<a href="#mix_scores"><B>mix_scores()</B></a>, &nbsp;
+<a href="#midi2opus"><B>midi2opus()</B></a>, &nbsp;
+<a href="#midi2score"><B>midi2score()</B></a>, &nbsp;
+<a href="#opus2midi"><B>opus2midi()</B></a>, &nbsp;
+<a href="#opus2score"><B>opus2score()</B></a>, &nbsp;
+<a href="#play_score"><B>play_score()</B></a>, &nbsp;
+<a href="#score2midi"><B>score2midi()</B></a>, &nbsp;
+<a href="#score2opus"><B>score2opus()</B></a>, &nbsp;
+<a href="#score2stats"><B>score2stats()</B></a>, &nbsp;
+<a href="#score_type"><B>score_type()</B></a>, &nbsp;
+<a href="#segment"><B>segment()</B></a>, &nbsp;
+<a href="#timeshift"><B>timeshift()</B></a> and &nbsp;
+<a href="#to_millisecs"><B>to_millisecs()</B></a>
+</P>
+<dl>
+<dt><strong><a name="concatenate_scores" class="item"><em>concatenate_scores</em> (array_of_scores)</a></strong></dt>
+
+<dd>
+<p>Concatenates an array of scores into one score.
+If the scores differ in their <I>ticks</I> parameter,
+they will all get converted to millisecond-tick format.</p>
+</dd>
+<dt><strong><a name="grep" class="item"><em>grep</em> (opus_or_score, channels)</a></strong></dt>
+<dd>
+<p>Returns a <I>score</I>, or an <I>opus</I>, containing only the channels specified.
+The second parameter is an array of the wanted channel numbers,
+for example:</p>
+<pre>
+ channels = {0, 4,}</pre>
+</dd>
+<dt><strong><a name="merge_scores" class="item"><em>merge_scores</em> (array_of_scores)</a></strong></dt>
+
+<dd>
+<p>Merges an array of scores into one score.  A merged score comprises
+all of the tracks from all of the input scores; un-merging is possible
+by selecting just some of the tracks.
+If the scores differ in their <I>ticks</I> parameter,
+they will all get converted to millisecond-tick format.
+merge_scores attempts to resolve channel-conflicts,
+but there are of course only 15 available channels...</p>
+</dd>
+<dt><strong><a name="mix_opus_tracks" class="item"><em>mix_opus_tracks</em> (array_of_tracks)</a></strong></dt>
+<dd>
+<p>Mixes an array of tracks into one track.  A mixed track
+cannot be un-mixed.  It is assumed that the tracks share the same
+ticks parameter and the same tempo.
+Mixing score-tracks is trivial (just insert all events into one array).
+Mixing opus-tracks is only slightly harder, but it's common enough
+that a dedicated function is useful.
+</p>
+</dd>
+<dt><strong><a name="mix_scores" class="item"><em>mix_scores</em> (array_of_scores)</a></strong></dt>
+<dd>
+<p>Mixes an array of scores into one one-track score.
+A mixed score cannot be un-mixed.
+Hopefully the scores have no undesirable channel conflicts between them...
+If the scores differ in their <I>ticks</I> parameter,
+they will all get converted to millisecond-tick format.</p>
+</dd>
+<dt><strong><a name="midi2ms_score" class="item"><em>midi2ms_score</em> (midi_in_string_form)</a></strong></dt>
+
+<dd>
+<p>Translates MIDI into a <I>score</I> with one beat per second and one
+tick per millisecond, using
+<a href="#midi2opus">midi2opus()</A> then
+<a href="#to_millisecs">to_millisecs()</a> then
+<a href="#opus2score">opus2score()</A></p>
+</dd>
+<dt><strong><a name="midi2opus" class="item"><em>midi2opus</em> (midi_in_string_form)</a></strong></dt>
+
+<dd>
+<p>Translates MIDI into an <I>opus</I>.  For a description of the
+<I>opus</I> format, see 
+<a href="#opus2midi">opus2midi()</a>.
+</p>
+</dd>
+<dt><strong><a name="midi2score" class="item"><em>midi2score</em> (midi_in_string_form)</a></strong></dt>
+
+<dd>
+<p>Translates MIDI into a <I>score</I>, using
+<a href="#midi2opus">midi2opus()</A> then
+<a href="#opus2score">opus2score()</A></p>
+</dd>
+<dt><strong><a name="opus2midi" class="item"><em>opus2midi</em> (an_opus)</a></strong></dt>
+
+<dd>
+<p>The argument is an array: the first item in the list is the <I>ticks</I>
+parameter, the others are the tracks. Each track is an array of
+midi-events, and each event is itself an array; see
+<a href="#events">EVENTS</a> below.
+opus2midi() returns a string of the MIDI, which can then be
+written to a .mid file, or to stdout.</p>
+<pre>
+ local MIDI = require 'MIDI'
+ my_opus = {
+    96, -- MIDI-ticks per beat
+    {   -- first track:
+        {'patch_change', 0, 1, 8},   -- and these are the events...
+        {'set_tempo', 0, 750000},    -- microseconds per beat
+        {'note_on',   5, 1, 25, 96},
+        {'note_off', 96, 1, 25, 0},
+        {'note_on',   0, 1, 29, 96},
+        {'note_off', 96, 1, 29, 0},
+    },  -- end of first track
+ }
+ local my_midi = MIDI.opus2midi(my_opus)
+ io.write(my_midi)  -- can be saved in o.mid or piped into &quot;aplaymidi -&quot;</pre>
+</dd>
+
+<dt><strong><a name="opus2score" class="item"><em>opus2score</em> (an_opus)</a></strong></dt>
+<dd>
+<p>Converts the "opus" to a "score".
+For a description of the <I>opus</I> and <I>score</I> formats,
+see <a href="#opus2midi">opus2midi()</a>
+and <a href="#score2opus">score2opus()</a>.
+<BR>
+The score track is returned sorted by the end-times of the notes,
+so if you need it sorted by their start-times you have to do that yourself:
+<BR><CODE>
+ &nbsp; table.sort(score[itrack], function (e1,e2) return e1[2]&lt;e2[2] end)
+</CODE>
+</p>
+</dd>
+
+<dt><strong><a name="play_score" class="item"><em>play_score</em>
+(opus_or_score)</a></strong></dt>
+<dd>
+<p>Converts the <I>score</I> to midi, and feeds it into 'aplaymidi -'<BR>
+If Lua's <I>posix</I> module is installed,
+the <I>aplaymidi</I> process will run in the background.</p>
+</dd>
+
+<dt><strong><a name="score_type" class="item"><em>score_type</em>
+(opus_or_score)</a></strong></dt>
+<dd>
+<p>Returns a string, either 'opus' or 'score' or ''</p>
+</dd>
+
+<dt><strong><a name="score2midi" class="item"><em>score2midi</em> (a_score)</a></strong></dt>
+<dd>
+<p>Translates a <I>score</I> into MIDI, using
+<A HREF="#score2opus">score2opus()</A> then
+<A HREF="#opus2midi">opus2midi()</A></p>
+</dd>
+
+<dt><strong><a name="score2opus" class="item"><em>score2opus</em>
+(a_score)</a></strong></dt>
+<dd>
+<p>The argument is an array: the first item in the list is the <I>ticks</I>
+parameter, the others are the tracks. Each track is an array
+of score-events, and each event is itself an array.
+score2opus() returns an array specifying the equivalent <I>opus</I>.
+A score-event is similar to an opus-event (see above),
+except that in a score:<BR>
+1) all times are expressed as an absolute number of ticks
+    from the track's start time<BR>
+2) the pairs of 'note_on' and 'note_off' events in an <I>opus</I>
+    are abstracted into a single 'note' event
+<pre>
+ {'note', start_time, duration, channel, pitch, velocity}
+
+ my_score = {
+    96,
+    {   -- first track
+        {'patch_change', 0, 1, 8},
+        {'note',   5, 96, 1, 25, 98},
+        {'note', 101, 96, 1, 29, 98},
+    },  -- end of first track
+ }
+ my_opus = score2opus(my_score)</pre>
+</dd>
+
+<dt><strong><a name="score2stats" class="item"><em>score2stats</em>
+(opus_or_score)</a></strong></dt>
+<dd>
+<p>Returns a table of some basic stats about the score, like:</p>
+<pre>
+ bank_select (array of 2-element arrays {msb,lsb}),
+ channels_by_track (table, by track, of arrays),
+ channels_total (array),
+ general_midi_mode (array),
+ ntracks,
+ nticks,
+ num_notes_by_channel (table of numbers),
+ patch_changes_by_track (table of tables),
+ patch_changes_total (array),
+ percussion (a dictionary histogram of channel-9 events),
+ pitches (dict histogram of pitches on channels other than 9),
+ pitch_range_by_track (table, by track, of two-member-arrays),
+ pitch_range_sum (sum over tracks of the pitch_ranges)
+</pre>
+</dd>
+
+<dt><strong><a name="segment" class="item">
+<em>segment</em> (score, start_time, end_time, tracks)</a><BR>
+<em>segment</em> {score, start_time=100, end_time=2000, tracks={3,4,5}}</a>
+</strong></dt>
+<dd>
+<p>Returns a <I>score</I> which is a segment of the one supplied
+as the argument, beginning at &quot;start_time&quot; ticks
+and ending at &quot;end_time&quot; ticks
+(or at the end if &quot;end_time&quot; is not supplied).
+If the array &quot;tracks&quot; is specified,
+only those tracks will be returned.</p>
+</dd>
+
+<dt>
+<strong><a name="timeshift" class="item">
+<em>timeshift</em> (score, shift, start_time, from_time, tracks)</a><BR>
+<em>timeshift</em> {score, shift=50, start_time=nil, from_time=2000, tracks={2,3}}
+</strong></dt>
+<dd>
+<p>Returns a <I>score</I> shifted in time by &quot;shift&quot; ticks, or
+shifted so that the first event starts at &quot;start_time&quot; ticks.</p>
+<p>If &quot;from_time&quot; is specified, only those events in the score
+that begin after it are shifted. If &quot;start_time&quot; is less than
+&quot;from_time&quot; (or &quot;shift&quot; is negative), then the intermediate
+notes are deleted, though patch-change events are preserved.</p>
+<p>If &quot;tracks&quot; are specified,
+then only those tracks (0 to 15) get shifted.
+&quot;tracks&quot; should be an array.</p>
+<p>It is deprecated to specify both &quot;shift&quot;
+and &quot;start_time&quot;.
+If this does happen, timeshift() will print a warning to
+stderr and ignore the &quot;shift&quot; argument.</p>
+<p>If &quot;shift&quot; is negative and sufficiently large that it would
+leave some event with a negative tick-value, then the score
+is shifted so that the first event occurs at time 0. This
+also occurs if &quot;start_time&quot; is negative, and is also the
+default if neither &quot;shift&quot; nor &quot;start_time&quot; are specified.</p>
+</dd>
+
+<dt><strong><a name="to_millisecs" class="item"><em>to_millisecs</em>
+(an_opus)</a></strong></dt>
+<dd>
+<p>Recallibrates all the times in an <I>opus</I> to use one beat
+per second and one tick per millisecond.  This makes it
+hard to retrieve any information about beats or barlines,
+but it does make it easy to mix different scores together.</p>
+</dd>
+</dl>
+<p>
+</p>
+
+<hr />
+<h2><a name="events">EVENTS</a></h2>
+<p>The <I>opus</I> is a direct translation of the midi-file-events, where
+the times are delta-times, in ticks, since the previous event.</p>
+<pre>
+ {'note_on',  dtime, channel, note, velocity}       -- in an <I>opus</I>
+ {'note_off', dtime, channel, note, velocity}       -- in an <I>opus</I></pre>
+<p>The <I>score</I> is more human-centric; it uses absolute times, and
+combines the separate note_on and note_off events into one &quot;note&quot;
+event, with a duration:</p>
+<pre>
+ {'note', start_time, duration, channel, note, velocity} -- in a <I>score</I></pre>
+<p>Events (in an <I>opus</I> structure):</p>
+<pre>
+ {'note_off', dtime, channel, note, velocity}       -- in an <I>opus</I>
+ {'note_on',  dtime, channel, note, velocity}       -- in an <I>opus</I>
+ {'key_after_touch', dtime, channel, note, velocity}
+ {'control_change', dtime, channel, controller(0-127), value(0-127)}
+ {'patch_change', dtime, channel, patch}
+ {'channel_after_touch', dtime, channel, velocity}
+ {'pitch_wheel_change', dtime, channel, pitch_wheel}
+ {'text_event', dtime, text}
+ {'copyright_text_event', dtime, text}
+ {'track_name', dtime, text}
+ {'instrument_name', dtime, text}
+ {'lyric', dtime, text}
+ {'marker', dtime, text}
+ {'cue_point', dtime, text}
+ {'text_event_08', dtime, text}
+ {'text_event_09', dtime, text}
+ {'text_event_0a', dtime, text}
+ {'text_event_0b', dtime, text}
+ {'text_event_0c', dtime, text}
+ {'text_event_0d', dtime, text}
+ {'text_event_0e', dtime, text}
+ {'text_event_0f', dtime, text}
+ {'end_track', dtime}
+ {'set_tempo', dtime, tempo}
+ {'smpte_offset', dtime, hr, mn, se, fr, ff}
+ {'time_signature', dtime, nn, dd, cc, bb}
+ {'key_signature', dtime, sf, mi}
+ {'sequencer_specific', dtime, raw}
+ {'raw_meta_event', dtime, command(0-255), raw}
+ {'sysex_f0', dtime, raw}
+ {'sysex_f7', dtime, raw}
+ {'song_position', dtime, song_pos}
+ {'song_select', dtime, song_number}
+ {'tune_request', dtime}</pre>
+<p>
+</p>
+<hr />
+<h2><a name="data_types">DATA TYPES</a></h2>
+<pre>
+ channel = a value 0 to 15
+ controller = 0 to 127 (see <a href="http://www.pjb.com.au/muscript/gm.html#cc">www.pjb.com.au/muscript/gm.html#cc</a>)
+ dtime = time measured in <I>ticks</I>, 0 to 268435455
+ velocity = a value 0 (soft) to 127 (loud)
+ note = a value 0 to 127  (middle-C is 60)
+ patch = 0 to 127 (see <a href="http://www.pjb.com.au/muscript/gm.html">www.pjb.com.au/muscript/gm.html</a> )
+ pitch_wheel = a value -8192 to 8191 (0x1FFF)
+ raw = 0 or more bytes of binary data
+ sequence_number = a value 0 to 65,535 (0xFFFF)
+ song_pos = a value 0 to 16,383 (0x3FFF)
+ song_number = a value 0 to 127
+ tempo = microseconds per crochet (quarter-note), 0 to 16777215
+ text = a string of 0 or more bytes of of ASCII text
+ ticks = the number of ticks per crochet (quarter-note)</pre>
+<p>
+</p>
+<hr />
+<h2><a name="public_access_tables">PUBLIC-ACCESS TABLES</a></h2>
+<dl>
+<dt><strong><a name="number2patch" class="item"><em>Number2patch</em></a></strong></dt>
+
+<dd>
+<p>In this table the index is the patch-number (0 to 127),
+and the value is its corresponding General-MIDI Patch
+(on Channels other than 9).
+See: <a href="http://www.pjb.com.au/muscript/gm.html#patch">www.pjb.com.au/muscript/gm.html#patch</a></p>
+</dd>
+<dt><strong><a name="notenum2percussion" class="item"><em>Notenum2percussion</em></a></strong></dt>
+
+<dd>
+<p>In this table the index is the note-number (35 to 81),
+and the value is its corresponding General-MIDI Percussion instrument
+(on Channel 9).  See: <a href="http://www.pjb.com.au/muscript/gm.html#perc">www.pjb.com.au/muscript/gm.html#perc</a></p>
+</dd>
+<dt><strong><a name="event2channelindex" class="item"><em>Event2channelindex</em></a></strong></dt>
+
+<dd><p>
+In this table the index is the event-name (see <a href="#events">EVENTS</a>),
+and the value is the position within the event-array
+at which the <em>Channel-number</em> occurs.
+It is very useful for manipulating particular channels
+within a score (see <a href="#synopsis">SYNOPSIS</a>)</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h2><a name="download">DOWNLOAD</a></h2>
+<p>This module is available as a LuaRock in
+<A HREF="http://rocks.moonscript.org/modules/peterbillam">
+rocks.moonscript.org/modules/peterbillam</A>
+so you should be able to install it with the command:</p>
+<PRE>
+ $ su
+ Password:
+ # luarocks install --server=http://rocks.moonscript.org midi</pre>
+<p>or:</p>
+<pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.1-0.rockspec</pre>
+</p><p>
+The test script used during development is
+<a href="http://www.pjb.com.au/comp/lua/test_mi.lua">
+www.pjb.com.au/comp/lua/test_mi.lua</a><BR>
+which requires the
+<A HREF="http://lua-users.org/wiki/DataDumper">DataDumper.lua</A> module.
+</p><p>
+You should be able to install the <I>luaposix</I> and <I>datadumper</I>
+modules with:<PRE>
+ # luarocks install --server=http://rocks.moonscript.org luaposix
+ # luarocks install --server=http://rocks.moonscript.org datadumper
+</PRE>
+<p>
+</p>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<pre>
+ <a href="http://www.pjb.com.au/">www.pjb.com.au/</a>
+ <a href="http://www.pjb.com.au/comp/index.html#lua">www.pjb.com.au/comp/</a>
+ <a href="http://www.pjb.com.au/comp/lua/test_mi.lua">www.pjb.com.au/comp/lua/test_mi.lua</a>
+ <a href="http://www.pjb.com.au/muscript/gm.html">www.pjb.com.au/muscript/gm.html</a>
+ <A HREF="http://www.michael-gogins.com">www.michael-gogins.com</A>
+ <a href="http://www.pjb.com.au/midi/free/MIDI.py">www.pjb.com.au/midi/free/MIDI.py</a>
+ <a href="http://www.pjb.com.au/midi/MIDI.html">www.pjb.com.au/midi/MIDI.html</a>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam/MIDI">http://rocks.moonscript.org/modules/peterbillam/MIDI</A>
+ <a href="http://www.pjb.com.au/comp/lua/midialsa.html">www.pjb.com.au/comp/lua/midialsa.html</a>
+ <A HREF="http://rocks.moonscript.org/modules/peterbillam/midialsa">http://rocks.moonscript.org/modules/peterbillam/midialsa</A>
+ <A HREF="http://rocks.moonscript.org/modules/gvvaughan/luaposix">http://rocks.moonscript.org/modules/gvvaughan/luaposix</A>
+ <A HREF="http://rocks.moonscript.org/modules/luarocks/datadumper">http://rocks.moonscript.org/modules/luarocks/datadumper</A>
+</pre>
+
+</body>
+
+</html>

@@ -1,0 +1,130 @@
+#! /usr/bin/perl
+#########################################################################
+#        This Perl script is Copyright (c) 2011, Peter J Billam         #
+#                          www.pjb.com.au                               #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+my $Version       = '1.0';
+my $VersionDate   = '26apr2011';
+use open ':locale';
+
+
+while ($ARGV[$[] =~ /^-([a-z])/) {
+	if ($1 eq 'v')      { shift;
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+		print "$n version $Version $VersionDate\n";
+		exit 0;
+	} elsif ($1 eq 'c') { &whatever; shift;
+	} else {
+		print "usage:\n";  my $synopsis = 0;
+		while (<DATA>) {
+			if (/^=head1 SYNOPSIS/)     { $synopsis = 1; next; }
+			if ($synopsis && /^=head1/) { last; }
+			if ($synopsis && /\S/)      { s/^\s*/   /; print $_; next; }
+		}
+		exit 0;
+	}
+}
+
+
+__END__
+
+=pod
+
+=head1 NAME
+
+midimix - A command-line MIDI-ALSA-client offering basic mixing
+
+=head1 SYNOPSIS
+
+ midimix
+
+=head1 DESCRIPTION
+
+real-time
+ALSA client
+
+ALSA client 130, connected to 20:0
+
+ ALSA  Cha    Patch    Pan  Note  Trnspse Vel  Vol
+   32  2->2  32 Bass    30  58 bb   -12    89   +3
+       2->3  73 Flute   70   -                  +3
+   36   5    99 FX4     20  47 B          102  -18
+  129   9       perc    50  64 Low conga   80 MUTE
+
+ Client 129 = midikbd (pid=2467)
+
+ Q = Quit    P = new Patch    M = Mutes/unMute   S = Split
+ UpArrow/DownArrow moves the cursor between the channels
+ +/- changes the volume     LeftArrow/RightArrow = Pan
+
+Volume changes of +n get tailed off in a 2:1 compression
+above an input-velocity of 127-n/2
+
+How to display clients emitting on more than one channel ?
+Ideally,
+  if the channel is split, it should be displayed anyway
+  else, it should be displayed as silent for e.g. 30 sec, then suppressed
+
+But M = midi-controller ?
+
+the UI of alsamixer is:
+  F1 ? H  Help
+  F2 /    System information
+  F3      Show playback controls
+  F4      Show capture controls
+  F5      Show all controls
+  Tab     Toggle view mode (F3/F4/F5)
+  F6 S    Select sound card
+  L       Redraw screen
+  Left    Move to the previous control
+  Right   Move to the next control
+  Up/Down    Change volume
+  + -        Change volume
+  Page Up/Dn Change volume in big steps
+  End        Set volume to 0%
+  0-9        Set volume to 0%-90%
+  Q W E      Increase left/both/right volumes
+  Z X C      Decrease left/both/right volumes
+  B          Balance left and right volumes
+  M          Toggle mute
+  < >        Toggle left/right mute
+  Space      Toggle capture
+  ; '        Toggle left/right capture
+                                                               │
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-d gloop>
+
+gloops
+
+=item I<-v>
+
+Prints version number.
+
+=back
+
+=head1 CHANGES
+
+ 20110426  1.0  first working version
+
+=head1 AUTHOR
+
+Peter J Billam   http://www.pjb.com.au/comp/contact.html
+
+=head1 CREDITS
+
+Uses the Term::Clui and MIDI::ALSA Perl CPAN modules.
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/
+ perl(1).
+
+=cut
+

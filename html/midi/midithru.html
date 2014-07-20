@@ -1,0 +1,238 @@
+<HTML><HEAD><TITLE>midithru</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midithru</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#credits">CREDITS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<a name="name"><HR></a>
+<h3>NAME</h3>
+<p><B>midithru</B>
+- a straight-through ALSA-MIDI client with a helpful display</p>
+
+<a name="synopsis"><HR></a>
+<h3>SYNOPSIS</h3>
+<pre>
+  midithru  <A HREF="#o_i">-i Pro,Key</A> <A HREF="#o_o">-o TiM</A>
+  xterm -font 9x15bold -geometry 66x23-1+1 -e midithru &amp;
+  xterm -font 7x14bold -geometry 66x23-1-1 -e midithru <A HREF="#o_n">-n thru-2</A> &amp;
+  xterm -font 12x24 -geometry 58x21-1+1 -e midithru <A HREF="#o_i">-i Pro</A> &amp;
+  <A HREF="#o_v">midithru -v</A>
+  perldoc midithru
+</pre>
+
+<a name="description"><HR></a>
+<h3>DESCRIPTION</h3>
+<P>
+<B>midithru</B> is a simple Straight-Through ALSA-MIDI client that displays
+real-time information about the MIDI-channels passing through it,
+such as which ALSA-client they most recently came from,
+which Patch they have most recently been set to,
+and what the latest Controller-Change was. For example:
+</P><PRE>
+           ALSA-client  midithru  129:0 (in)  129:1 (out)
+       connected from 24=ProKeys, 130=aplaymidi, 131=midikbd
+
+ Channel  From             Patch                      Latest CC
+    0    24=ProKeys       17=Percussive Organ        cc64=127
+    1    28=Keystation    24=Acoustic Guitar(nylon)  cc11=83
+    2    130=aplaymidi    33=Electric Bass(finger)
+    3    14=MidiThrough   4=Electric Piano           cc64=0
+    9    130=aplaymidi    percussion
+   12    130=aplaymidi    bank 5,5 patch 2
+
+                     connected to 20=Roland
+</PRE><P>
+If <I>bank</I> has not been set, the patches are named by
+<A HREF="../muscript/gm.html#patch">their General-MIDI names</A>.
+<BR>
+To quit <I>midithru</I>, type <I>Ctrl-C</I> twice.
+<BR>
+Within a window 66x23 (or larger) it displays comfortably.
+The smallest window in which it works properly is 58x20, though it
+still works down to 58x19 by omitting the <I>connected from</I> line.
+</P><P>
+<I>midithru</I> is written in <I>Lua</I>,
+and requires the modules
+<I><A HREF="../comp/lua/midialsa.html">midialsa</A></I>
+and
+<I><A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luaposix</A></I>
+<BR>
+Because SIGWINCH is not Posix, <I>luaposix</I> does not support it,
+and indeed disables the kernel's SIGWINCH handler so that even
+<I>tput</I>, <I>resize</I>, <CODE>$LINES</CODE>
+and <CODE>$COLS</CODE> do not get updated.
+Therefore <I>midithru</I> uses <I>xwininfo</I>, if it's available,
+to detect changes in window size.
+</p>
+<a name="options"><HR></a>
+<h3>OPTIONS</h3>
+<dl>
+<dt><B><a name="o_i" class="item"><em>-i ProKeys,Keystation</em>
+</a></B></dt>
+<DD><P>
+Set the ALSA <I>input-client</I>, to my <I>ProKeys Sono 88</I>
+and my <I>Keystation 49e</I> in this example.
+As in the example, multiple input-clients may be specified,
+separated by commas.
+The clients are identified by a case-significant start-of-string match,
+or by their ALSA client-numbers.
+By default, no client is connected to the input.
+</P></DD>
+
+<dt><B><a name="o_o" class="item"><em>-o TiM</em>
+</a></B></dt>
+<DD><P>
+Set the ALSA <I>output-client</I>, to <I>TiMidity</I> in this example.
+The clients are identified by a case-significant start-of-string match,
+or by their ALSA client-numbers.
+As usual, a particular <I>port</I> within the client can be specified,
+e.g. <B>-o&nbsp;14:3</B>
+<BR>
+Multiple output-clients may be specified, separated by commas.
+<BR>
+By default, the environment variable <I>ALSA_OUTPUT_PORTS</I> is used,
+if it is set.
+<BR>
+For compatibility with
+<I><A HREF="midifade.html#options">midifade</A></I>,
+the <B>-o&nbsp;0</B> option is a special case,
+and means the <I>midithru</I> output is not connected to anything.
+This leaves you free to connect it later
+(remember that the <I>midithru</I> client produces its output on port 1 !)
+using e.g.
+</P><PRE>
+  xterm -font 9x15bold -geometry 66x23-1+1 -e midithru -o 0 &amp;
+  ...
+  aconnect midithru:1 TiMidity
+  arecordmidi -p midithru:1 -b 60 -t 1000 /tmp/session.mid
+</PRE>
+</DD>
+
+<dt><B><a name="o_n" class="item"><em>-n midithru2</em>
+</a></B></dt>
+<DD><P>
+Set the ALSA client-name, to <I>midithru2</I> in this example.
+This is useful if you want to start up more than one <I>midithru</I>,
+and then connect to them by name with <I>aconnect</I>.
+The default client-name is <I>midithru</I>.
+</P></DD>
+<dt><B><a name="o_v" class="item"><em>-v</em></a></B></dt>
+<DD><P>
+Prints version number.
+</P></DD>
+</dl>
+
+</p>
+<a name="download"><HR></a>
+<h3>DOWNLOAD</h3><p>
+The current version of <i>midithru</i> is available by http at
+<A HREF="free/midithru">
+www.pjb.com.au/midi/free/midithru</A>
+<BR>
+or as part of the tarball
+<A HREF="free/midiscripts.tar.gz">
+www.pjb.com.au/midi/free/midiscripts.tar.gz</A>
+</P><P>
+To install <i>midithru</i>, save it to disc,
+move it into your <CODE>$PATH</CODE>, make it executable, and if necessary
+edit the first line to reflect where <I>lua</I> is installed on your system.
+You will also need the
+<B><A HREF="../comp/lua/midialsa.html#download">midialsa</A></B>
+and
+<B><A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luaposix</A></B>
+modules installed.
+</p>
+
+
+<a name="changes"><hr></a>
+<h3>CHANGES</h3>
+<p>
+<BR><B>1.2</B>, 20140421, handles LINES=20 correctly
+<BR><B>1.1</B>, 20140420, 
+  displays connected from; adapts somewhat to screen size
+<BR><B>1.0</B>, 20140412, first working version
+</p>
+<hr />
+<h3><a name="author">AUTHOR</a></h3>
+<p>Peter J Billam  <a href="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<a name="credits"><hr></a>
+<h3>CREDITS</h3>
+<p>
+Based on the
+<I><A HREF="../comp/lua/midialsa.html">midialsa</A></I>
+and
+<I><A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luaposix</A></I>
+modules
+<p>
+</p>
+<hr />
+<h3><a name="see_also">SEE ALSO</a></h3>
+<p>
+<a href="../index.html">www.pjb.com.au</a>
+<BR>
+<a href="index.html">www.pjb.com.au/midi</a>
+<BR>
+<a href="midifade.html">www.pjb.com.au/midi/midifade.html</a>
+<BR>
+<A HREF="http://luarocks.org/repositories/rocks/index.html#midialsa">
+luarocks.org/repositories/rocks/index.html#midialsa</A>
+<BR>
+<A HREF="../comp/lua/midialsa.html">
+www.pjb.com.au/comp/lua/midialsa.html</A>
+<BR>
+<A HREF="http://luarocks.org/repositories/rocks/index.html#luaposix">
+luarocks.org/repositories/rocks/index.html#luaposix</A>
+<BR>
+<A HREF="http://luaposix.github.io/luaposix/">
+luaposix.github.io/luaposix/</A>
+<BR>
+ <CODE>perldoc midithru</CODE>
+<BR>
+ <CODE>man aconnect</CODE>
+<BR>
+ <CODE>man curses</CODE>
+<BR>
+ <CODE>man xwininfo</CODE>
+</p>
+</DIV>
+</body>
+
+</html>

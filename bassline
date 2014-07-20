@@ -1,0 +1,400 @@
+#! /usr/bin/perl
+#########################################################################
+#        This Perl script is Copyright (c) 2006, Peter J Billam         #
+#     c/o P J B Computing, GPO Box 669, Hobart TAS 7001, Australia      #
+#                                                                       #
+#     This script is free software; you can redistribute it and/or      #
+#            modify it under the same terms as Perl itself.             #
+#########################################################################
+# Generates a random jazz bassline.
+#
+# We work in MIDI::Event, appending new notes to the array
+
+my $Version       = '1.5';      # -a, -A, -2, -8, -s options introdued
+my $VersionDate   = '20130509';
+my $Channel       = 1;          # MIDI channel, see -c
+my $Patch         = 32;         # default Acoustic Bass, see -p
+my $Tempo         = 144;        # Beats per Minute, see -t
+my $Notes         = 5 * $Tempo; # Number of Notes, see -n
+my %Avoid         = ();         # Notes to be Avoided, see -a
+my $Turn_Probability   = 0.15;  # probability of line turning direction
+my $Minim_Probability  = 0.00;  # probability of minim instead of two cros
+my $Quaver_Probability = 0.09;  # probability of a pair of swung quas, see -8
+my $Swing         = 0.60;       # First-quaver length in beats, see -s
+my $TPC           = 96;   # MIDI Ticks Per Crochet
+my $DefaultLegato = 0.85; # MIDI default length of a crochet
+my $DefaultVolume = 100;  # MIDI default volume (0..127), see -v
+my $TopNote       = 57;   # high A
+my $BottomNote    = 28;   # low E
+my $Direction     = -1;   # start downwards
+my %IntervalProbability = (
+	1, 0.55,
+	2, 0.85,
+	3, 0.90,
+	4, 0.92,
+	5, 0.94,
+	6, 0.96,
+	7, 0.98,
+	12, 1.00,
+);
+my @Intervals = sort {$a<=>$b} keys %IntervalProbability;
+my %note2midi = (   # used by the -A option
+	'c'=>60,  'c#'=>61, 'db'=>61,  'd'=>62, 'd#'=>63, 'eb'=>63,
+	'e'=>64,  'f'=>65,  'f#'=>66, 'gb'=>66, 'g'=>67, 'g#'=>68,
+	'ab'=>68, 'a'=>69,  'a#'=>70, 'bb'=>70, 'b'=>71,
+);
+
+my $OutputFormat = 'midi';
+# check format of options args...
+while ($ARGV[$[] =~ /^-(\w)/) {
+	if ($1 eq 'c')      { shift;
+		my $a = shift; if ($a !~ /^\d+$/) { die "bad -c arg: $a\n"; }
+		$Channel = 0+$a;
+	} elsif ($1 eq 'm') { $OutputFormat = 'muscript'; shift;
+	} elsif ($1 eq 'r') { $OutputFormat = 'rawmuscript'; shift;
+	} elsif ($1 eq 'a') { shift;
+		while (1) {
+			if ($ARGV[$[] !~ /^\d\d(,\d\d)+$/) { last; }
+			my $arg = shift;
+			foreach my $a (split(',',$arg)) { $Avoid{0+$a} = 1; }
+		}
+	} elsif ($1 eq 'A') { shift;
+		while (1) {
+			if ($ARGV[$[] !~ /^[a-gA-G][#b]?(,[a-gA-G][#b]?)+$/) { last; }
+			my $arg = shift;
+			foreach my $a (split(',',lc($arg))) {
+				my $p = $note2midi{$a};
+				while ($p > $BottomNote) {
+					if ($p < $TopNote) {
+						$Avoid{$p+1} = 1;
+						$Avoid{$p-1} = 1;
+					}
+					$p -= 12;
+				}
+			}
+		}
+	} elsif ($1 eq '2') { shift;
+		my $q = shift;
+		if (($q =~ /[a-zA-Z]/) || ($q > 1.0) || ($q < 0)) {
+			die "strange -2 argument: $q, should be >=0.0 and <=1.0\n";
+		}
+		$Minim_Probability = 0 + $q;
+	} elsif ($1 eq 'n') { shift;
+		my $a = shift; if ($a !~ /^\d+$/) { die "bad -n arg: $a\n"; }
+		$Notes = 0+$a;
+	} elsif ($1 eq 'p') { shift;
+		my $a = shift; if ($a !~ /^\d+$/) { die "bad -p arg: $a\n"; }
+		$Patch = 0+$a;
+	} elsif ($1 eq '8') { shift;
+		my $q = shift;
+		if (($q =~ /[a-zA-Z]/) || ($q > 1.0) || ($q < 0)) {
+			die "strange -8 argument: $q, should be >=0.0 and <=1.0\n";
+		}
+		$Quaver_Probability = 0 + $q;
+	} elsif ($1 eq 's') { shift;
+		my $a = shift; if ($a !~ /^\d*(\.\d+)?$/) { die "bad -s arg: $a\n"; }
+		$Swing = 0+$a;
+		if ($Swing > 1.0) { $Swing = 1.0;
+			warn " truncating swing parameter $a to 1.0\n";
+		} elsif ($Swing < 0.0) { $Swing = 0.0;
+			warn " truncating swing parameter $a to 0.0\n";
+		}
+	} elsif ($1 eq 't') { shift;
+		my $a = shift; if ($a !~ /^\d+(\.\d+)?$/) { die "bad -t arg: $a\n"; }
+		$Tempo = 0+$a;
+	} elsif ($1 eq 'v') { shift;
+		my $a = shift; if ($a !~ /^\d+$/) { die "bad -v arg: $a\n"; }
+		$DefaultVolume = 0+$a;
+		if ($DefaultVolume < 2) { $DefaultVolume = 1;
+		} elsif ($DefaultVolume > 127) { $DefaultVolume = 127;
+		}
+	} else {
+		my $n = $0; $n =~ s{^.*/([^/]+)$}{$1};
+		print "$n version $Version $VersionDate\n";
+        print "usage:\n";  my $synopsis = 0;
+        while (<DATA>) {
+            if (/^=head1 SYNOPSIS/)     { $synopsis = 1; next; }
+            if ($synopsis && /^=head1/) { last; }
+            if ($synopsis && /\S/)      { s/^\s*/   /; print $_; next; }
+        }
+        exit 0;
+	}
+}
+my $Swing1 = int(0.5 + $Swing*$TPC);
+my $Swing2 = $TPC - $Swing1;
+
+if ($OutputFormat eq 'midi') {
+	eval 'require MIDI'; if ($@) {
+		die "you'll need to install the MIDI::Perl module from www.cpan.org\n";
+	}
+	import MIDI;
+	@newevents        = ();
+	my $nn = 4;  my $dd = 4;  # 4/4
+	my $cc = $TPC;            # beat = cro
+	push @newevents, ['patch_change', 0, $Channel, $Patch];
+	push @newevents, ['time_signature', 5, $nn,$dd,$cc,8];
+
+	my $miditempo = int (0.5 + 60000000*$TPC / ($TPC*$Tempo));
+	push @newevents, ['set_tempo', 0, $miditempo];
+} elsif ($OutputFormat eq 'muscript') {
+	print <<EOT;
+12 systems / 19 /
+leftfoot Generated by bassline -m
+midi channel $Channel patch $Patch
+/
+5 bars | 48 |
+| 4/4 $Tempo
+EOT
+	print "=1 bass8vab 12/8 cha$Channel ";
+}
+
+my $pitch = int (0.5 + 0.5*($TopNote+$BottomNote));
+my $last_note_was_quaver = 1;
+my $n = 1; while ($n <= $Notes) {
+	if (rand() < $Quaver_Probability) {
+		$pitch = &new_pitch($pitch);
+		if ($OutputFormat eq 'midi') {
+			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			push @newevents,['note_off',$Swing1,$Channel,$pitch,$DefaultVolume];
+		} elsif ($OutputFormat eq 'muscript') {
+			print " 4 ", pitch2ascii($pitch);
+		} elsif ($OutputFormat eq 'rawmuscript') {
+			print " ", pitch2ascii($pitch);
+		}
+		$pitch = &new_pitch($pitch);
+		if ($OutputFormat eq 'midi') {
+			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			push @newevents,['note_off',$Swing2,$Channel,$pitch,$DefaultVolume];
+		} elsif ($OutputFormat eq 'muscript') {
+			print " 8 ", pitch2ascii($pitch);
+			$last_note_was_quaver = 1;
+		} elsif ($OutputFormat eq 'rawmuscript') {
+			print " ", pitch2ascii($pitch);
+		}
+	} elsif (rand() < $Minim_Probability) {
+		$pitch = &new_pitch($pitch);
+		if ($OutputFormat eq 'midi') {
+			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			push @newevents,['note_off',2*$TPC,$Channel,$pitch,$DefaultVolume];
+		} elsif ($OutputFormat eq 'muscript') {
+			print " 2. ", pitch2ascii($pitch);
+			$n += 1;
+			$last_note_was_quaver = 1;
+		} elsif ($OutputFormat eq 'rawmuscript') {
+			print " ", pitch2ascii($pitch);
+		}
+	} else {
+		$pitch = &new_pitch($pitch);
+		if ($OutputFormat eq 'midi') {
+			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			push @newevents,['note_off', $TPC,$Channel,$pitch,$DefaultVolume];
+		} elsif ($OutputFormat eq 'muscript') {
+			if ($last_note_was_quaver) { print " 4."; }
+			print " ", pitch2ascii($pitch);
+			$last_note_was_quaver = 0;
+		} elsif ($OutputFormat eq 'rawmuscript') {
+			print " ", pitch2ascii($pitch);
+		}
+	}
+	if ($OutputFormat eq 'muscript' && ($n % 4) == 0) {
+		print "\n|\n=1";
+		$last_note_was_quaver = 1;
+	} elsif ($OutputFormat eq 'rawmuscript' && ($n % 20) == 0) {
+		print "\n";
+	}
+	$n += 1;
+}
+# one last note...
+$pitch = &new_pitch($pitch);
+
+if ($OutputFormat eq 'midi') {
+	push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+	push @newevents,['note_off', 3*$TPC, $Channel, $pitch, $DefaultVolume];
+
+	# this bit copied from muscript:
+	my $newtrack = MIDI::Track->new( {'events'=>\@newevents} );
+	if (!$newtrack) { die "MIDI::Track->new failed\n"; }
+	$newopus = MIDI::Opus->new(
+ 	{'format'=>0,'ticks'=>$TPC,'tracks'=>[$newtrack]} );
+	if (!$newopus) { die "MIDI::Opus->new failed\n"; }
+	$newopus->write_to_file( '>-' );
+} elsif ($OutputFormat eq 'muscript' or $OutputFormat eq 'rawmuscript') {
+	print " ", pitch2ascii($pitch), "\n";
+}
+
+
+# ------------------------- infrastructure -----------------------------
+
+sub new_pitch { my $old_pitch = $_[$[];
+	my $new_pitch;
+	while (1) {
+		if (rand() < $Turn_Probability) { $Direction = 0 - $Direction; }
+		my $rand = rand();
+		my $interval;
+		foreach (@Intervals) {
+			if ($rand < $IntervalProbability{$_}) { $interval = $_; last; }
+		}
+		if ($Direction > 0) {
+			$new_pitch = $old_pitch + $interval;
+			if ($new_pitch > $TopNote) {
+				$new_pitch = $old_pitch - $interval;
+				$Direction = -1;
+			}
+		} else { 
+			$new_pitch = $old_pitch - $interval;
+			if ($new_pitch < $BottomNote) {
+				$new_pitch = $old_pitch + $interval;
+				$Direction = 1;
+			}
+		}
+		if (! $Avoid{$new_pitch}) { last; }
+	}
+	return $new_pitch;
+}
+
+my $last_c = 9;
+sub pitch2ascii { my $p = shift;
+	my $c = $p % 12;
+	my $a = qw(c c# d eb e f f# g g# a bb b)[$c];
+	if ($p < 36) { $a = ucfirst($a);
+	} elsif ($p > 47) { $a =~ s/^(\w)/$1~/;
+	}
+	if (($c==0 && $last_c==1) || ($c==4 && $last_c==3)
+	 || ($c==5 && $last_c==6) || ($c==7 && $last_c==8)
+	 || ($c==11 && $last_c==10)) {
+		$a .= 'n';
+	}
+	$last_c = $c;
+	return $a;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+bassline - Generates a random jazz-bassline, for improvisation practice.
+
+=head1 SYNOPSIS
+
+ bassline -c 3           # output on MIDI Channel 3 (default=1)
+ bassline -m             # generates output in muscript format
+ bassline -n 500         # 500 beats (default = 5 minutes)
+ bassline -p 33          # use Patch 33, Electric Bass. (default=32)
+ bassline -s 0.5         # use equal eighths (default=0.6)
+ bassline -t 120         # Tempo 120 beats/minute (default=144)
+ bassline -v 80          # MIDI-Volume 80 (default=100, max=127)
+ bassline -8 0.05        # proportion of swung Eigth-notes (default=.09)
+ bassline -2 0.15        # proportion of Half-notes (default=0.0)
+ bassline -a 58,56,46,44,34,32 # avoids Bb and Ab
+ bassline -A A           # Accords with the note A by avoiding Bb and Ab
+ bassline | aplaymidi -  # do your jazz piano practice :-)
+ perldoc bassline        # read the manual :-)
+
+=head1 DESCRIPTION
+
+This program generates randomly wandering jazz-like basslines.
+It mostly plays one note per beat, but sometimes throws in a pair
+of swung quavers. It tends to keep moving either up or down,
+but sometimes it turns round and starts going the other way.
+It prefers intervals of one and two semitones, but from time to time
+it throws in larger intervals.
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-a 32,34,44,46>
+
+This example will avoid generating any of the specified notes,
+in this case the notes Ab, Bb, ab and bb.
+
+=item I<-A A>
+
+This example will generate only notes which Accord with an A (natural),
+in the sense that it avoids notes in any octave
+which are in a semitone dischord with it.
+This example works the same as I<-a 32,34,44,46,56> (see above). 
+Several notes to be accorded with can be specified,
+separated by commas.
+
+=item I<-c 3>
+
+This example will cause output to be generated on midi B<channel> 3
+(of 0..15).
+The default is channel 1.
+
+=item I<-m>
+
+The output will be generated in muscript format.
+This could be useful if you want to add by hand in some other instruments.
+Like a tenor saxpohone is General-MIDI Patch 66, for example.
+The output will be divided into bars.
+
+=item I<-n 300>
+
+This will cause a particular B<number> of beats to be generated,
+three hundered in this example.
+The default is to generate five minute's worth.
+
+=item I<-p 33>
+
+This example will cause output to be generated with midi B<patch> 33.
+The default is patch 32, which is the General-MIDI pizzicato acoustic bass.
+
+=item I<-r>
+
+The output will be generated in a I<raw> muscript format,
+with no barlines or rhythms.
+This can be useful if you're editing a muscript file and just want
+a source of notes; for example in conjunction with -a or -A
+
+=item I<-s .53>
+
+This sets the B<swing>,
+to 0.53 in this example, which is almost equal-eighths.
+The 0.53 parameter is
+the length of the first eighth, as a proportion of the beat.
+Equal eights is .5, the default is .6, and triplets is .667
+
+=item I<-t 160>
+
+This example sets the b<tempo> to 160 beats per minute.
+The default is 144 beats per minute.
+
+=item I<-v 90>
+
+This example sets the MIDI-I<volume> (note-velocity) to 90.
+The minimum is 1, the default is 100, and the maximum is 127.
+
+=item I<-2 .06>
+
+This example will cause 0.06 of all notest to be I<half>-notes (minims).
+The default is 0.00
+
+=item I<-8 .12>
+
+This example will cause 0.12 of all beats to be split into swung
+I<eight>-notes (quavers).
+The default is 0.09 and
+quavers can be suppressed entirely by using I<-8 0> or I<-8 0.0>
+
+=back
+
+=head1 AUTHOR
+
+Peter J Billam  http://www.pjb.com.au/comp/contact.html
+
+=head1 CREDITS
+
+Based on Sean Burke's MIDI::Perl CPAN module.
+
+=head1 SEE ALSO
+
+ http://search.cpan.org/~sburke
+ http://www.pjb.com.au/muscript
+ http://www.pjb.com.au/muscript/gm.html
+ http://www.pjb.com.au/midi
+
+=cut
