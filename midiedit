@@ -37,8 +37,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '6.5'; # displays GM controller-names
-my $VersionDate = '20140703';
+my $Version = '6.6'; # removed misleading 'm=mark' help-text
+my $VersionDate = '20141104';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -538,11 +538,11 @@ sub display_keystrokes {
 		if ((@EditEvent>1) and $EditEvent[$[] eq $Track[$Ievent][$[]) {
 			$dot = ' .=again';
 		}
-		my $ran = 'f=file R=set_range';
+		my $ran = 'f=file  R=set_range';
 		if ($RangeStart < $RangeEnd) { $ran .= ' r=range'; }
 		my $tim = '+=incrementaltimes';
 		if ($IncrementalTimes) { $tim = '-=absolutetimes'; }
-		addl($LINES-4,2, "$tim  $ran m=mark  i=insert e=edit$dot");
+		addl($LINES-4,2, "$tim  $ran  i=insert  e=edit$dot");  # 6.6
 		addl($LINES-3,2, 'k/Up/j/Down=+-1event  '
 		  . 'Right/Left=+-1sec  PageDown/PageUp=+-10sec');  # 4.3
 	}
@@ -2273,6 +2273,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 6.6 20141104, removed misleading 'm=mark' help-text
  6.5 20140703, display_events controller_change events display controller-names
  6.4 20140702, display_events patch_change events display GM patch-names
  6.3 20140612, ask_filename does backspace, range_write won't overwrite

@@ -1,5 +1,283 @@
-midi2wavs foo.mid
+#!/usr/local/bin/lua
+---------------------------------------------------------------------
+--     This Lua5 script is Copyright (c) 2014, Peter J Billam      --
+--                       www.pjb.com.au                            --
+--                                                                 --
+--  This script is free software; you can redistribute it and/or   --
+--         modify it under the same terms as Lua5 itself.          --
+---------------------------------------------------------------------
 
-Converts each midi-channel in the foo.mid into a separate foo_1.wav
-then suggests suitable midifade and ecasound commands for mixdown,
-following   file:///home/pjb/www/midi/midifade.html#options
+local MIDI = require 'MIDI'
+local P    = require 'posix'
+local FS   = nil
+pcall(function() FS = require 'fluidsynth' end)
+-- require 'DataDumper'
+
+local Version = '1.2  for Lua5'
+local VersionDate  = '07sep2014';
+local Synopsis = [[
+  midi2wavs foo.mid
+]]
+local Noop  = false
+local Quiet = false
+local iarg=1; while arg[iarg] ~= nil do
+	if string.sub(arg[iarg],1,1) ~= "-" then break end
+	local first_letter = string.sub(arg[iarg],2,2)
+	if first_letter == 'v' then
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate)
+		os.exit(0)
+	elseif first_letter == 'n' then
+		Noop = true
+	elseif first_letter == 'q' then
+		Quiet = true
+	else
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate.."\n\n"..Synopsis)
+		os.exit(0)
+	end
+	iarg = iarg+1
+end
+local filename = arg[iarg]
+
+----------- infrastructure from ~/lua/pjblib.lua -------------------
+local function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
+	if not s or string.len(s)<2 then return {s} end
+	if not pattern then return {s} end
+	if maxNb and maxNb <2 then return {s} end
+	local result = { }
+	local theStart = 1
+	local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+	local nb = 1
+	while theSplitStart do
+		table.insert( result, string.sub(s,theStart,theSplitStart-1) )
+		theStart = theSplitEnd + 1
+		theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+		nb = nb + 1
+		if maxNb and nb >= maxNb then break end
+	end
+	table.insert( result, string.sub(s,theStart,-1) )
+	return result
+end
+local function which(s)
+	local f
+	for i,d in ipairs(split(os.getenv('PATH'), ':')) do
+		f=d..'/'..s; if P.access(f, 'x') then return f end
+	end
+end
+----------------------------------------------------------------
+
+local Timidity   = which('timidity')
+local Fluidsynth = which('fluidsynth')
+local Normalise  = which('normalize-audio')
+
+fh = assert(io.open(filename, "rb"))
+local midi = fh:read('*all')
+fh:close()
+local score  = MIDI.midi2score(midi)
+local stats = MIDI.score2stats(score)
+local basename = string.gsub(filename, '%.mid$', '', 1)
+local channels = {}
+local cha_filenames = {}
+local cha_midinames = {}
+for i,channel in ipairs(stats['channels_total']) do
+	table.insert(channels, channel)
+	local cha_filename = basename .. '_cha' .. tostring(channel) .. '.wav'
+	table.insert(cha_filenames, cha_filename)
+	local cha_midiname = basename .. '_cha' .. tostring(channel) .. '.mid'
+	table.insert(cha_midinames, cha_midiname)
+end
+-- could test here for pre-existing files before overwriting...
+for i,channel in ipairs(channels) do
+	local cha_score = MIDI.grep(score, {channel,})
+	-- http://lua-users.org/lists/lua-l/2007-10/msg00189.html
+	-- http://lua-users.org/lists/lua-l/2014-02/msg00540.html
+	local midifile = assert(io.open(cha_midinames[i],'w'))
+	if FS and not Noop then
+		midifile:write(MIDI.score2midi(cha_score))
+		midifile:close()
+		local soundfonts = FS.read_config_file()
+		if #soundfonts == 0 then
+			print('fluidsynth finds no soundfonts to load; edit ~/.fluidsynth')
+			os.exit(1)
+		end
+		print('  generating '..cha_filenames[i]..' ...')
+		local synth = FS.new_synth( {
+			['audio.driver']    = 'file',
+			['audio.file.type'] = 'wav',
+			['audio.file.name'] = cha_filenames[i],
+			['fast.render']     = true,
+		} )
+		local sf_ids,msg = assert(FS.sf_load(synth, soundfonts))
+		local player = assert(FS.new_player(synth, cha_midinames[i]))
+		assert(FS.player_play(player))
+		assert(FS.player_join(player))
+		os.execute('sleep 1')   -- we have posix and should use it
+		assert(FS.player_stop(player))
+		FS.delete_synth(synth)
+		os.remove(FS.error_file_name())
+	elseif Timidity and not Noop then
+		-- BUG timidity destroys initial silence, thus destroying coordination
+		-- between the channels (unless they all started at the same time) :-(
+		local sync_cha = (channel+1) % 16  -- dont mess up cc7 in real channel
+		table.insert(cha_score[2], 2, {'control_change', 1, sync_cha, 7, 0})
+		table.insert(cha_score[2], 3, {'note', 2, 1, sync_cha, 7, 1})
+		midifile:write(MIDI.score2midi(cha_score))
+		midifile:close()
+		local command = Timidity .. ' -Ow -o ' .. cha_filenames[i] .. ' -'
+		local pipe = assert(io.popen(command,'w'))
+		assert(pipe:write(MIDI.score2midi(cha_score)))
+		assert(pipe:close())
+	elseif Fluidsynth and not Noop then
+		-- FIX? http://www.fluidsynth.org/
+		-- fluidsynth -ni -F t.wav -r 44100 /home/soundfonts/Ultimate.sf2 t.mid
+		-- fluidsynth -f configfile
+		-- fluidsynth chops final note; insert a cc64=0 just before marker
+		local end_ticks = tonumber(stats['nticks'])
+		local sync_cha = (channel+1) % 16  -- dont mess up cc7 in real channel
+		table.insert(cha_score[2],
+		  {'control_change', end_ticks-1, sync_cha, 7, 0}
+		)
+		midifile:write(MIDI.score2midi(cha_score))
+		midifile:close()
+		local command = Fluidsynth .. ' -n -i -F ' .. cha_filenames[i]
+		  .. ' -r 44100 /home/soundfonts/Ultimate.sf2 ' .. cha_midinames[i]
+		os.execute(command)
+	end
+	if Normalise then
+		os.execute(Normalise..' '..cha_filenames[i])
+	end
+end
+
+if Quiet then os.exit() end
+
+local midifade_cmd = 'midifade -o 0'
+local ecasound_cmd = 'ecasound -Md:alsaseq,midifade:0 \\\n'
+for i,channel in ipairs(channels) do
+	midifade_cmd = midifade_cmd .. string.format(' c%dm7v80',channel)
+	local cha_filename = cha_filenames[i]
+	-- file:///home/pjb/html/mus/ecasound/examples.html#mixing  !!
+	ecasound_cmd = ecasound_cmd .. string.format(
+	  '  -a:%d -i:%s -ea:63 -km:1,0,100,7,%d \\\n',
+	  channel, cha_filename, channel+1
+	)
+end
+ecasound_cmd = ecasound_cmd .. string.format(
+  '  -a:%s -o:loop,1 -a:20,21 -i loop,1 \\\n', table.concat(channels,',')
+)
+ecasound_cmd = ecasound_cmd .. string.format(
+  '  -f:16,2,44100 -a:20 -o:%s_mix.wav -a:21 -o:alsa', basename
+)
+
+print('suggested commands for a simple mixdown:')
+-- sox -m *_cha*.wav -d
+print(midifade_cmd)
+print(ecasound_cmd)
+
+--[=[
+
+=pod
+
+=head1 NAME
+
+midi2wavs - Converts each midi-channel into a separate .wav file
+
+=head1 SYNOPSIS
+
+ midi2wavs foo.mid      # generates foo_cha0.wav, foo_cha1.wav etc
+ midi2wavs -n foo.mid   # No-op; doesn't generate the wav files
+ midi2wavs -q foo.mid   # Quiet; doesn't suggest mixdown commands
+ midi2wavs -v           # prints the Version
+
+=head1 DESCRIPTION
+
+This script converts each midi-channel in the I<foo.mid>
+into a separate I<foo_cha1.wav> file,
+then suggests suitable I<midifade> and I<ecasound> commands for a mixdown.
+For example:
+
+ suggested commands for a simple mixdown:
+ midifade -o 0 c1m7v80 c2m7v80 c3m7v80 c4m7v80 c5m7v80 c6m7v80
+ ecasound -Md:alsaseq,midifade:0 \
+   -a:1 -i:/tmp/t_cha1.wav -ea:63 -km:1,0,100,7,2 \
+   -a:2 -i:/tmp/t_cha2.wav -ea:63 -km:1,0,100,7,3 \
+   -a:3 -i:/tmp/t_cha3.wav -ea:63 -km:1,0,100,7,4 \
+   -a:4 -i:/tmp/t_cha4.wav -ea:63 -km:1,0,100,7,5 \
+   -a:5 -i:/tmp/t_cha5.wav -ea:63 -km:1,0,100,7,6 \
+   -a:6 -i:/tmp/t_cha6.wav -ea:63 -km:1,0,100,7,7 \
+   -a:1,2,3,4,5,6 -o:loop,1 -a:20,21 -i loop,1 \
+   -f:16,2,44100 -a:20 -o:/tmp/t_mix.wav -a:21 -o:alsa
+
+It uses by default the Lua module I<fluidsynth.lua>
+to perform the conversion into I<wav>.
+
+If that is not available then it uses the I<timidity> executable,
+working around a quirk in I<timidity> (fixed in version 2.14)
+which deletes initial silence while converting to I<wav>.
+
+If those are not available then it uses the I<fluidsynth> executable,
+working around a quirk which truncates release and reverb on the final note.
+
+It uses the I<luaposix> Lua module to access the file-system,
+and the I<MIDI.lua> Lua module to handle the MIDI format.
+
+=head1 ARGUMENTS
+
+=over 3
+
+=item I<-n>
+
+No-op ; doesn't generate the I<wav> files
+
+=item I<-q>
+
+Quiet ; doesn't output the suggested commands for a mixdown
+
+=item I<-v>
+
+Print the Version
+
+=back
+
+=head1 CHANGES
+
+ 20140907 1.2 uses normalize-audio (if present) on the output files
+ 20140824 1.1 uses fluidsynth.lua with 'fast.render'
+ 20140805 1.0 first working version
+
+=head1 DOWNLOAD
+
+The latest version is available at
+http://www.pjb.com.au/midi/free/midi2wavs
+
+Just move it into your I<$PATH>,
+make it executable,
+and if necessary change the first line to reflect where I<lua> is
+installed on your system.
+
+You will also need to install I<MIDI.lua>, I<fluidsynth.lua>
+and I<luaposix>, for example:
+
+ luarocks install --server=http://rocks.moonscript.org MIDI
+ luarocks install --server=http://rocks.moonscript.org fluidsynth
+ luarocks install --server=http://rocks.moonscript.org luaposix
+
+=head1 AUTHOR
+
+Peter J Billam, http://www.pjb.com.au/comp/contact.html
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/
+ http://www.pjb.com.au/midi/midi2wavs.html
+ http://www.pjb.com.au/comp/lua/MIDI.html
+ http://www.pjb.com.au/comp/lua/fluidsynth.html
+ http://www.pjb.com.au/midi/midifade.html
+ http://eca.cx/ecasound/
+ http://www.fluidsynth.org/
+ http://timidity.sourceforge.net/
+ https://lists.sourceforge.net/lists/listinfo/timidity-talk
+
+=cut
+
+]=]

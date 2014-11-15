@@ -1,0 +1,488 @@
+<HTML><HEAD><TITLE>fluidsynth.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, ALSA, Lua, module, luarock, fluidsynth">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>fluidsynth.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+
+<hr />
+<p></p>
+<!-- INDEX END -->
+
+<h2><a name="name">NAME</a></h2>
+<p><B>fluidsynth</B> &nbsp; - &nbsp;
+a Lua interface to the <I>fluidsynth</I> library</p>
+<p>
+</p>
+<hr />
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local FS = require 'fluidsynth'   -- convert midi to wav
+ local soundfonts = <A HREF="#read_config_file">FS.read_config_file() -- default is ~/.fluidsynth</A>
+ local synth1   = <A HREF="#new_synth">FS.new_synth( {
+   ['synth.gain']      = 0.4,      -- be careful...
+   ['audio.driver']    = 'file',   -- overrides the config file
+   ['audio.file.name'] = 'foo.wav',
+   ['fast.render']     = true,     -- not part of the C-library API
+ } )</A>
+ <A HREF="#sf_load">FS.sf_load(synth1, soundfonts)</A>
+ local player1  = <A HREF="#new_player">FS.new_player(synth1,'foo.mid')</A>
+ assert(<A HREF="#player_play">FS.player_play(player1)</A>)
+ assert(<A HREF="player_join">FS.player_join(player1)</A>)   -- wait for foo.mid to finish
+ os.execute('sleep 1')             -- don't chop final reverb
+ <A HREF="#delete_synth">FS.delete_synth(synth1)</A> -- deletes player,audio_driver,synth,settings
+ <A HREF="#error_file_name">os.remove(FS.error_file_name())</A>   -- remove tmp file</pre>
+<pre>
+ local FS   = require 'fluidsynth' -- an alsa-client soundfont-synth
+ local ALSA = <A HREF="midialsa.html">require 'midialsa'</A>
+ ALSA.client( 'fluidsynth-alsa-client', 1, 0 )
+ ALSA.connectfrom( 0, 'Keystation' )
+ local soundfonts = <A HREF="#read_config_file">FS.read_config_file('/unusual/config_file')</A>
+ local synth2 = <A HREF="#new_synth">FS.new_synth( {
+   ['audio.driver']      = 'alsa',
+   ['audio.periods']     = 2,   -- min, for low latency
+   ['audio.period-size'] = 64,  -- min, for low latency
+ } )</A>
+ <A HREF="#sf_load">FS.sf_load(synth2, soundfonts)</A>
+ -- you will need to set a patch before any output can be generated!
+ while true do
+   local alsaevent = ALSA.input()
+   if alsaevent[1]==ALSA.SND_SEQ_EVENT_PORT_UNSUBSCRIBED then break end
+   <A HREF="#play_event">FS.play_event(synth2, alsaevent)</A>
+ end
+ <A HREF="#delete_synth">FS.delete_synth(synth2)</A>
+ <A HREF="#error_file_name">os.remove(FS.error_file_name())</A> -- remove tmp file</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2><p>
+This Lua module offers a simplified calling interface
+to the Fluidsynth Library.
+</p><p>
+It is a relatively thick wrapper.  Various higher-level
+<A HREF="#functions">functions</A>
+are introduced,
+the library's voluminous output on <I>stderr</I> has been redirected
+so the module can be used for example within a <I>Curses</I> app,
+and the return codes on failure have adopted the <I>nil,errormessage</I>
+convention of Lua so they can be used for example with <I>assert()</I>.
+</p><p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2>
+<p>These higer-level functions wrap the <I>fluidsynth</I> library
+functions in a way that retains functionality,
+but is easy to use and hides some of the dangerous internals.
+<BR>Unless otherwise stated,
+these functions all return <I>nil,errormessage</I> on failure.
+</p><p>
+Included are basic functions:<B>
+<A HREF="#read_config_file">read_config_file</A>,
+<A HREF="#new_synth">new_synth</A>,
+<A HREF="#sf_load">sf_load</A>,
+<A HREF="#delete_synth">delete_synth</A>,
+</B><BR>functions for playing midi files:<B>
+<A HREF="#new_player">new_player</A>,
+<A HREF="#player_play">player_play</A>,
+<A HREF="#player_join">player_join</A>,
+<A HREF="#player_stop">player_stop</A>,
+</B><BR>functions for playing in real-time:<B>
+<A HREF="#note_on">note_on</A>,
+<A HREF="#note_off">note_off</A>,
+<A HREF="#patch_change">patch_change</A>,
+<A HREF="#control_change">control_change</A>,
+<A HREF="#pitch_bend">pitch_bend</A>,
+<A HREF="#play_event">play_event</A>,
+</B><BR>functions returning state:<B>
+<A HREF="#is_soundfont">is_soundfont</A>,
+<A HREF="#is_midifile">is_midifile</A>,
+<A HREF="#default_settings">default_settings</A>,
+<A HREF="#all_synth_errors">all_synth_errors</A>,
+<A HREF="#error_file_name">error_file_name</A>,
+<A HREF="#get">get</A>
+</B></p>
+<dl>
+<dt><B><I><a name="read_config_file">soundfonts =
+FS.read_config_file(filename)</a></I></B></dt>
+<dd><P>
+If <I>filename</I> is <I>nil</I>,
+the default configuration file is <I>$HOME/.fluidsynth</I>
+<BR>and if that does not exist then <I>/etc/fluidsynth.conf</I>
+</p><p>
+This file can also be used as a configuration file for the
+<I>fluidsynth</I> executable (except that <I>fluidsynth</I>
+is not able to use the <I>set</I> commands); for example:
+</P><PRE>
+ fluidsynth -f ~/.fluidsynth
+</PRE><P>
+This module only recognises <I>set</I>, <I>load</I> and <I>select</I> commands;
+see &nbsp; <I>man fluidsynth</I>
+</P><P>
+In the following example, the <I>select</I> command chooses:
+for channel <B>9</B>,
+from soundfont <B>1</B> (<I>Chaos4m.sf2</I>) the bank <B>127</B>
+patch <B>99</B>, which happens to be a percussion set,
+as you typically want on channel 9.<BR>
+This is the format:
+</P><PRE>
+ set audio.driver alsa
+ set synth.polyphony 1024
+ load /home/soundfonts/Chaos4m.sf2
+ load /home/soundfonts/MyGM.sf2
+ load /home/soundfonts/ReallyGoodPiano.sf2
+ select 9 1 127 99
+</PRE><P>
+Invoking the function
+<I>soundfonts = FS.read_config_file()</I>
+(before creating the first <I>synth</I>!)
+then changes the default settings for <I>audio.driver</I> and
+<I>synth.polyphony</I>, and returns an array of <I>load</I> and
+<I>select</I> commands ready for
+later use by <I><A HREF="#sf_load">sf_load(synth,soundfonts)</A></I>
+</P></dd>
+
+<dt><B><I><a name="new_synth">synth =
+FS.new_synth({['synth.gain']=0.3, ['audio.driver']='alsa',})
+</a></I></B></dt>
+<dd><p>
+When called with no argument, or with a table argument,
+<I>new_synth</I>
+wraps the library routines
+<I>new_fluid_synth()</I>,
+invoking
+<I>new_fluid_settings</I>,
+<I>fluid_settings_setstr()</I>,
+<I>fluid_settings_setnum()</I>,
+<I>fluid_settings_setint()</I>, and
+<I>new_fluid_audio_driver()</I> automatically as needed.
+</p><p>
+The return value is a C pointer to the <I>synth</I>,
+so don't change that or the library will crash.
+</p><p>
+Multiple synths may be started.
+</p><p>
+The meanings and permitted values of the various parameters are documented in
+<a href="http://fluidsynth.sourceforge.net/api/">
+fluidsynth.sourceforge.net/api/</a> with just two additions:</p><UL><LI>
+The <I>fast.render</I> parameter is introduced.
+You should set it to <I>true</I> if and only if
+you are converting MIDI to WAV and no real-time events will be involved.
+If <I>fast.render</I> is <I>true</I> the conversion will be done at full
+CPU speed and will finish an order of magnitude quicker than real time.
+Look for <I>fast_render</I> in <I>src/fluidsynth.c</I> for example code.
+</LI><LI>
+If the <I>audio.driver</I> parameter is set to &quot;none&quot; then
+<I>new_synth()</I> will not automatically create an <I>audio_driver</I>.
+You will not need this setting until support
+for <I>midi_router</I> is introduced.
+</LI></UL>
+<P></P>
+</dd>
+
+<dt><B><I><a name="sf_load">filename2sf_id =
+FS.sf_load(synth, {'load my_gm.sf2', 'load my_piano.sf2',})</a></I></B></dt>
+<dd><p>
+This wraps the library routine <I>fluid_synth_sfload()</I>,
+calling it once for each soundfont.
+Often, a <I>synth</I> has more than one soundfont;
+they go onto a sort of stack, and for a given patch,
+<I>fluidsynth</I> will use that soundfont closest to the top of the
+stack which can supply the requested patch.
+In the above example, <I>my_gm.sf2</I> is a good general-midi soundfont,
+except that <I>my_piano.sf2</I> offers a much nicer piano sound.
+</p><p>
+In practice, the array of soundfonts will usually be the output of a
+previous call to <I><A HREF="#read_config_file">read_config_file()</A></I><BR>
+Since version 1.7 it can include both <I>load</I> and <I>select</I> commands.
+</p><p>
+It returns a table where the keys are filenames of the soundfonts,
+and the values are the <I>soundfont_ids</I> that represent them.
+The <I>soundfont_ids</I> are stack indexes starting from 1;
+They are only needed if you want to invoke
+<I>fluid_synth_sfont_select()</I>, <I>fluid_synth_sfunload()</I>
+or <I>fluid_synth_sfreload()</I>,
+so in most cases you can ignore the return value.
+</p></dd>
+
+<dt><B><I><a name="delete_synth">FS.delete_synth(synth)</a></I></B></dt>
+<dd><p>
+This does all the administrivia necessary to delete the <I>synth</I>,
+invoking <I>delete_fluid_player</I>, <I>delete_fluid_audio_driver</I>,
+<I>delete_fluid_synth</I> and <I>delete_fluid_settings</I> as necessary.
+</p><p>
+When called with no argument it deletes all running <I>synths</I>.
+</p></dd>
+
+<dt><B><I><a name="new_player">player =
+FS.new_player(synth, midifile)</a></I></B></dt>
+<dd><p>
+This wraps the library routines <I>new_fluid_player()</I>,
+and then <I>fluid_player_add()</I>
+or <I>fluid_player_add_mem()</I>,
+allowing you to play a MIDI file.
+The return value is a C pointer.
+</p><UL><LI>
+If <I>midifile</I> is the filename of a MIDI file,
+then <I>fluid_player_add()</I> is is used to play it.
+</LI><LI>
+If <I>midifile</I> is '<B>-</B>'
+it is understood to mean <I>stdin</I>, the standard input.
+</LI><LI>
+If <I>midifile</I> is a byte-string beginning with '<I>MThd</I>'
+&nbsp; (eg: the output of
+<I><A HREF="MIDI.html#opus2midi">MIDI.opus2midi</A></I> or
+<I><A HREF="MIDI.html#score2midi">MIDI.score2midi</A></I>) &nbsp;
+then <I>fluid_player_add_mem()</I> is used to play it.
+</LI></UL><p>
+One <I>synth</I> may have multiple <I>midi_players</I> running at the same
+time (eg: to play several midi files, each starting at a different moment).
+Therefore, you still need to call <I>player_play(player)</I>,
+<I>player_join(player)</I> and <I>player_stop(player)</I> by hand.
+</p></dd>
+
+<dt><B><I><a name="player_play">FS.player_play(midiplayer)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_player_play()</I>
+</p></dd>
+
+<dt><B><I><a name="player_join">FS.player_join(midiplayer)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_player_join()</I><BR>
+It waits until the <I>midiplayer</I> has got to the end of the last note
+in its midi file.
+</p></dd>
+
+<dt><B><I><a name="player_stop">FS.player_stop(midiplayer)</a></I></B></dt>
+<dd><p>
+This calls the library routines <I>fluid_player_stop()</I>
+and <I>delete_fluid_player()</I>
+</p></dd>
+
+<dt><B><I><a name="note_on">
+FS.note_on(synth, channel, note, velocity)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_synth_noteon()</I>
+</p></dd>
+
+<dt><B><I><a name="note_off">
+FS.note_off(synth, channel, note, velocity)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_synth_noteoff()</I>
+</p></dd>
+
+<dt><B><I><a name="patch_change">
+FS.patch_change(synth, channel, patch)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_synth_program_change()</I>
+</p></dd>
+
+<dt><B><I><a name="control_change">
+FS.control_change(synth, channel, controller, value)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_synth_cc()</I><BR>
+The <I>fluidsynth</I> C-library implements only a selection of controllers:
+0 (bank select), 1 (modulation), 7 (channel volume), 10 (pan),
+11 (expression), 64 (sustain pedal); also 91 (reverb), and 93 (chorus).
+The last two depend on the corresponding generator as defined in the SoundFont.
+
+</p></dd>
+
+<dt><B><I><a name="pitch_bend">
+FS.pitch_bend(synth, channel, val)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_synth_pitch_bend()</I>.
+The value should lie between 0 and 16383,
+where 8192 represents the default, central, pitch-wheel position.
+</p><p>
+(Note that
+<I><A HREF="midialsa.html#pitchbendevent">midialsa</A></I>
+uses a different convention, in which the value is from -8192 to 8191
+and 0 represents the central position.)
+</p></dd>
+
+<dt><B><I><a name="play_event">FS.play_event(synth, event)</a></I></B></dt>
+<dd><p>
+This is a wrapper for the above <I>note_on</I>, <I>note_off</I>,
+<I>patch_change</I>, <I>control_change</I> and <I>pitch_bend routines</I>,
+which accepts events of two different types used in the author's other
+midi-related modules:</p><UL><LI>
+MIDI 'opus' events, see:
+<a href="http://www.pjb.com.au/comp/lua/MIDI.html#events">
+www.pjb.com.au/comp/lua/MIDI.html#events</a>
+</LI><LI>
+midialsa events, &nbsp; see:
+<a href="http://www.pjb.com.au/comp/lua/midialsa.html#input">
+www.pjb.com.au/comp/lua/midialsa.html#input</a>
+</LI></UL><p>
+It will currently only handle real-time events,
+so every event received will be played immediately.
+It will currently not handle 'note' events (of either type).
+</p></dd>
+
+<dt><B><I><a name="is_soundfont">local ok =
+FS.is_soundfont(filename)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_is_soundfont()</I>
+which checks for the &quot;RIFF&quot; header in the file.
+It is useful only to distinguish between SoundFont and MIDI files.  
+It returns only <I>true</I> or <I>false</I>.</p>
+</p></dd>
+
+<dt><B><I><a name="is_midifile">local ok =
+FS.is_midifile(filename)</a></I></B></dt>
+<dd><p>
+This corresponds to the library routine <I>fluid_is_midifile()</I>
+The current implementation only checks for the "MThd" header in the file.
+It is useful only to distinguish between SoundFont and MIDI files. 
+It returns only <I>true</I> or <I>false</I>.
+</p></dd>
+
+<dt><B><I><a name="default_settings">parameter2default =
+FS.default_settings()</a></I></B></dt>
+<dd><p>
+Returns a table of all the supported parameters, with their default values.
+This could be useful, for example, in an application,
+to offer the user a menu of available parameters.
+</p><p>
+The meanings and permitted values of the various parameters are documented in
+<a href="http://fluidsynth.sourceforge.net/api/">fluidsynth.sourceforge.net/api/</a>
+</p></dd>
+
+<dt><B><I><a name="all_synth_errors"> err_string =
+FS.all_synth_errors()</a></I></B></dt>
+<dd><P>
+Returns a multi-line string containing all the C-library's
+<I>stderr</I> output.
+</p></dd>
+
+<dt><B><I><a name="error_file_name">FS.error_file_name()</a></I></B></dt>
+<dd><P>
+Returns the file-name of the temporary-file used to hold all the C-library's
+<I>stderr</I> output. This file is not removed automatically by
+<A HREF="#delete_synth">delete_synth()</A> because during the lifetime of
+the process many <i>synths</I> may be started and stopped.
+Therefore the application should explicity remove the file just before exit:
+&nbsp; <CODE>os.remove(FS.error_file_name())</CODE>
+</p></dd>
+
+<dt><B><I><a name="get">FS.get(synth, parameter)</a></I></B></dt>
+<dd><P>
+Returns the current value of the setting of <I>parameter</I>,
+invoking either
+<I>fluid_settings_getstr()</I>,
+<I>fluid_settings_getnum()</I> or
+<I>fluid_settings_getint()</I>, as appropriate.
+</p></dd>
+
+</dl>
+
+<p></p><hr />
+<h2><a name="examples">EXAMPLES</a></h2>
+
+<DL><DT><B><A HREF="../../midi/fluadity.html">fluadity</A></B></DT><DD>
+a synthesiser and midi-to-wav converter
+</DD><DT><B><A HREF="../../midi/midi2wavs.html">midi2wavs</A></B></DT><DD>
+converts each midi-channel into a separate .wav file
+</DD></DL><P>
+These are also available in the <I>examples</I> directory in the tarball.<BR>
+See:
+<A HREF="http://rocks.moonscript.org/modules/peterbillam/fluidsynth/">
+rocks.moonscript.org/modules/peterbillam/fluidsynth/</A>,
+choose the latest version, click on <I>src</I> and download it,
+unzip the <I>.src.rock</I>, then un-<I>tar</I> the <I>.tar.gz</I>.
+</P><p></p><hr />
+<h2><a name="download">DOWNLOAD</a></h2>
+<p>This module is available as a LuaRock in
+<a href="http://rocks.moonscript.org/modules/peterbillam">
+rocks.moonscript.org/modules/peterbillam</a>
+so you should be able to install it with the command:</p>
+<pre>
+ $ su
+ Password:
+ # luarocks install --server=http://rocks.moonscript.org fluidsynth</pre>
+<p>or:</p>
+<pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/fluidsynth-1.8-0.rockspec</pre>
+<p>It depends on the <I>fluidsynth</I> library and its header-files;
+for example on Debian you may need:
+</p><pre>
+ # aptitude install libfluidsynth1 libfluidsynth-dev
+</pre><p>
+or on Centos you may need:</p><pre>
+ # yum install fluidsynth-devel</pre>
+<p>
+</p>
+<hr />
+<h2><a name="changes">CHANGES</a></h2>
+<pre>
+ 20140913 1.8 introduce get(synth, parameter) to get a current setting
+ 20140904 1.7 get both 'load' and 'select' commands from the config file
+ 20140901 1.6 delete_synth doesn't automatically remove TmpFile
+ 20140830 1.5 new_player knows '-' is stdin, and can play in-memory MIDI-data
+ 20140828 1.4 eliminate Settings2numSynths and M.delete_settings
+ 20140827 1.3 use fluid_get_sysconf, fluid_get_userconf, config file 'set k v'
+ 20140826 1.2 sf_load takes 2nd arg as an array; ~/.config/fluidsynth k = v
+ 20140825 1.1 new calling-interface at much higher level
+ 20140818 1.0 first working version</pre>
+<p>
+</p>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter Billam, 
+<a href="http://www.pjb.com.au/comp/contact.html">
+http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<pre>
+ man fluidsynth
+ /usr/include/fluidsynth.h
+ /usr/include/fluidsynth/*.h
+ /usr/include/fluidsynth/*.h
+ /usr/share/soundfonts/*.sf2
+ /usr/share/sounds/sf2/*.sf2
+ <a href="http://fluidsynth.sourceforge.net/api/">http://fluidsynth.sourceforge.net/api/</a>
+ <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
+ <a href="http://www.pjb.com.au/muscript/gm.html">http://www.pjb.com.au/muscript/gm.html</a>
+ <a href="http://www.pjb.com.au/comp/index.html#lua">http://www.pjb.com.au/comp/index.html#lua</a>
+ <a href="http://www.pjb.com.au/comp/lua/fluidsynth.html">http://www.pjb.com.au/comp/lua/fluidsynth.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/midialsa.html">http://www.pjb.com.au/comp/lua/midialsa.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a>
+ <a href="http://www.pjb.com.au/midi/fluadity.html">http://www.pjb.com.au/midi/fluadity.html</a>
+ <a href="http://www.pjb.com.au/midi/midi2wavs.html">http://www.pjb.com.au/midi/midi2wavs.html</a></pre>
+
+</body>
+
+</html>

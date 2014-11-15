@@ -46,6 +46,7 @@ midifade - Provides faders generating midi-controller events
 <pre>
  midifade c13m71v120 c2m11v80 # 2 faders: cha2 cc11=80, cha13 cc71=120
  midifade -o 128:0            # outputs to port 0 of client 128
+ midifade -N fade1            # sets Alsa-Client name to "fade1"
  midifade -v                  # prints the Version number
  perldoc midifade             # read the manual :-)
 </pre>
@@ -95,9 +96,9 @@ to use <em>midifade</em> in one <I>xterm</I>
 129 ; check with <em>aconnect -ol</em>) to control
 <em>ecasound</em> in another <I>xterm</I>:</p>
 <pre>
- midifade -o 0 c0m9v102 c1m9v105 c2m9v96 c3m9v64</pre>
+ midifade -o 0 -N fade2 c0m9v102 c1m9v105 c2m9v96 c3m9v64</pre>
 <pre>
- ecasound -c -r -Md:alsaseq,129:0 \
+ ecasound -c -r -Md:alsaseq,fade2 \
   -a:1 -i drums.wav                -ea:200 -km:1,0,250,9,1 \
   -a:2 -i synth-chords.wav -epp:30 -ea:120 -km:1,0,150,9,2 \
   -a:3 -i bass-guitar_take-2.ewf   -ea:75  -km:1,0,100,9,3 \
@@ -122,11 +123,23 @@ examples.html</A>
 in the <em>ecasound</em> documentation for details
 of the <B>-ea</B> and <B>-km</B> options.</p>
 </dd>
+
+<dt><B><a name="N" class="item"><em>-N my_name</em></a></B></dt>
+
+<dd>
+<p>Sets the Alsa-Client name, to <I>my_name</I> in this example.<BR>
+This is useful in scripts, to be able to connect from a
+particular <I>midifade</I> by a known name.
+</p><p>
+The default Alsa-Client name is "<I>midifade</I>"
+</p></dd>
+
 <dt><B><a name="v" class="item"><em>-v</em></a></B></dt>
 
 <dd>
 <p>Prints version number.</p>
 </dd>
+
 </dl>
 
 <hr />
@@ -165,6 +178,8 @@ CPAN modules
 <hr />
 <H3><a name="changes">CHANGES</a></H3>
 <P>
+<BR><B>1.9</B>, 20140907, <A HREF="#options">-N my_name</A>
+&nbsp; sets the AlsaClientName
 <BR><B>1.8</B>, 20130323, keystroke <B>D</B> can now delete the only fader
 <BR><B>1.7</B>, 20120831, <A HREF="#options">-o "string"</A> works
 <BR><B>1.6</B>, 20120820, display_clientstr called at start

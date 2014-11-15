@@ -10,8 +10,8 @@
 #
 # We work in MIDI::Event, appending new notes to the array
 
-my $Version       = '1.5';      # -a, -A, -2, -8, -s options introdued
-my $VersionDate   = '20130509';
+my $Version       = '1.6';      # -d option introduced
+my $VersionDate   = '20140913';
 my $Channel       = 1;          # MIDI channel, see -c
 my $Patch         = 32;         # default Acoustic Bass, see -p
 my $Tempo         = 144;        # Beats per Minute, see -t
@@ -21,6 +21,7 @@ my $Turn_Probability   = 0.15;  # probability of line turning direction
 my $Minim_Probability  = 0.00;  # probability of minim instead of two cros
 my $Quaver_Probability = 0.09;  # probability of a pair of swung quas, see -8
 my $Swing         = 0.60;       # First-quaver length in beats, see -s
+my $Drums         = 0;          # Ride-cymbal on cha9 ? see -d
 my $TPC           = 96;   # MIDI Ticks Per Crochet
 my $DefaultLegato = 0.85; # MIDI default length of a crochet
 my $DefaultVolume = 100;  # MIDI default volume (0..127), see -v
@@ -50,8 +51,7 @@ while ($ARGV[$[] =~ /^-(\w)/) {
 	if ($1 eq 'c')      { shift;
 		my $a = shift; if ($a !~ /^\d+$/) { die "bad -c arg: $a\n"; }
 		$Channel = 0+$a;
-	} elsif ($1 eq 'm') { $OutputFormat = 'muscript'; shift;
-	} elsif ($1 eq 'r') { $OutputFormat = 'rawmuscript'; shift;
+	} elsif ($1 eq 'd') { $Drums = 1; shift;
 	} elsif ($1 eq 'a') { shift;
 		while (1) {
 			if ($ARGV[$[] !~ /^\d\d(,\d\d)+$/) { last; }
@@ -79,6 +79,8 @@ while ($ARGV[$[] =~ /^-(\w)/) {
 			die "strange -2 argument: $q, should be >=0.0 and <=1.0\n";
 		}
 		$Minim_Probability = 0 + $q;
+	} elsif ($1 eq 'm') { $OutputFormat = 'muscript'; shift;
+	} elsif ($1 eq 'r') { $OutputFormat = 'rawmuscript'; shift;
 	} elsif ($1 eq 'n') { shift;
 		my $a = shift; if ($a !~ /^\d+$/) { die "bad -n arg: $a\n"; }
 		$Notes = 0+$a;
@@ -122,6 +124,8 @@ while ($ARGV[$[] =~ /^-(\w)/) {
 }
 my $Swing1 = int(0.5 + $Swing*$TPC);
 my $Swing2 = $TPC - $Swing1;
+my $DrumVolume    = $DefaultVolume + 10;
+if ($DrumVolume > 127) { $DrumVolume = 127; }
 
 if ($OutputFormat eq 'midi') {
 	eval 'require MIDI'; if ($@) {
@@ -155,7 +159,9 @@ my $n = 1; while ($n <= $Notes) {
 		$pitch = &new_pitch($pitch);
 		if ($OutputFormat eq 'midi') {
 			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			if ($Drums) { push @newevents,['note_on',0,9,53,$DrumVolume]; }
 			push @newevents,['note_off',$Swing1,$Channel,$pitch,$DefaultVolume];
+			if ($Drums) { push @newevents,['note_off',0,9,53,0]; }
 		} elsif ($OutputFormat eq 'muscript') {
 			print " 4 ", pitch2ascii($pitch);
 		} elsif ($OutputFormat eq 'rawmuscript') {
@@ -164,7 +170,9 @@ my $n = 1; while ($n <= $Notes) {
 		$pitch = &new_pitch($pitch);
 		if ($OutputFormat eq 'midi') {
 			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
+			if ($Drums) { push @newevents,['note_on',0,9,53,$DrumVolume]; }
 			push @newevents,['note_off',$Swing2,$Channel,$pitch,$DefaultVolume];
+			if ($Drums) { push @newevents,['note_off',0,9,53,0]; }
 		} elsif ($OutputFormat eq 'muscript') {
 			print " 8 ", pitch2ascii($pitch);
 			$last_note_was_quaver = 1;
@@ -187,7 +195,15 @@ my $n = 1; while ($n <= $Notes) {
 		$pitch = &new_pitch($pitch);
 		if ($OutputFormat eq 'midi') {
 			push @newevents,['note_on', 0, $Channel, $pitch, $DefaultVolume];
-			push @newevents,['note_off', $TPC,$Channel,$pitch,$DefaultVolume];
+			if ($Drums) {
+				push @newevents,['note_on', 0,9,53,$DrumVolume];
+				push @newevents,['note_off',$Swing1,9,53,0];
+				push @newevents,['note_on', 0,9,53,$DrumVolume];
+				push @newevents,['note_off',$Swing2,9,53,0];
+				push @newevents,['note_off',0,$Channel,$pitch,$DefaultVolume];
+			} else {
+			 push @newevents,['note_off',$TPC,$Channel,$pitch,$DefaultVolume];
+			}
 		} elsif ($OutputFormat eq 'muscript') {
 			if ($last_note_was_quaver) { print " 4."; }
 			print " ", pitch2ascii($pitch);
@@ -279,6 +295,7 @@ bassline - Generates a random jazz-bassline, for improvisation practice.
 =head1 SYNOPSIS
 
  bassline -c 3           # output on MIDI Channel 3 (default=1)
+ bassline -d             # Drum option; generates also a ride-cymbal
  bassline -m             # generates output in muscript format
  bassline -n 500         # 500 beats (default = 5 minutes)
  bassline -p 33          # use Patch 33, Electric Bass. (default=32)
@@ -324,6 +341,11 @@ separated by commas.
 This example will cause output to be generated on midi B<channel> 3
 (of 0..15).
 The default is channel 1.
+
+=item I<-d>
+
+This B<drum> option generates also a simple ride-cymbal,
+using note 53 on channel 9.
 
 =item I<-m>
 

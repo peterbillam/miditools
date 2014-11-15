@@ -37,8 +37,8 @@
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.1y'; # workaround: ignore -gs options in xml
-$VersionDate           = '16jul2014';
+$Version               = '3.1z'; # introduce septuplets eg. 167 [G A G A G A G]
+$VersionDate           = '21jul2014';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $isyst $ibar and $istave
@@ -394,11 +394,12 @@ sub initialise {
 	 qua=>.5,cro=>1.0,min=>2.0,smb=>4.0,bre=>8.0);
 	foreach my $key (keys %en) {
 		$nbeats{$key}     = $en{$key};
-		$nbeats{$key.'2'} = $en{$key}*0.75;     # duplet
-		$nbeats{$key.'3'} = $en{$key}*0.66667;  # triplet
-		$nbeats{$key.'4'} = $en{$key}*0.75;     # quadruplet
-		$nbeats{$key.'5'} = $en{$key}*0.8;      # quintuplet
-		$nbeats{$key.'6'} = $en{$key}*0.66667;  # sextuplet
+		$nbeats{$key.'2'} = $en{$key}*0.75;       # duplet
+		$nbeats{$key.'3'} = $en{$key}*0.66667;    # triplet
+		$nbeats{$key.'4'} = $en{$key}*0.75;       # quadruplet
+		$nbeats{$key.'5'} = $en{$key}*0.8;        # quintuplet
+		$nbeats{$key.'6'} = $en{$key}*0.66667;    # sextuplet
+		$nbeats{$key.'7'} = $en{$key}*0.57142857; # septuplet  3.1z
 	}
 	foreach my $key (keys %nbeats) {   # dotted notes
 		$nbeats{$key . '.'  } = $nbeats{$key} * 1.5;
@@ -2352,10 +2353,14 @@ sub midi_event {
 					my $ticks_per_section = round($duration / $n);
 					my $expression = 100;
 					foreach my $expr (@midiexpressions) {
-						if ($expression+$expr > 127)  { $expr = 127-$expression;
-						} elsif ($expression+$expr < 0) { $expr = 0-$expression;
+						if ($expression+$expr > 127)  { $expr=127-$expression;
+						} elsif ($expression+$expr < 0) { $expr=0-$expression;
 						}
-						my $step = int (1.01 + 5*abs($expr)/$ticks_per_section);
+# 20141104  should leave at least, say, 5ms  between each cc-change !
+						my $step = int(1.01 + 5*abs($expr)/$ticks_per_section);
+# 20141104  $step should correspond to at least, say, 5ms !
+# $MidiTempo = uSec-per-cro ;    $TPC = ticks-per-cro
+# ticks_per_5000uS = int(1.01 + 5000 * $TPC / $MidiTempo)
 						if ($expr < 0) { $step = 0 - $step; }
 						my $nsteps = round($expr / $step);
 						if (! $nsteps) {

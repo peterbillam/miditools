@@ -12,8 +12,6 @@ CONTENT="MIDI, ALSA, Lua, module, luarock, score, opus">
 </H1>
 
 <!-- INDEX BEGIN -->
-<div name="index">
-<p><a name="__index__"></a></p>
 
 <TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
 <TR><TD ALIGN="left">
@@ -37,8 +35,8 @@ CONTENT="MIDI, ALSA, Lua, module, luarock, score, opus">
 </TD></TR>
 </TABLE>
 
-<hr name="index" />
-</div>
+<hr />
+<p></p>
 <!-- INDEX END -->
 
 <h3><a name="name">NAME</a></h3>
@@ -273,7 +271,10 @@ the byte-string, including any F0 and F7 bytes.<BR>
 For most other events,  the elements are
 <CODE>{&nbsp;channel,&nbsp;unused,unused,unused,&nbsp;param,&nbsp;value&nbsp;}</CODE>
 </p><p>
-The <I>channel</I> element is always 0..15
+The <I>channel</I> element is always 0..15<BR>
+In the SND_SEQ_EVENT_PITCHBEND event
+the <I>value</I> element is from -8192..+8191;
+logical, but not the more usual 0..16383
 </p>
 </dd>
 
@@ -421,8 +422,13 @@ The <I>value</I> is from -8192 to 8191.
 If <em>start</em> is not used, the event will be sent directly;
 if <em>start</em> is provided, the event will be scheduled in a queue. 
 Unlike in the <em>alsaseq.py</em> Python module,
-the <em>start</em> element, when provided, is in floating-point seconds.</p>
-</dd>
+the <em>start</em> element, when provided, is in floating-point seconds.
+</p><p>
+(Note that
+<I><A HREF="fluidsynth.html#pitch_bend">fluidsynth</A></I>
+uses a different convention, in which the value is from 0 to 16383
+and 8192 represents the central position.) 
+</p></dd>
 
 <dt><strong><a name="controllerevent" class="item">
 <em>controllerevent</em>( ch, controllernum, value, start )</a></strong></dt>
@@ -747,9 +753,11 @@ and there's not much can be done about that.
  <a href="http://search.cpan.org/perldoc?MIDI::ALSA">http://search.cpan.org/perldoc?MIDI::ALSA</A></I>
  <a href="http://www.pjb.com.au/comp/lua/midialsa.html">http://www.pjb.com.au/comp/lua/midialsa.html</a>
  <A HREF="http://rocks.moonscript.org/modules/peterbillam/midialsa">http://rocks.moonscript.org/modules/peterbillam/midialsa</A>
+ <a href="http://www.pjb.com.au/comp/lua/fluidsynth.html">http://www.pjb.com.au/comp/lua/fluidsynth.html</a>
  <a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a>
  <a href="http://www.pjb.com.au/comp/lua/MIDI.html#events">http://www.pjb.com.au/comp/lua/MIDI.html#events</a>
  <a href="http://alsa-project.org/alsa-doc/alsa-lib/seq.html">http://alsa-project.org/alsa-doc/alsa-lib/seq.html</a>
+ <a href="http://alsa-project.org/alsa-doc/alsa-lib/group___seq_events.html">http://alsa-project.org/alsa-doc/alsa-lib/group___seq_events.html</a>
  <a href="http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__note.html">http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__note.html</a>
  <a href="http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__ctrl.html">http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__ctrl.html</a>
  <a href="http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__queue__control.html">http://alsa-project.org/alsa-doc/alsa-lib/structsnd__seq__ev__queue__control.html</a>

@@ -1,0 +1,170 @@
+<HTML><HEAD><TITLE>midi2wavs</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midi2wavs</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<div name="index">
+
+<p><a name="__index__"></a></p>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<H2><a name="name">NAME</a></H2><p>
+<B>midi2wavs</B> &nbsp; - Converts each midi-channel into a separate .wav file
+</p>
+
+<p></p>
+<hr />
+<H2><a name="synopsis">SYNOPSIS</a></H2>
+<pre>
+ midi2wavs foo.mid      # generates foo_cha0.wav, foo_cha1.wav etc
+ midi2wavs -n foo.mid   # No-op; doesn't generate the wav files
+ midi2wavs -q foo.mid   # Quiet; doesn't suggest mixdown commands
+ midi2wavs -v           # prints the Version</pre>
+<p>
+</p>
+<hr />
+<H2><a name="description">DESCRIPTION</a></H2>
+<p>This script converts each midi-channel in the <I>foo.mid</I>
+into a separate <I>foo_chaX.wav</I> file,
+then suggests suitable <I>midifade</I> and
+<I>ecasound</I> commands for a mixdown.  For example:</p>
+<pre>
+ suggested commands for a simple mixdown:
+ midifade -o 0 c1m7v80 c2m7v80 c3m7v80 c4m7v80 c5m7v80 c6m7v80
+ ecasound -Md:alsaseq,midifade:0 \
+   -a:1 -i:/tmp/t_cha1.wav -ea:63 -km:1,0,100,7,2 \
+   -a:2 -i:/tmp/t_cha2.wav -ea:63 -km:1,0,100,7,3 \
+   -a:3 -i:/tmp/t_cha3.wav -ea:63 -km:1,0,100,7,4 \
+   -a:4 -i:/tmp/t_cha4.wav -ea:63 -km:1,0,100,7,5 \
+   -a:5 -i:/tmp/t_cha5.wav -ea:63 -km:1,0,100,7,6 \
+   -a:6 -i:/tmp/t_cha6.wav -ea:63 -km:1,0,100,7,7 \
+   -a:1,2,3,4,5,6 -o:loop,1 -a:20,21 -i loop,1 \
+   -f:16,2,44100 -a:20 -o:/tmp/t_mix.wav -a:21 -o:alsa</pre>
+<p>It uses by default the Lua module
+<I><A HREF="../comp/lua/fluidsynth.html">fluidsynth.lua</A></I>
+to perform the conversion into <I>wav</I>.  You'll want to edit
+<I>~/.fluidsynth</I> to configure your favourite soundfonts;
+see the documentation for
+<A HREF="../comp/lua/fluidsynth.html#read_config_file">read_config_file()</A>
+</p><p>
+If <I><A HREF="../comp/lua/fluidsynth.html">fluidsynth.lua</A></I>
+is not available then it uses the <I>timidity</I> executable,
+working around a quirk in <I>timidity</I> (fixed in version 2.14)
+which deletes initial silence while converting to <I>wav</I>.
+</p><p>
+If those are not available then it uses the <I>fluidsynth</I> executable,
+working around a quirk which truncates release and reverb on the final note.
+</p><p>
+It uses the <I>luaposix</I> Lua module to access the file-system, and the
+<I><A HREF="../comp/lua/MIDI.html">MIDI.lua</A></I>
+Lua module to handle the MIDI format.
+</p><p>
+
+</p><hr />
+<H2><a name="options">OPTIONS</a></H2>
+<dl>
+<dt><B><a name="n" class="item"><I>-n</I></a></B></dt>
+
+<dd>
+<p>No-op ; doesn't generate the <I>wav</I> files</p>
+</dd>
+<dt><B><a name="q" class="item"><I>-q</I></a></B></dt>
+
+<dd>
+<p>Quiet ; doesn't output the suggested commands for a mixdown</p>
+</dd>
+<dt><B><a name="v" class="item"><I>-v</I></a></B></dt>
+
+<dd>
+<p>Print the Version</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<H2><a name="changes">CHANGES</a></H2>
+<pre>
+ 20140907 1.2 uses normalize-audio (if present) on the output files
+ 20140824 1.1 uses fluidsynth.lua with 'fast.render'
+ 20140805 1.0 first working version</pre>
+<p>
+</p>
+<hr />
+<H2><a name="download">DOWNLOAD</a></H2>
+<p>The latest version is available at
+<a href="free/midi2wavs">
+http://www.pjb.com.au/midi/free/midi2wavs</a></p>
+<p>Just move it into your <I>$PATH</I>,
+make it executable,
+and if necessary change the first line to reflect where <I>lua</I> is
+installed on your system.</p>
+<p>You will also need to install <I>MIDI.lua</I>, <I>fluidsynth.lua</I>
+and <I>luaposix</I>, for example:</p>
+<pre>
+ luarocks install --server=http://rocks.moonscript.org MIDI
+ luarocks install --server=http://rocks.moonscript.org fluidsynth
+ luarocks install --server=http://rocks.moonscript.org luaposix</pre>
+
+<p>
+</p>
+<hr />
+<H2><a name="author">AUTHOR</a></H2>
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+
+<p>
+</p>
+<hr />
+<H2><a name="see_also">SEE ALSO</a></H2>
+<pre>
+ <a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
+ <a href="http://www.pjb.com.au/midi/midi2wavs.html">http://www.pjb.com.au/midi/midi2wavs.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/fluidsynth.html">http://www.pjb.com.au/comp/lua/fluidsynth.html</a>
+ <a href="http://www.pjb.com.au/midi/midifade.html">http://www.pjb.com.au/midi/midifade.html</a>
+ <a href="http://eca.cx/ecasound/">http://eca.cx/ecasound/</a>
+ <a href="http://www.fluidsynth.org/">http://www.fluidsynth.org/</a>
+ <a href="http://timidity.sourceforge.net/">http://timidity.sourceforge.net/</a>
+ <A HREF="https://lists.sourceforge.net/lists/listinfo/timidity-talk">https://lists.sourceforge.net/lists/listinfo/timidity-talk</A>
+ man normalize-audio
+</pre>
+
+</body>
+
+</html>

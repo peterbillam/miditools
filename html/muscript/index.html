@@ -30,7 +30,7 @@ because of a stricter <A HREF="#notes">note syntax</A>.
 The
 <A HREF="variables.html">ability to define variables</A>
 is introduced in version 3.1.
-The current version of <I>muscript</I> is <B>3.1y</B>.
+The current version of <I>muscript</I> is <B>3.1z</B>.
 </P><P>
 <FONT SIZE="+1"><B>
 This page describes the
@@ -102,11 +102,11 @@ Describing a page of music in <I>muscript</I> corresponds to the way you'd
 write the page; so first you draw the staves, then on each stave you
 draw the barlines, then for each bar you fill in the clefs, notes, etc.
 </P><P>
-Each page consists of several <A HREF="#systems">systems</A>,
-each of which consists of one or more <A HREF="#barlines">bars</A>,
-each of which consists of one or more <A HREF="#staves">staves</A>,
-each of which contains one or more <A HREF="#notes">notes</A>
-or <A HREF="#words">words</A>.
+Each page consists of several <B><A HREF="#systems">systems</A></B>,
+each of which consists of one or more <B><A HREF="#barlines">bars</A></B>,
+each of which consists of one or more <B><A HREF="#staves">staves</A></B>,
+each of which contains one or more <B><A HREF="#notes">notes</A></B>
+or <B><A HREF="#words">words</A></B>.
 
 </P><A NAME="boundingbox"><HR></A><H2>BoundingBox</H2><P>
 If the very first line in the file is e.g.:<BR>
@@ -356,6 +356,9 @@ e.g. <CODE><B>qua4</B></CODE> or <CODE><B>84</B></CODE>
 Quintuplets are written with a five;
 e.g. <CODE><B>smq5</B></CODE> or <CODE><B>165</B></CODE>
 (five quintuplet semiquavers last one normal crotchet)<BR>
+Septuplets are written with a seven;
+e.g. <CODE><B>smq7</B></CODE> or <CODE><B>167</B></CODE>
+(seven septuplet semiquavers last one normal crotchet)<BR>
 Dotted notes are written with a dot;
 e.g. <CODE><B>min.</B></CODE> or <CODE><B>2.</B></CODE>
 or <CODE><B>qua3.</B></CODE> or <CODE><B>83.</B></CODE><BR>
@@ -824,9 +827,12 @@ This forces the synth into <B>General-MIDI mode</B> (see above),
 General-MIDI-2 in this example.
 Other possible values are <CODE>gm 1</CODE> for General-MIDI-1,
 or <CODE>gm off</CODE> which puts the synth into one of its
-non-General-MIDI modes, see your synth manual for more details.
+non-General-MIDI modes, see your synth manual for more details.<BR>
 The <CODE>gm 1</CODE> and <CODE>gm 2</CODE> commands
-are incompatible with the <CODE>bank</CODE> command above.
+are incompatible with the <CODE>bank</CODE> command above.<BR>
+See:
+<A HREF="http://en.wikipedia.org/wiki/Comparison_of_MIDI_standards">
+wikipedia's Comparison of MIDI standards</A>.
 </DD>
 
 <DT><CODE><A NAME="pau">midi</A>

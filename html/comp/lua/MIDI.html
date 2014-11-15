@@ -147,9 +147,11 @@ www.pjb.com.au/midi/MIDI.html</A>
 If the scores differ in their <I>ticks</I> parameter,
 they will all get converted to millisecond-tick format.</p>
 </dd>
-<dt><strong><a name="grep" class="item"><em>grep</em> (opus_or_score, channels)</a></strong></dt>
+<dt><strong><a name="grep" class="item"><em>grep</em> (score, channels)</a></strong></dt>
 <dd>
-<p>Returns a <I>score</I>, or an <I>opus</I>, containing only the channels specified.
+<p>Returns a <I>score</I> containing only the channels specified.
+(It also works on an <I>opus</I>, but because of the
+incremental times the result will usually be useless.)
 The second parameter is an array of the wanted channel numbers,
 for example:</p>
 <pre>
@@ -277,7 +279,8 @@ the <I>aplaymidi</I> process will run in the background.</p>
 parameter, the others are the tracks. Each track is an array
 of score-events, and each event is itself an array.
 score2opus() returns an array specifying the equivalent <I>opus</I>.
-A score-event is similar to an opus-event (see above),
+A score-event is similar to an opus-event
+<A HREF="#opus2midi">(see above)</A>,
 except that in a score:<BR>
 1) all times are expressed as an absolute number of ticks
     from the track's start time<BR>
