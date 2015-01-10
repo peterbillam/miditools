@@ -37,8 +37,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '6.6'; # removed misleading 'm=mark' help-text
-my $VersionDate = '20141104';
+my $Version = '6.7'; # skip refreshes if <10ms to next event
+my $VersionDate = '20141201';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -200,6 +200,7 @@ my $Now   = 0;   # ticks? secs?
 my $Ievent = $[; # perhaps $[-1 should mean before_the_first_event ?
 my $Paused = 1;
 my $Editing = 0;  # 1.4
+my $I_LastRefreshed = 0;  # 6.7 stores when the display was last refreshed
 my @EditEvent = ();  # 2.9 if event-type matches then '.' imposes the rest
 my @FindEvent = ();
 my $FindForwards = 1;
@@ -258,7 +259,14 @@ while (1) {  # the loop
 		} else {
 			if ($Ievent < $#Track) {  # output next event
 				$Ievent += 1; $Now = $Track[$Ievent][$[+1] + 1;
-				display_screen(); play_current_event();
+				# 6.7 If Playing, and next event is <10ms away, don't refresh
+				if ($Ievent == $#Track) {
+					display_screen();
+				} elsif (($Track[$Ievent+1][$[+1] - $I_LastRefreshed)
+				  > (10.0/$ReplaySpeed)) {
+					display_screen();
+				}
+				play_current_event();
 			}
 			set_timeout_for_next_note();
 		}
@@ -594,6 +602,7 @@ sub display_screen {
 	display_keystrokes();
 	display_events();
 	refresh();
+	$I_LastRefreshed = $Now;   # 6.7
 }
 
 sub display_message {
@@ -2273,6 +2282,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 6.7 20141201, skip refreshes if <10ms to next event
  6.6 20141104, removed misleading 'm=mark' help-text
  6.5 20140703, display_events controller_change events display controller-names
  6.4 20140702, display_events patch_change events display GM patch-names

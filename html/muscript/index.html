@@ -1,4 +1,4 @@
-<HTML><HEAD> <TITLE>Muscript 3.1</TITLE> </HEAD>
+<HTML><HEAD> <TITLE>Muscript 3.2</TITLE> </HEAD>
 <LINK rel=stylesheet type="text/css" href="styles.css" title="Muscript Styles">
 <META HTTP-EQUIV="Keywords"
 CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
@@ -6,7 +6,7 @@ CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
 
 <H1><A NAME="top"><IMG SRC="logo.gif" ALT=" " WIDTH=81 HEIGHT=32></A>
 <FONT COLOR="#800000">
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B><I>Muscript 3.1</I></B></FONT></H1>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B><I>Muscript 3.2</I></B></FONT></H1>
 
 <HR>
 
@@ -30,7 +30,7 @@ because of a stricter <A HREF="#notes">note syntax</A>.
 The
 <A HREF="variables.html">ability to define variables</A>
 is introduced in version 3.1.
-The current version of <I>muscript</I> is <B>3.1z</B>.
+The current version of <I>muscript</I> is <B>3.2c</B>.
 </P><P>
 <FONT SIZE="+1"><B>
 This page describes the
@@ -987,6 +987,15 @@ As in the <A HREF="#midi_global">Global MIDI</A> section,
 the pan can range from 0 (left) through 50 (centre) to 100 (right),
 but here incremental changes are also allowed, e.g. <CODE>pan+10</CODE>
 or <CODE>pan-5</CODE>
+</DD>
+
+<DT><CODE>bend73</CODE> &nbsp; or &nbsp; <CODE>bend+1</CODE>
+&nbsp; or &nbsp; <CODE>bend-10</CODE></DT><DD>
+This pitch-bends the channel, using the MIDI pitch_wheel command.
+The bend can range from 0 (by default 2 semitones down)
+through 50 (normal tuning) to 100 (by default 2 semitones up).
+Incremental changes are also allowed, e.g. <CODE>bend+2</CODE>
+or <CODE>bend-1</CODE>
 </DD>
 
 <DT><CODE>cc73=108</CODE></DT><DD>

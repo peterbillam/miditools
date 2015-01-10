@@ -37,8 +37,8 @@
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.1z'; # introduce septuplets eg. 167 [G A G A G A G]
-$VersionDate           = '21jul2014';
+$Version               = '3.2c'; # -pp now works with # and #P and #M
+$VersionDate           = '27nov2014';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $isyst $ibar and $istave
@@ -144,6 +144,7 @@ EOT
 	} elsif ($arg eq '-p')      { shift; ps_prolog(); exit 0;
 	} elsif ($arg eq '-pp')     {
 		shift; $PrePro=1; $Xml=0; $Midi=0; $Strip=1; $Quiet=1;
+		# 3.2  but Midi=0 is destructive! e.g. what about the #P lines ?
 	} elsif ($arg =~ /^-q/)     { shift; $Quiet  = 1;
 	} elsif ($arg eq '-xml')    { shift; $Xml=1; $Midi=0; $Quiet=1;
 	} elsif ($arg eq '-midi')   { shift; $Midi=1; $Xml=0; $Quiet=1;
@@ -183,6 +184,8 @@ my $istave;
 my %bartype;
 my %stave2channels;   # 3.1v now a hash of lists
 my %stave2volume;
+my %stave2pan;
+my %stave2bend;       # 3.2
 my %stave2transpose;
 my %stave2legato;
 my %stave2nullkeysigDx = ();  # 2.9y
@@ -203,6 +206,7 @@ my $xml_tempo; my $xml_timesig;
 my $Startbeamup;    # &ps_event and &ps_note
 my $Startbeamdown;  # &ps_event and &ps_note
 my %StartedSlurs = ();
+my %StartedTies  = ();  # 3.2b cha3+4, $StartedTies{"$istave $starttie $cha"}
 my @beamup;
 my @beamdown;
 my $Startcrossbeam;
@@ -259,9 +263,17 @@ while (@Stack) {  # the main loop through the input-file
 	}
 	chop $line;
 	if ($line =~ /^\s*$/) { next; }
-	if ($line =~ /^\s*#P/) { if ($Midi) { next; } $line =~ s/^\s*#P//; # 3.1h
-	} elsif ($line =~ /^\s*#M/) { if (! $Midi) { next; } $line =~ s/^\s*#M//;
-	} elsif ($line =~ /^\s*#/)  { next;   # 3.1c 
+	if ($line =~ /^\s*#P/) {
+		if (! $PrePro) {   # 3.2c keep #P and expand them
+			if ($Midi) { next; } $line =~ s/^\s*#P//; # 3.1h 3.2c
+		}
+	} elsif ($line =~ /^\s*#M/) {
+		if (! $PrePro) {   # 3.2c keep #M and expand them
+			if (! $Midi) { next; } $line =~ s/^\s*#M//;  # 3.2c
+		}
+	} elsif ($line =~ /^\s*#/)  {
+		if ($PrePro) { print $line."\n"; }   # 3.2c
+		next;   # 3.1c 
 	}
 	if ($line =~ /^\s*%/) { interpret_syntax($line); next; }   # 3.1c 
 	if ($line =~ /$VariableSetRE/o) { # 3.0g
@@ -289,7 +301,7 @@ sub interpret_syntax { my $line = $_[$[];
 	if ($PrePro) { print $line,"\n"; return; }
 	if ($line =~ s/^=\s*//)  {
 		if (!$Midi or !$Midi_off) { newstave($line); }
-		next;
+		next;    # 3.2c whaddya mean, "next" ? is this in the calling context?
 	}
 	if ($line =~ /^boundingbox\s+(\d+)\s+(\d+)$/) {boundingbox($1,$2); next;}
 	if (!$Midi && !$Xml && !$PS_Prolog_Already)   { ps_prolog(); }
@@ -299,7 +311,7 @@ sub interpret_syntax { my $line = $_[$[];
 		} elsif ($1 eq 'off') { $Midi_off = 1;
 		} elsif (! $Midi_off) { midi_global($1);   # 2.9l
 		}
-		next;
+		next;    # 3.2c whaddya mean, "next" ?
 	}
 	if ($Midi && $Midi_off) { next; }
 	if ($Xml && !$xml{'header finished'}) {
@@ -307,6 +319,7 @@ sub interpret_syntax { my $line = $_[$[];
 		if (!&xml_header($line)) { $xml{'header finished'} = 1; redo; }
 	}
 	my $ps = !$Midi && !$Xml;   # either PS or EPS
+	# 3.2c whaddya mean, "next" ? a dozen times ...
 	if ($line =~ /^rightfoot\s(.*)$/) { if ($ps) {ps_rightfoot($1);} next; }
 	if ($line =~ /^leftfoot\s(.*)$/)  { if ($ps) {ps_leftfoot($1);}  next; }
 	if ($line =~ /^innerhead\s(.*)$/) { if ($ps) {ps_innerhead($1);} next; }
@@ -322,12 +335,12 @@ sub interpret_syntax { my $line = $_[$[];
 	}
 	if ($line =~ /^([1-9][0-9]*)\s*bars?\s*(.*)$/) {bars($1,$2);$ibar=0;next;}
 	if ($line =~ /^\|\s*([^=]*)(\s*=(\d.*)$)?/) {   # 2.9j
-		newbar($1);   if ($3) { newstave($3); }   next;
+		newbar($1);   if ($3) { newstave($3); }   next;  # 3.2c "next" what ?
 	}
 	if ($line =~ /^([rbiI])([ls]?)(\d?\.?\d*)\s(.*)$/) {
 		if ($Xml)   { xml_text($1,$2,$3,$4); next; }
 		if ($Midi)  { next; }
-		ps_text($1,$2,$3,$4);  next;
+		ps_text($1,$2,$3,$4);  next;    # 3.2c whaddya mean, "next" ?
 	}
 	warn "line $LineNum not recognised: $line\n";   # 2.9j
 }
@@ -1548,6 +1561,13 @@ sub current_pan {
 		return 50;
 	}
 }
+sub current_bend {   # 3.2  should this be cha2bend ? for incremental bend+2
+	if (defined $stave2bend{$currentstavenum}) {
+		return $stave2bend{$currentstavenum};
+	} else {
+		return 0;  # bend is -8191..8192
+	}
+}
 
 # ----------------- sequence-generator infrastructure --------------
 sub cycle { my @list = @_;
@@ -1831,7 +1851,7 @@ sub xml_event {
 			if (!$note_ref->{starttie} && abs $release > 1) {
 				$note_attributes .= " release=\"$release\"";
 			}
-			my $vol = &current_volume();
+			my $vol = current_volume();
 			if ($is_emphasis) { $vol += 10; if ($vol>127) { $vol=127; } }
 			my $vol = round(1.1111*$vol);
 			$note_attributes .= " dynamics=\"$vol\"";
@@ -2254,16 +2274,16 @@ sub midi_event {
 					} elsif ($a eq 'bb') { $note-=2;
 					}
 				}
-				my $velocity = &current_volume();
+				my $velocity = current_volume();
 				$options =~ s{'}{\\'}g;
 				my @midiexpressions; # array of cre and dim commands
 # if ($options) { warn "options=$options\n"; }
 				foreach $option (&parse_line('-', 0, $options)) {
 					$option =~ s{\\'}{'}g;
 					$option =~ s{[,']$}{};
-					if ($option eq 'fermata') { # change tempo down & back again
+					if ($option eq 'fermata') { # change tempo down & up again
 		  			} elsif ($option eq 'mordent') {
-		  			} elsif ($option eq 'tr') {   # trill about 10 notes/sec XXX
+		  			} elsif ($option eq 'tr') {  # trill about 10 notes/sec XXX
 		  			} elsif ($option eq 'tr#') {
 		  			} elsif ($option eq 'trb') {
 		  			} elsif ($option eq 'trn') {
@@ -2296,27 +2316,27 @@ sub midi_event {
 				#if ($startslur) { $StartedSlurs{"$istave $stemup"} = 1; }
 				if ($startslur) { $StartedSlurs{$istave} = 1; }
 				# XXX BUG what has stemup got to do with it ? <a{1 A,}2>
-				# but we can't do $StartedSlurs{"$istave $startslur"} because of
-				# the intermediate notes lying under a slur; they don't know 1 or 2
+				# but we can't do $StartedSlurs{"$istave $startslur"} because
+				# intermediate notes lying under a slur; they don't know 1 or 2
 				if ($endtie) {
-					if ($startedties{"$istave $endtie"}) {
-						my $beg_ref = $startedties{"$istave $endtie"};
+					if ($StartedTies{"$istave $endtie $cha"}) {
+						my $beg_ref = $StartedTies{"$istave $endtie $cha"};
 						my $begn =   $beg_ref->[$[+4];
 						if (!$accidental && ($pitch eq $beg_ref->[$[+6])) {
-							$note = $begn;  # accidental tied over from prev bar
+							$note = $begn;  # accidental tied from prev bar
 						}
 						if ($begn == $note) {
 							my $begtime = $beg_ref->[$[+1];
 							if ($starttie) { # prolong the remembered note
-								$beg_ref->[$[+2] = $starttime+$duration-$begtime;
+								$beg_ref->[$[+2]=$starttime+$duration-$begtime;
 								if ($starttie != $endtie) {
 								# the tie-number might have changed, eg )1(2
-									$startedties{"$istave $starttie"}
-									 = $startedties{"$istave $endtie"};
-									delete $startedties{"$istave $endtie"};
+									$StartedTies{"$istave $starttie $cha"}
+									 = $StartedTies{"$istave $endtie $cha"};
+									delete $StartedTies{"$istave $endtie $cha"};
 								}
 							} else { # output the full-length combined note
-								delete $startedties{"$istave $endtie"};
+								delete $StartedTies{"$istave $endtie $cha"};
 								$B = $begtime;
 								$D = $starttime+$duration-$begtime;
 							}
@@ -2325,7 +2345,7 @@ sub midi_event {
 							. " of ( for slur. Use { instead\n";
 							$#{$beg_ref} = $[+5;   # pop old $pitch off end
 							push @MidiScore, $beg_ref;
-							delete $startedties{"$istave $endtie"};
+							delete $StartedTies{"$istave $endtie $cha"};
 							$startslur = $starttie;
 						}
 					} else {
@@ -2333,19 +2353,18 @@ sub midi_event {
 						. "corresponding (\n";
 					}
 				} elsif ($MidiExpression{$cha} != 100) {
+					# we're already within a loop over channels
 					midi_expression($B, $cha, 100);
 				}
-				#if ($StartedSlurs{"$istave $stemup"}) {
 				if ($StartedSlurs{$istave}) {
-#wa	rn("StartedSlurs{$istave}\n");
 					if ($endslur) {
-						#delete $StartedSlurs{"$istave $stemup"};
 						delete $StartedSlurs{$istave};
 					} else {
 						$D += $fullduration - $duration;
 					}
 				}
-				if (@midiexpressions) { # 2.7a cre and dim  ## could also pan+50
+				if (@midiexpressions) { # 2.7a cre and dim
+					# could also pan+50, 20141118 could also bend
 					my $n = scalar @midiexpressions;
 					my $begin_section = $B;
 					my $duration = $D;
@@ -2378,12 +2397,12 @@ sub midi_event {
 				}
 				if ($starttie) {
 					if (! $endtie) {  # 2.4e
-						$startedties{"$istave $starttie"} =
-						['note',$B,$fullduration,$cha,$note,$velocity,$pitch];
+						$StartedTies{"$istave $starttie $cha"} = ['note',
+						  $B,$fullduration,$cha,$note,$velocity,$pitch];
 					}
 				} else {
 					# Difficult bug here if a voice crosses through a tied note
-					# in the other voice on the same stave; it terminates it :-(
+					# in the other voice on the same stave it terminates it :-(
 					push @MidiScore, ['note',$B,$D,$cha,$note,$velocity];
 				}
 			} 
@@ -2596,23 +2615,23 @@ sub midi_cc_127 { my ($cha, $num, $val) = @_;  # 2.9r
 
 sub midi_in_stave { my $str = $_[$[];
 	if ($str =~ /^vol/) {
-		if ($str =~ /^volu?m?e?(\d+)$/) {
+		if ($str =~ /^vol(\d+)$/) {   # 3.2a remove u?m?e?
 			my $vol = 0+$1; if ($vol > 127) { $vol = 127; }
 			$stave2volume{$currentstavenum} = $vol; return 1;
-		} elsif ($str =~ /^volu?m?e?\+(\d+)$/) {
-			my $vol = &current_volume() + $1;
+		} elsif ($str =~ /^vol\+(\d+)$/) {
+			my $vol = current_volume() + $1;
 			if ($vol > 127) { $vol = 127; }
 			$stave2volume{$currentstavenum} = $vol; return 1;
-		} elsif ($str =~ /^volu?m?e?-(\d+)$/) {
-			my $vol = &current_volume() - $1;
+		} elsif ($str =~ /^vol-(\d+)$/) {
+			my $vol = current_volume() - $1;
 			if ($vol < 2) { $vol = 1; }
 			$stave2volume{$currentstavenum} = $vol; return 1;
 		} else {
 			warn " line $LineNum: strange vol command\n"; return 0;
 		}
-	} elsif ($str =~ /^lega?t?o?(\d+)$/) {
+	} elsif ($str =~ /^leg(\d+)$/) {   # 3.2 remove a?t?o?
 		$stave2legato{$currentstavenum} = 0.01*$1; return 1;
-	} elsif ($str =~ /^chan?n?e?l?(\d+(\+\d+)*)$/) {   # 3.1v
+	} elsif ($str =~ /^cha(\d+(\+\d+)*)$/) {   # 3.1v, 3.2
 		my @channels = map {0+$_} split('\+', $1);     # 3.1v
 		$stave2channels{$currentstavenum} = [@channels];
 		return 1;
@@ -2631,7 +2650,7 @@ sub midi_in_stave { my $str = $_[$[];
 			midi_cc_100($cha,10,$pan);
 		}
 		$stave2pan{$currentstavenum} = $pan; return 1;
-	} elsif ($str =~ /^tran?s?p?o?s?e?([-+]?\d+)$/) {
+	} elsif ($str =~ /^tra([-+]?\d+)$/) {
 		if ($Xml) {  # 2.8u
 			my %attributes = ();
 			$attributes{transpose} = xml_transpose($1);
@@ -2640,7 +2659,7 @@ sub midi_in_stave { my $str = $_[$[];
 			# XXX should remember _when_ this takes place
 		}
 		$stave2transpose{$currentstavenum} = 0+$1; return 1;
-	} elsif ($str =~ /^vibr?a?t?o?(\d+)$/)    {
+	} elsif ($str =~ /^vib(\d+)$/)    {  # 3.2 remove r?a?t?o?
 		if ($Xml) { return 1; }
 		my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
 		my $val = round($1*1.27);  # 0..100 to 1..127
@@ -2659,14 +2678,32 @@ sub midi_in_stave { my $str = $_[$[];
 			push @MidiScore, ['control_change',$ticks,$cha,$controller,$val];
 		}
 		return 1;   # 3.1w
-	} elsif ($str =~ /^bend?(\d+)$/)    {  # 3.0f
+	} elsif ($str =~ /^bend/)    {  # 3.0f   3.2a
 		if ($Xml) { return 1; }
-		# pitch_wheel = a value -8192 to 8191 (0x1FFF)
-		my $val = round(($1-50) * 163.82);
-		if ($val>8191) { $val=8191; } elsif ($val<-8192) { $val=-8192; }
+		# 4 cent steps are usually OK; decimal points could be allowed
+		# for finer steps; plus, a -bend note-option would use fine steps
+		# though there we'll need bendup and benddown :-(
+		my $val;    # 0..100
+		my $bend;   # -8191..8192
+		if ($str =~ /^bend(\d+)$/) {
+			$val = 0+$1; if ($val > 100) { $val = 100; }
+			$bend = round(($val-50) * 163.82);
+			if ($bend>8192) {$bend=8192;} elsif ($bend<-8191) {$bend=-8191;}
+		} elsif ($str =~ /^bend\+(\d+)$/) {
+			$val = round($1 * 163.82);
+			$bend = current_bend() + $val;
+			if ($bend > 8192) { $bend = 8192; }
+		} elsif ($str =~ /^bend-(\d+)$/) {
+			$val = round($1 * 163.82);
+			$bend = current_bend() - $val;
+			if ($bend < -8191) { $bend = -8191; }
+		} else {
+			warn " line $LineNum: strange bend command '$str'\n"; return 1;
+		}
+		$stave2bend{$currentstavenum} = $bend;
 		my $ticks = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
 		foreach my $cha (@{ $stave2channels{$istave} }) {   # 3.1v
-			push @MidiScore, ['pitch_wheel_change', $ticks, $cha, $val];
+			push @MidiScore, ['pitch_wheel_change', $ticks, $cha, $bend];
 		}
 		return 1;   # 3.1w
 	} else {
