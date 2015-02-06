@@ -1,0 +1,256 @@
+<HTML><HEAD><TITLE>fluadity</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>fluadity</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<H2><a name="name">NAME</a></H2>
+<p><B>fluadity</B> &nbsp; - &nbsp; Synthesiser and midi-to-wav converter using the Fluidsynth library</p>
+<p>
+</p>
+<hr />
+<H2><a name="synopsis">SYNOPSIS</a></H2>
+<pre>
+ fluadity &amp;               # a non-verbose alsa-client, o/p to soundcard
+ fluadity -i ProKeys &amp;        # likewise, and connects from the ProKeys
+ fluadity -s ./Foo.sf2 -i Pro &amp; # likewise, and loads Foo.sf2 soundfont
+ fluadity -d                    # starts a daemon alsa-client Fluadity
+ fluadity -d -c                 # starts a daemon in compatibility-mode
+ fluadity /tmp/t.mid /tmp/t.wav # converts midi to wav
+ fluadity /tmp/t.mid            # like aplaymidi -p TiMidity /tmp/t.mid
+ fluadity - /tmp/t.wav          # like timidity -Ow -o /tmp/t.wav -
+ fluadity -                     # like timidity -     
+ perldoc fluadity               # read the manual :-)
+
+ ~&gt; cat ~/.fluidsynth
+ set audio.driver alsa
+ load /home/soundfonts/Chaos4m.sf2
+ load /home/soundfonts/MyGM.sf2
+ load /home/soundfonts/ReallyGoodPiano.sf2
+ select 9 1 127 99
+ ~&gt;
+</pre><p></p>
+
+<hr />
+<H2><a name="description">DESCRIPTION</a></H2>
+<p>The name <I>fluidity</I> would be a great variant on <I>timidity</I>
+(which in turn is a magnificent variant of <I>audacity</I>),
+but 'fluidity' is already a one-person Nintendo video game, released 6dec2010.
+</p><pre>
+  <a href="http://en.wikipedia.org/wiki/Fluidity_%28video_game%29">http://en.wikipedia.org/wiki/Fluidity_(video_game)</a>
+  <a href="http://www.nintendo.com/gamesites/wii/fluidity/">http://www.nintendo.com/gamesites/wii/fluidity/</a>
+</pre><p>
+So the name <I>fluadity</I> was chosen,
+since it also contains <I>Lua</I> which is the language it uses,
+and has no previous meaning, is easy to pronounce, and is highly searchable.
+</p><p>
+It is intended to have a much lower latency than <I>timidity</I>,
+so as to be good for real-time work.
+Its command-line is leaner and easier to remember than
+<I>timidity</I>'s (which is however already pretty good).
+But it can only use SoundFonts, and so is less configurable.
+</p><p>
+It has similar functionality to the <I>fluidsynth</I> command,
+but is even easier to use, can run as a daemon,
+and features a convenient default configuration file <I>~/.fluidsynth</I>
+or <I>/etc/fluidsynth.conf</I>
+</p><p>
+Since <A HREF="#changes">version 1.8</A>
+<I>fluadity</I> offers the <I>cc66</I> sostenuto-pedal,
+and works around several quirks in the <I>fluidsynth</I>-library. &nbsp;
+Raw <I>fluidsynth</I>-compatible behaviour can be restored with the
+<B><A HREF="#option_c">-c</A></B> option.
+</p><p>
+It uses the
+<A HREF="../comp/lua/midialsa.html">midialsa</A> and
+<A HREF="../comp/lua/fluidsynth.html">fluidsynth</A> Lua modules,
+which in turn need the <I>alsa</I> and <I>fluidsynth</I> C-libraries
+and associated header-files.
+Because it uses the <I>midialsa</I> library,
+it feels most at home on <I>Linux</I>.
+In <B><A HREF="#option_d">-d</A></B> <I>daemon</I>-mode,
+it also needs the <I>luaposix</I> module.
+</p><p></p>
+
+<hr />
+<H2><a name="options">OPTIONS</a></H2>
+<dl>
+
+<dt><B><a name="option_c"><I>-c
+</I></a></B></dt><dd><p>
+Invokes <B>C</B>ompatibility-mode.
+&nbsp;
+By default, the <I>fluidsynth</I> library:
+<OL><LI>
+does not implement the sostenuto-pedal <I>cc66</I>,
+</LI><LI>
+when it reaches its maximum-simultaneous-notes
+limit it truncates the <I>newest</I> note rather than the <I>oldest</I>,
+</LI><LI>
+and when it receives more than one <I>note_on</I> on a pitch,
+then the first <I>note_off</I> received truncates all those notes.
+</LI></OL>
+Since version 1.8, in daemon-mode the midi-events are adjusted to
+work around these quirks.
+<BR>
+Therefore <B>-c</B> provides a compatibility-mode, &nbsp;
+so that midi files which depend on the default <I>fluidsynth</I> behaviour
+continue to sound the same as they always have done.
+</p></dd>
+
+<dt><B><a name="option_d"><I>-d
+</I></a></B></dt><dd><p>
+Starts a <I>daemon</I> running an <I>ALSA</I>-midi client
+called &nbsp; <I>Fluadity</I> &nbsp; (note: upper-case <B>F</B>).<BR>
+This can be invoked, for example, in &nbsp; <CODE>/etc/rc.local</CODE>
+<BR>
+In <I>daemon</I> mode the default configuration file is
+&nbsp; <CODE>/etc/fluidsynth.conf</CODE>
+</p><p>
+Users can then set &nbsp; <CODE>export ALSA_OUTPUT_PORTS=Fluadity</CODE>
+</p></dd>
+
+<dt><B><a name="option_f"><I>-f &nbsp;/wherever/my_fluidsynth_config
+</I></a></B></dt><dd><p>
+Reads the configuration from the given file.
+The default configuration file is
+&nbsp; <CODE>$HOME/.fluidsynth</CODE> &nbsp;
+or if that does not exist then
+&nbsp; <CODE>/etc/fluidsynth.conf</CODE><BR>
+These are also the default config files for the <I>fluidsynth</I> executable.
+</p><p>
+This module only recognises <I>set</I>, <I>load</I> and <I>select</I> commands;
+see &nbsp; <I>man fluidsynth</I><BR>
+In this example, the <I>select</I> command chooses for channel <B>9</B>,
+from soundfont <B>1</B> (<I>Chaos4m.sf2</I>) the bank <B>127</B>
+patch <B>99</B>, which happens to be a percussion set,
+as you typically want on channel 9.<BR>
+This is the format:
+</p><pre>
+ set audio.driver alsa
+ set synth.polyphony 1024
+ load /home/soundfonts/Chaos4m.sf2
+ load /home/soundfonts/MyGM.sf2
+ load /home/soundfonts/ReallyGoodPiano.sf2
+ select 9 1 127 99</pre>
+</dd>
+
+<dt><B><a name="option_i"><I>-i &nbsp;ProKeys,Keystation
+</I></a></B></dt><dd><p>
+Starts an <I>ALSA</I>-midi client called &nbsp; <I>fluadity</I> &nbsp;
+which it connects from (in this example) the
+<I>ProKeys</I> and <I>Keystation</I> midi-keyboards.<BR>
+In this mode, <I>fluadity</I> terminates when all its inputs disconnect.<BR>
+Of course it terminates also if killed or interrupted (eg: with ctrl-C twice),
+but in this case it leaves a temporary file undeleted in <I>/tmp</I>
+containing all the library's <I>stderr</I> output.
+</p></dd>
+
+<dt><B><a name="option_s"><I>-s &nbsp;/home/soundfonts/Wierd.sf2 -s Gulp.sf2
+</I></a></B></dt><dd><p>
+This loads a soundfont from the command-line,
+and ignores all the soundfonts in the config file.
+<BR>Multiple <B>-s</B> options may be given.</p>
+</dd>
+
+<dt><B><a name="option_v"<I>-v</I></a></B></dt>
+<dd>
+<p>Prints the Version</p>
+</dd>
+</dl><p></p>
+
+<hr />
+<H2><a name="changes">CHANGES</a></H2>
+<pre>
+ 20150206 1.8  in deamon mode: sosped, maxnotes=20, and nested note_ons
+ 20140904 1.7  if -s is given, use the fluidsynth.lua 1.7 syntax
+ 20140903 1.6  if -s is given, still read the non-'load' config lines
+ 20140903 1.5  as daemon, sighandler now works also before a synth starts
+ 20140901 1.4  as daemon, only run a synth while there are connections
+ 20140831 1.3  add -d daemon option
+ 20140829 1.2  remove the TmpFile stuff, now fluidsynth understands '-'
+ 20140825 1.1  first working version
+</pre><p></P>
+
+<hr />
+<H2><a name="download">DOWNLOAD</a></H2>
+<p><I>Fluadity</I> is available at:</p>
+<pre>
+ <a href="http://www.pjb.com.au/midi/free/fluadity">http://www.pjb.com.au/midi/free/fluadity</a></pre>
+<p>Just move it into your <I>PATH</I>, make it executable,
+and if necessary edit the first line to match where <I>Lua</I> is
+installed on your system.</p>
+<p>You will also need the <I>fluidsynth</I>, <I>midialsa</I>
+and <I>luaposix</I> modules:</p>
+<pre>
+ luarocks install --server=http://rocks.moonscript.org fluidsynth
+ luarocks install --server=http://rocks.moonscript.org midialsa
+ luarocks install --server=http://rocks.moonscript.org luaposix</pre>
+<p>See:</p>
+<pre>
+ <a href="http://www.pjb.com.au/comp/lua/fluidsynth.html#download">http://www.pjb.com.au/comp/lua/fluidsynth.html#download</a>
+ <a href="http://www.pjb.com.au/comp/lua/midialsa.html#download">http://www.pjb.com.au/comp/lua/midialsa.html#download</a>
+</pre>
+<p>
+</p>
+<hr />
+<H2><a name="author">AUTHOR</a></H2>
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<H2><a name="see_also">SEE ALSO</a></H2>
+<pre>
+ /usr/share/soundfonts/*.sf2
+ /usr/share/sounds/sf2/*.sf2
+ <a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
+ <a href="http://www.pjb.com.au/midi/index.html">http://www.pjb.com.au/midi/index.html</a>
+ <a href="http://www.pjb.com.au/midi/fluadity.html">http://www.pjb.com.au/midi/fluadity.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/fluidsynth.html">http://www.pjb.com.au/comp/lua/fluidsynth.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/midialsa.html">http://www.pjb.com.au/comp/lua/midialsa.html</a>
+ <a href="http://rocks.moonscript.org/modules/peterbillam">http://rocks.moonscript.org/modules/peterbillam</a>
+ <A HREF="http://luaposix.github.io/luaposix/">http://luaposix.github.io/luaposix/</A></pre>
+
+</body>
+
+</html>
