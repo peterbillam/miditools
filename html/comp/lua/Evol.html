@@ -20,13 +20,16 @@ CONTENT="Optimisation, Evolutionary search, Lua, Perl, Evol">
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#functions">FUNCTIONS</a></li>
-	<li><a href="#step_sizes">STEP SIZES</a></li>
-	<li><a href="#caller_supplied_subroutines">CALLER-SUPPLIED SUBROUTINES</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
+	<li><a href="#step_sizes">STEP SIZES</a></li>
+	<li><a href="#caller_supplied_subroutines">CALLER-SUPPLIED SUBROUTINES</a></li>
 	<li><a href="#convergence_criteria">CONVERGENCE CRITERIA</a></li>
     <li><a href="#installation">INSTALLATION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
     <li><a href="#perl">PERL</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#credits">CREDITS</a></li>
@@ -46,7 +49,7 @@ CONTENT="Optimisation, Evolutionary search, Lua, Perl, Evol">
 <hr />
 <h2><a name="synopsis">SYNOPSIS</a></h2>
 <pre>
- local EV = require 'Evol'
+ local EV = require 'Math.Evol'
  xb, sm, fb, lf = evol(xb, sm, function, constrain, tm)
  -- or
  xb, sm = select_evol(xb, sm, choose_best, constrain)</pre>
@@ -71,7 +74,6 @@ Another subroutine (text_evol) allows the evolution of numeric parameters
 in a text file, the parameters to be varied being identified in the text
 by means of special comments.  A script <em>ps_evol</em> which uses that is
 included for human-judgement-based fine-tuning of drawings in PostScript.</p>
-<p>Version 1.12</p>
 <p>
 </p>
 <hr />
@@ -271,15 +273,18 @@ the minimum allowable step-sizes, absolute and relative respectively.</p>
 <hr />
 <h2><a name="installation">INSTALLATION</a></h2><p>
 This module is available  as a LuaRock in
-<A HREF="http://luarocks.org/repositories/rocks/index.html#math-evol">
-luarocks.org/repositories/rocks</A><BR>
-so you should be able to install it with the command:
+<A HREF="http://luarocks.org/modules/peterbillam/">
+luarocks.org/modules/peterbillam/</A><BR>
+so you should be able to install it with the command:<BR>
 <CODE> &nbsp; <B>luarocks install math-evol</B></CODE>
 </p><p>
-The source is in
-<A HREF="http://cpansearch.perl.org/src/PJB/Math-Evol-1.12/lua/">
-cpansearch.perl.org/src/PJB/Math-Evol-1.12/lua/</A>
-for you to install by hand in your LUA_PATH
+Or:<BR> <CODE> &nbsp; luarocks install
+ http://www.pjb.com.au/comp/lua/math-evol-1.13-0.rockspec
+</CODE>
+</p><p>
+The test script is in &nbsp;
+<A HREF="http://www.pjb.com.au/comp/lua/test_ev.lua">
+www.pjb.com.au/comp/lua/test_ev.lua</A>
 </p><p>
 </p>
 <hr />

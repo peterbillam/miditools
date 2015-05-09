@@ -152,16 +152,16 @@ and call <em>add_history(line)</em> if appropriate.</p>
 <hr />
 <h2><a name="download">DOWNLOAD</a></h2>
 <p>This module is available as a LuaRock in
-<A HREF="http://rocks.moonscript.org/modules/peterbillam">
-rocks.moonscript.org/modules/peterbillam</A>
+<A HREF="http://luarocks.org/modules/peterbillam">
+luarocks.org/modules/peterbillam</A>
 so you should be able to install it with the command:</p>
 <pre>
  $ su
  Password:
- # luarocks install --server=http://rocks.moonscript.org readline</pre>
+ # luarocks install readline</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/readline-1.5-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/readline-1.7-0.rockspec</pre>
 <p>It depends on the <em>readline</em> library and its header-files;
 for example on Debian you may need:<BR>
 <CODE> &nbsp; # aptitude install libreadline6 libreadline6-dev</CODE>
@@ -173,6 +173,8 @@ or on Centos you may need:<BR>
 <hr />
 <h2><a name="changes">CHANGES</a></h2>
 <pre>
+ 20150421 1.7 include lua5.3, and move pod and doc back to luarocks.org
+ 20150416 1.6 readline specified as an external dependency
  20140608 1.5 switch pod and doc over to using moonrocks
  20140519 1.4 installs as readline not Readline under luarocks 2.1.2
  20131031 1.3 readline erases final space if tab-completion is used
@@ -198,7 +200,7 @@ or on Centos you may need:<BR>
  <a href="file:/usr/share/readline/inputrc">/usr/share/readline/inputrc</A>
  ~/.inputrc
  <a href="http://lua-users.org/wiki/CompleteWithReadline">http://lua-users.org/wiki/CompleteWithReadline</a>
- <A HREF="http://rocks.moonscript.org/modules/gvvaughan/luaposix">http://rocks.moonscript.org/modules/gvvaughan/luaposix</A>
+ <A HREF="http://luarocks.org/modules/gvvaughan/luaposix">http://luarocks.org/modules/gvvaughan/luaposix</A>
  <a href="http://www.pjb.com.au/comp/lua/terminfo.html">terminfo.lua</a>
  <a href="http://www.pjb.com.au">http://www.pjb.com.au</a>
  <a href="http://www.pjb.com.au/comp/index.html#lua">http://www.pjb.com.au/comp/index.html#lua</a>

@@ -48,7 +48,7 @@ CONTENT="Numerical integration, Lua, Perl, Runge-Kutta">
 <hr />
 <h2><a name="synopsis">SYNOPSIS</a></h2>
 <pre>
- local RK = require 'RungeKutta'
+ local RK = require 'Math.RungeKutta'
  function dydt(t, y) -- the derivative function
    -- y is the table of the values, dydt the table of the derivatives
    -- the table can be an array (1...n), or a dictionary; whichever,
@@ -109,7 +109,6 @@ The calling-interfaces are identical in all three versions.</p>
 be helpful in solving systems of differential equations which arise
 within a <em>Lua</em> context, such as economic, financial, demographic
 or ecological modelling, mechanical or process dynamics, etc.</p>
-<p>Version 1.07</p>
 <p>
 </p>
 <hr />
@@ -284,15 +283,19 @@ smooth part of the problem.</p>
 <hr />
 <h2><a name="installation">INSTALLATION</a></h2><p>
 This module is available as a LuaRock in
-<A HREF="http://luarocks.org/repositories/rocks/index.html#math-rungekutta">
-luarocks.org/repositories/rocks</A><BR>
+<A HREF="http://luarocks.org/modules/peterbillam/math-rungekutta">
+luarocks.org/modules/peterbillam</A><BR>
 so you should be able to install it with the command:
 <CODE> &nbsp; <B>luarocks install math-rungekutta</B></CODE>
 </p><p>
 The source is in
-<A HREF="http://cpansearch.perl.org/src/PJB/Math-RungeKutta-1.07/lua/">
-cpansearch.perl.org/src/PJB/Math-RungeKutta-1.07/lua/</A>
+<A HREF="http://www.pjb.com.au/comp/lua/RungeKutta.lua">
+www.pjb.com.au/comp/lua/RungeKutta.lua</A>
 for you to install by hand in your LUA_PATH
+</p><p>
+The test script is in
+<A HREF="http://www.pjb.com.au/comp/lua/test_runge.lua">
+www.pjb.com.au/comp/lua/test_runge.lua</A>
 </p><p>
 </p>
 <hr />

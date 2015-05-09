@@ -417,23 +417,23 @@ converts each midi-channel into a separate .wav file
 </DD></DL><P>
 These are also available in the <I>examples</I> directory in the tarball.<BR>
 See:
-<A HREF="http://rocks.moonscript.org/modules/peterbillam/fluidsynth/">
-rocks.moonscript.org/modules/peterbillam/fluidsynth/</A>,
+<A HREF="http://luarocks.org/modules/peterbillam/fluidsynth/">
+luarocks.org/modules/peterbillam/fluidsynth/</A>,
 choose the latest version, click on <I>src</I> and download it,
 unzip the <I>.src.rock</I>, then un-<I>tar</I> the <I>.tar.gz</I>.
 </P><p></p><hr />
 <h2><a name="download">DOWNLOAD</a></h2>
 <p>This module is available as a LuaRock in
-<a href="http://rocks.moonscript.org/modules/peterbillam">
-rocks.moonscript.org/modules/peterbillam</a>
+<a href="http://luarocks.org/modules/peterbillam">
+luarocks.org/modules/peterbillam</a>
 so you should be able to install it with the command:</p>
 <pre>
  $ su
  Password:
- # luarocks install --server=http://rocks.moonscript.org fluidsynth</pre>
+ # luarocks install fluidsynth</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/fluidsynth-1.8-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/fluidsynth-2.0-0.rockspec</pre>
 <p>It depends on the <I>fluidsynth</I> library and its header-files;
 for example on Debian you may need:
 </p><pre>
@@ -446,6 +446,8 @@ or on Centos you may need:</p><pre>
 <hr />
 <h2><a name="changes">CHANGES</a></h2>
 <pre>
+ 20150424 2.0 keep ptrs in C arrays and return indexes; C returns nil on error
+ 20150421     include lua5.3, and move pod and doc back to luarocks.org
  20140913 1.8 introduce get(synth, parameter) to get a current setting
  20140904 1.7 get both 'load' and 'select' commands from the config file
  20140901 1.6 delete_synth doesn't automatically remove TmpFile

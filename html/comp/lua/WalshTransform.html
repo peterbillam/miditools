@@ -45,7 +45,7 @@ CONTENT="Hadamard Transform, Perl, Lua, Walsh Transform">
 <hr />
 <h2><a name="synopsis">SYNOPSIS</a></h2>
 <pre>
- local WT = require 'WalshTransform' -- name doesn't matter of course
+ local WT = require 'Math.WalshTransform'
  local f = {1.618, 2.718, 3.142, 4.669}  -- must be power-of-two long
  local FH1 = WT.fht(f)   -- Hadamard transform
  local fh2 = WT.fhtinv(FH1)
@@ -94,7 +94,6 @@ ecological, opinion poll, process management data, and so on.</p>
 <p>Not yet included are multi-dimensional Hadamard and Walsh Transforms,
 conversion between Logical and Arithmetic Autocorrelation Functions,
 or conversion between the Walsh Power Spectrum and the Fourier Power Spectrum.</p>
-<p>Version 1.17</p>
 <p>
 </p>
 <hr />
@@ -294,17 +293,20 @@ and between the Walsh Power Spectrum and the normal Fourier Power Spectrum.</p>
 <hr />
 <h2><a name="installation">INSTALLATION</a></h2><p>
 This module is available as a LuaRock in
-<A HREF="http://luarocks.org/repositories/rocks/index.html#math-walshtransform">
-luarocks.org/repositories/rocks</A><BR>
-so you should be able to install it with the command:
+<A HREF="http://luarocks.org/modules/peterbillam/math-walshtransform">
+luarocks.org/modules/peterbillam</A><BR>
+so you should be able to install it with the command:<BR>
 <CODE> &nbsp; <B>luarocks install math-walshtransform</B></CODE>
 </p><p>
-The source is available in
-<A HREF="http://cpansearch.perl.org/src/PJB/Math-WalshTransform-1.17/lua/">
-cpansearch.perl.org/src/PJB/Math-WalshTransform-1.17/lua/</A>
-for you to install by hand in your LUA_PATH
+Or:<BR> <CODE> &nbsp; luarocks install
+ http://www.pjb.com.au/comp/lua/math-walshtransform-1.18-0.rockspec
+</CODE>
 </p><p>
+The test script is in &nbsp;
+<A HREF="http://www.pjb.com.au/comp/lua/test_wt.lua">
+www.pjb.com.au/comp/lua/test_wt.lua</A>
 </p>
+</p><p>
 <hr />
 <h2><a name="perl">PERL</a></h2>
 <p>This module is the translation into <em>Lua</em> of

@@ -6,8 +6,9 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.8'  -- sosped, maxnotes=20, and nested note_ons
-local VersionDate  = '06feb2015';
+local Version = '1.9'  -- handles allnotesoff, allsoundsoff and disconnects
+local VersionDate  = '15apr2015';
+-- 2.0 now it needs the same workarounds for the midi-to-wav case ...
 local Synopsis = [[
  fluadity &                     # a simple alsa-client , o/p to soundcard
  fluadity -i ProKeys &          # likewise, and connects from the ProKeys
@@ -110,38 +111,9 @@ local function is_noteoff(alsaevent)
 	return false
 end
 
------------------ the four major function-groups ----------------
+local function warn(str) io.stderr:write(str,'\n') end
 
-function midi2wav()
-	local synth = FS.new_synth( {
-		['audio.driver']    = "file",
-		['audio.file.type'] = "wav",
-		['audio.file.name'] = OutputFile,
-		['fast.render']     = true,
-	} )
-	local sf2ids = assert(FS.sf_load(synth, Soundfonts))
-	local player = assert(FS.new_player(synth, InputFile))
-	assert(FS.player_play(player))
-	assert(FS.player_join(player))
-	os.execute('sleep 1')
-	assert(FS.player_stop(player))
-	FS.delete_synth(synth)
-	os.remove(FS.error_file_name())
-end
-
-function play_midi()
-	local synth = FS.new_synth( {} )
-	local sf2ids = assert(FS.sf_load(synth, Soundfonts))
-	local player = assert(FS.new_player(synth, InputFile))
-	assert(FS.player_play(player))
-	assert(FS.player_join(player))
-	os.execute('sleep 1')
-	assert(FS.player_stop(player))
-	FS.delete_synth(synth)
-	os.remove(FS.error_file_name())
-end
-
-------------- global variables used by the daemon-client -------------
+----------for the fixes used by the daemon-client and midi-to-wav--------
 
 local Synth            = nil
 local Cha2fingerNotes  = { } -- on-notes held by a note_on with no note_off
@@ -204,6 +176,39 @@ function remember_note_by_time (cha, note)
 	Cha2noteIndex[cha] = (i + 1) % MaxNoteIndex -- increment
 end
 
+----------------- the four major function-groups ----------------
+
+function midi2wav()
+	-- 2.0 to get the same fixes as for the daemon case but still use
+	-- fast.render, I'll have to preprocess the input-file into a temp-file...
+	local synth = FS.new_synth( {
+		['audio.driver']    = "file",
+		['audio.file.type'] = "wav",
+		['audio.file.name'] = OutputFile,
+		['fast.render']     = true,
+	} )
+	local sf2ids = assert(FS.sf_load(synth, Soundfonts))
+	local player = assert(FS.new_player(synth, InputFile))
+	assert(FS.player_play(player))
+	assert(FS.player_join(player))
+	os.execute('sleep 1')
+	assert(FS.player_stop(player))
+	FS.delete_synth(synth)
+	-- os.remove(FS.error_file_name())
+end
+
+function play_midi()
+	local synth = FS.new_synth( {} )
+	local sf2ids = assert(FS.sf_load(synth, Soundfonts))
+	local player = assert(FS.new_player(synth, InputFile))
+	assert(FS.player_play(player))
+	assert(FS.player_join(player))
+	os.execute('sleep 1')
+	assert(FS.player_stop(player))
+	FS.delete_synth(synth)
+	os.remove(FS.error_file_name())
+end
+
 function daemon_client()
 	local P    = require 'posix'
 	ALSA = require 'midialsa'
@@ -244,6 +249,14 @@ function daemon_client()
 					if #from == 0 and Synth then
 						FS.delete_synth(Synth)
 						Synth = nil
+						-- should just kill notes started by this connection!
+						for cha = 0,15 do  -- 1.9
+							for note = 0,127 do
+								Cha2fingerNotes[cha][note] = 0
+								Cha2pedNotes[cha][note]    = 0
+								Cha2sospedNotes[cha][note] = false
+							end
+						end
 					end
 				elseif alsaevent[1]==ALSA.SND_SEQ_EVENT_PORT_SUBSCRIBED then
 					local from = ALSA.listconnectedfrom()  -- 1.4
@@ -299,6 +312,22 @@ function daemon_client()
 								end
 							end
 						end
+					elseif param == 120 or param == 123 then   -- 1.9
+						-- 123 leaves Pedal-notes sounding; 120 kills them
+						if param == 120 then
+							for note = 0,127 do
+								Cha2fingerNotes[cha][note] = 0
+								Cha2pedNotes[cha][note]    = 0
+								Cha2sospedNotes[cha][note] = false
+								FS.play_event(
+									Synth, ALSA.noteoffevent(cha,note,1)
+								)
+							end
+						end
+						for note = 0,127 do
+							Cha2fingerNotes[cha][note] = 0
+						end
+						FS.play_event(Synth, alsaevent)
 					else
 						FS.play_event(Synth, alsaevent)
 					end

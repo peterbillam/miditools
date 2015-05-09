@@ -37,8 +37,8 @@
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2c'; # -pp now works with # and #P and #M
-$VersionDate           = '27nov2014';
+$Version               = '3.2d'; # clefspace now takes same space as clef
+$VersionDate           = '07may2015';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $isyst $ibar and $istave
@@ -1203,7 +1203,7 @@ sub newstave { $[=1;
 		$clef{$istave} = $cleftype;
 		$i++;
 	} elsif ($array[$i] eq 'clefspace') {
-		$xpart{1} += $SpaceForClef * $maxstaveheight;   # ibar == 1 ?
+		$xpart{1} += 0.9 * $SpaceForClef * $maxstaveheight;   # 3.2d ibar==1?
 		$theresaclef = 1;
 		$i++;
 	} elsif ($ibar == 1 && $clef{$istave}) {

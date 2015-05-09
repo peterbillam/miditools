@@ -474,16 +474,16 @@ within a score (see <a href="#synopsis">SYNOPSIS</a>)</p>
 <hr />
 <h2><a name="download">DOWNLOAD</a></h2>
 <p>This module is available as a LuaRock in
-<A HREF="http://rocks.moonscript.org/modules/peterbillam">
-rocks.moonscript.org/modules/peterbillam</A>
+<A HREF="http://luarocks.org/modules/peterbillam">
+luarocks.org/modules/peterbillam</A>
 so you should be able to install it with the command:</p>
 <PRE>
  $ su
  Password:
- # luarocks install --server=http://rocks.moonscript.org midi</pre>
+ # luarocks install midi</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.1-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.2-0.rockspec</pre>
 </p><p>
 The test script used during development is
 <a href="http://www.pjb.com.au/comp/lua/test_mi.lua">
@@ -491,11 +491,19 @@ www.pjb.com.au/comp/lua/test_mi.lua</a><BR>
 which requires the
 <A HREF="http://lua-users.org/wiki/DataDumper">DataDumper.lua</A> module.
 </p><p>
-You should be able to install the <I>luaposix</I> and <I>datadumper</I>
-modules with:<PRE>
- # luarocks install --server=http://rocks.moonscript.org luaposix
- # luarocks install --server=http://rocks.moonscript.org datadumper
-</PRE>
+You should be able to install the <I>luaposix</I> module with:
+<BR><CODE> &nbsp; &nbsp;
+ # luarocks install luaposix
+</CODE>
+</P><P>
+and <I>datadumper</I> with either:
+<BR><CODE> &nbsp; &nbsp;
+ # luarocks install datadumper
+</CODE><BR>
+or, if you're using Lua 5.3:
+<BR><CODE> &nbsp; &nbsp;
+ # luarocks install http://www.pjb.com.au/comp/lua/datadumper-1.1-0.rockspec
+</CODE>
 <p>
 </p>
 <hr />
@@ -513,11 +521,11 @@ modules with:<PRE>
  <A HREF="http://www.michael-gogins.com">www.michael-gogins.com</A>
  <a href="http://www.pjb.com.au/midi/free/MIDI.py">www.pjb.com.au/midi/free/MIDI.py</a>
  <a href="http://www.pjb.com.au/midi/MIDI.html">www.pjb.com.au/midi/MIDI.html</a>
- <A HREF="http://rocks.moonscript.org/modules/peterbillam/MIDI">http://rocks.moonscript.org/modules/peterbillam/MIDI</A>
+ <A HREF="http://luarocks.org/modules/peterbillam/MIDI">http://luarocks.org/modules/peterbillam/MIDI</A>
  <a href="http://www.pjb.com.au/comp/lua/midialsa.html">www.pjb.com.au/comp/lua/midialsa.html</a>
- <A HREF="http://rocks.moonscript.org/modules/peterbillam/midialsa">http://rocks.moonscript.org/modules/peterbillam/midialsa</A>
- <A HREF="http://rocks.moonscript.org/modules/gvvaughan/luaposix">http://rocks.moonscript.org/modules/gvvaughan/luaposix</A>
- <A HREF="http://rocks.moonscript.org/modules/luarocks/datadumper">http://rocks.moonscript.org/modules/luarocks/datadumper</A>
+ <A HREF="http://luarocks.org/modules/peterbillam/midialsa">http://luarocks.org/modules/peterbillam/midialsa</A>
+ <A HREF="http://luarocks.org/modules/gvvaughan/luaposix">http://luarocks.org/modules/gvvaughan/luaposix</A>
+ <A HREF="http://luarocks.org/modules/luarocks/datadumper">http://luarocks.org/modules/luarocks/datadumper</A>
 </pre>
 
 </body>

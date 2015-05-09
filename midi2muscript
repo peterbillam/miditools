@@ -1,0 +1,862 @@
+#! /usr/local/bin/lua
+local MIDI= require 'MIDI'
+require 'DataDumper'
+
+local Version = '1.2'
+local VersionDate = '20150509'
+
+
+--------- basic infrastructure that I put in almost everything ----------
+
+local function warn(...)  -- eg: warn('i=',i,' j=',j)
+	local str = ''
+	for i,v in ipairs{...} do str = str .. tostring(v) end
+	io.stderr:write(str,'\n') ; io.stderr:flush()
+end
+local function warning(s) warn('warning: ',s) end
+local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
+local function round(x) return math.floor(x+0.5) end
+local function dict(a)
+    local d = {}
+    if a == nil then return d end
+    for k,v in ipairs(a) do d[v] = true end
+    return d
+end
+local function pairsByKeys(t,f)   -- Programming in Lua p.173
+	local a = {}
+	for n in pairs(t) do a[#a+1] = n end
+	table.sort(a,f)
+	local i = 0
+	return function()
+		i = i + 1
+		return a[i], t[a[i]]
+	end
+end
+local function copy(t)
+	local new_table = {}
+	for k, v in pairs(t) do new_table[k] = v end
+	return new_table
+end
+local function deepcopy(object)  -- http://lua-users.org/wiki/CopyTable
+	local lookup_table = {}
+	local function _copy(object)
+		if type(object) ~= "table" then
+			return object
+		elseif lookup_table[object] then
+			return lookup_table[object]
+		end
+		local new_table = {}
+		lookup_table[object] = new_table
+		for index, value in pairs(object) do
+			new_table[_copy(index)] = _copy(value)
+		end
+		return setmetatable(new_table, getmetatable(object))
+	end
+	return _copy(object)
+end
+function str(t)
+	local s = string.gsub(DataDumper(t), '^%s*return%s*', '')
+	return string.gsub(s, "%s*\n%s*", ' ')
+end
+function slice(l,i1,i2)
+	local s = {}
+	local i = i1
+	while i <= i2 and i <= #l do
+		table.insert(s, l[i])
+		i = i+1
+	end
+	return s
+end
+
+------------------------- infrastructure --------------------
+
+function wget(url)  -- 4.4
+	local text = {}
+	local function WriteMemoryCallback(a,b)
+		-- luacurl and Lua-cURL friendly, see http://github.com/mkottman/wdm
+		local s ; if type(a) == "string" then s = a else s = b end
+		text[#text+1] = s
+		return string.len(s)
+	end
+	local c
+	if curl.new then c = curl.new() else c = curl.easy_init() end
+	c:setopt(curl.OPT_URL, url)
+	c:setopt(curl.OPT_WRITEFUNCTION, WriteMemoryCallback)
+	c:setopt(curl.OPT_USERAGENT, "luacurl-agent/1.0")
+	assert(c:perform())
+	if curl.close then c:close() end
+	return table.concat(text,'')
+end
+
+local UsingStdinAsAFile = false
+local function file2millisec(filename)
+	-- global UsingStdinAsAFile
+	if filename == '-n' then return {1000,{}} end
+	local midi = ""
+	if filename == '-' then
+		if UsingStdinAsAFile then die("can't read STDIN twice") end
+		-- (sys.stdin.fileno(), 'rb') as fh: Should disable txtmode for dos
+		UsingStdinAsAFile = true
+		return MIDI.midi2ms_score(io.read('*all'))
+	end
+	if string.find('^|s*(.+)', filename) then
+		local command = string.match(filename, '^|s*(.+)')
+		local err_fn = os.tmpname()
+		local pipe = io.popen(command..' 2>'..err_fn, 'r') -- rb if windows
+		midi = pipe.read('*all')  --XXX
+		err_fh = assert(file.open(err_fn))
+		local err_msg = err_fh.read('*all')
+		err_fh.close()
+		os.remove(err_fn)
+		--msg  = pipe.stderr.read()
+		pipe.close()
+		status = pipe.wait()
+		if string.len(err_msg) > 1 then
+			die("can't run "..command..": "..err_msg)
+		end
+		return MIDI.midi2ms_score(midi)
+	end
+	if string.find(filename, '^[a-z]+:/') then  -- 3.8
+		pcall(function() require 'curl' end)
+		if not curl then pcall(function() require 'luacurl' end) end
+		if not curl then
+			die([[you need to install lua-curl or luacurl, e.g.:
+  aptitude install liblua5.1-curl0  (or equivalent on non-debian sytems)
+or, if that doesn't work:
+  luarocks install luacurl]])
+		end
+		local midi = wget(filename)
+		return MIDI.midi2ms_score(midi)
+	end
+
+	fh = assert(io.open(filename, "rb"))
+	local midi = fh:read('*all')
+	fh:close()
+	return MIDI.midi2ms_score(midi)
+end
+
+-- --------------------------main -----------------------------
+
+-- command-line options:
+local filename = '-'
+local iarg=1; while arg[iarg] ~= nil do
+	local argument = arg[iarg]
+	if argument == '-v' or argument == '--version' then
+		io.write('midi2muscript version '..Version..' '..VersionDate.."\n")
+		os.exit(0)
+	elseif argument == '-h' or argument == '--help' then
+		print_help()
+		os.exit(0)
+	-- aside from [a-z], - is a synonym for * (0 or more repetitions)
+	elseif argument == '-b' then
+		iarg = iarg + 1
+		Beat = tonumber(arg[iarg])
+	else
+		filename = argument
+		break
+	end
+	iarg = iarg + 1
+end
+
+local score =  MIDI.mix_scores({file2millisec(filename),}) -- reduce to 1 track
+local track = score[2]
+
+-- go through the score evaluating the weight of each note:
+--   is_metronome + lowness + duration + velocity + duration*is_newchord
+--- 20150518 BUT lowness is probably wrong if it's a solo recorder or whistle!
+local weights       = {}  -- indexed by event-number
+-- The score track is returned sorted by the end-times of the notes, so if
+-- you need it sorted by their start-times you have to do that yourself: 
+table.sort(track, function (e1,e2) return e1[2]<e2[2] end)
+for ievent,event in ipairs(track) do
+	if event[1] == 'note' then
+		local weight = 0
+		if event[4] == 9 then
+			if event[5] == 33 then
+				weight = 200 + event[6]
+			elseif event[5] == 34 then
+				weight = 400 + event[6]
+			end
+		else 
+			weight = 127-event[5] + round(0.15*event[3]) + event[6]
+			-- should keep track of newchords and add it in here...
+			-- should assign lots of weight to mentronome bells,
+			--   or to mentronome clicks if there are no bells close by...
+		end
+		weights[ievent] = weight
+	end
+end
+
+-- look for the times at which the next 10mS contain the most weight
+local clumped_weights       = {}  -- indexed by event-number
+for ievent,weight in pairs(weights) do
+	local event = track[ievent]
+	local i = ievent
+	local clumped_weight = 0
+	while track[i][2] < track[ievent][2] + 10 do
+		if weights[i] then
+			clumped_weight = clumped_weight + weights[i]
+		end
+		i = i + 1
+	end
+	clumped_weights[ievent] = clumped_weight
+end
+
+-- construct a dict by clumped_weight of lists of ievents
+local clumped_weight2ievents = {}
+for ievent,clumped_weight in pairs(clumped_weights) do
+	if not clumped_weight2ievents[clumped_weight] then
+		clumped_weight2ievents[clumped_weight] = {ievent,}
+	else
+		table.insert(clumped_weight2ievents[clumped_weight], ievent)
+	end
+end
+-- and a list of its keys in descending order
+local weights_in_order = {}
+for clumped_weight,l in pairs(clumped_weight2ievents) do
+	table.insert(weights_in_order, clumped_weight)
+end
+table.sort(weights_in_order, function(a,b) return(a>b) end)
+
+-- choose the weightiest as barlines,
+--   then for each interval between them choose the weightiest as a barline,
+--   then recurse until the bars are about the right length
+-- then go through looking for bars that are double (or triple) the
+--   length of their neighbouring bars, and subdivide them.
+function barlength_goodness (len)
+	-- the goodness-of-length could take account of the "speed" of the piece
+	-- zero is not permissible! work in logs...
+	if len <= 0 then return 0 end
+	local dist = 7.6 - math.log(len)
+	local goodness = 127000 / (1000 + 2000*dist*dist)
+	return goodness
+end
+--for k,v in ipairs {1,10,500,1000,1500,2000,2500,3000,4000,4500} do
+--	warn('barlength_goodness('..v..') = '..barlength_goodness(v))
+--end
+
+--- 20150509 but this forces the barlines to be on a note, no rests allowed
+local barline_ievents = {}
+local barline_times   = {}
+local desirable_number_of_barlines = round( track[#track][2] / 1600 )
+local number_of_barlines = 0
+for i, weight in ipairs(weights_in_order) do
+	for j, ievent in ipairs(clumped_weight2ievents[weight]) do
+		local time   = track[ievent][2]
+		-- is time too close to an old, more-strongly-known, barline ?
+		local is_too_close = false
+		for old_time, one in pairs(barline_times) do
+			if math.abs(time - old_time) < 900 then
+				is_too_close = true
+				break
+			end
+		end
+		if not is_too_close then
+			table.insert(barline_ievents, ievent)
+			barline_times[time] = 1
+			number_of_barlines = number_of_barlines + 1
+			if number_of_barlines > desirable_number_of_barlines then break end
+		end
+	end
+end
+table.sort(barline_ievents)
+-- 20150509 put a dummy-event onto the end of track and barline it.
+table.insert(track, {'text_event', track[#track][2]+300, ' '}) -- long note?
+table.insert(barline_ievents, #track)  --- the dummy-event
+-- 20150510 if there's an upbeat, put a startline-barline at the 1st note
+for i = 1, barline_ievents[1]-1 do
+	if track[i][1] == 'note' then
+		table.insert(barline_ievents, 1, i)
+		barline_times[track[i][1]] = 1
+		break
+	end
+end
+table.sort(barline_times)
+
+-- Work out which stave(s) each patch&channel goes on.
+-- We need to know the pitch-range of each patch&channel combination
+-- in order to decide whether to give it 2 staves or not.
+-- score2stats isn't detailed enough, so:
+local channel2reigningpatch   = {}
+local channel2firstpatch      = {}
+local patchchannel2stave      = {}  -- key is (patch*16 + cha)
+local stave2clefchannel       = {}  -- val is {clef, cha}
+local patchchannel2pitchrange = {}  -- val is {lowest,highest}
+for ievent,event in ipairs(track) do
+	if event[1] == 'patch_change' then
+		channel2reigningpatch[event[3]] = event[4]
+		if not channel2firstpatch[event[3]] then
+			channel2firstpatch[event[3]] = event[4]
+		end
+	elseif event[1] == 'note' then
+		local key = 16*(channel2reigningpatch[event[4]] or 0) + event[4]
+		local pitch = event[5]
+		if not patchchannel2pitchrange[key] then
+			patchchannel2pitchrange[key] = {pitch, pitch}
+		else
+			local range = patchchannel2pitchrange[key]
+			if pitch > range[2] then
+				range[2] = pitch
+			elseif pitch < range[1] then
+				range[1] = pitch
+			end
+		end
+	end
+end
+local patchchannels = {}
+for patchchannel,pitchrange in pairs(patchchannel2pitchrange) do
+	table.insert(patchchannels, patchchannel)
+end
+table.sort(patchchannels)
+local patchchannel2staveclef = {}  -- val is {lowest,highest}
+local next_free_istave = 1
+local voice_patch = {[52]=true,[53]=true,[54]=true,[85]=true,[91]=true,}
+local tenorclef_patch = {[42]=true,[57]=true,[70]=true,}
+local stave_is_part_of_two = {}
+for i,patchchannel in ipairs(patchchannels) do
+	local needs_two_staves = false
+	local range = patchchannel2pitchrange[patchchannel]
+	local channel = patchchannel % 16
+	local patch   = math.floor(patchchannel/16)
+	local clef    = 'treble'
+	-- detect viola and try alto, nylon-gtr=>treble8bvab, bass=>bass8vab
+	if patch == 41 and range[1]>46 and range[2]<80 then  -- viola
+		clef = 'alto'
+	elseif patch>23 and patch<31 and range[1]>38 and range[2]<83 then  -- gtr
+		clef = 'treble8vab'
+	elseif patch>31 and patch<40 and range[1]>26 and range[2]<63 then  -- bass
+		clef = 'bass8vab'
+	elseif patch==72 and range[1]>69 then  -- piccolo
+		clef = 'treble8va'
+	elseif tenorclef_patch[patch] and range[1]>49 and range[2]>74 then
+		clef = 'tenor'
+	elseif range[1]<53 and range[2]<66 then
+		clef = 'bass'
+	elseif voice_patch[patch] and range[1]<53 and range[2]<73 then --tenorvoice
+		clef = 'treble8vab'
+	elseif range[1]>71 and range[2]>84 then
+		clef = 'treble8va'
+	elseif range[1]<36 and range[2]<49 then
+		clef = 'bass8vab'
+	elseif range[1]<54 and range[2]>67 then
+		needs_two_staves = true
+	end
+	patchchannel2staveclef[patchchannel] = {}
+	if needs_two_staves then
+		patchchannel2staveclef[patchchannel] = {
+			next_free_istave, 'treble', next_free_istave+1, 'bass'
+		}
+		stave2clefchannel[next_free_istave]      = {'treble', channel}
+		stave_is_part_of_two[next_free_istave]   = true
+		stave2clefchannel[next_free_istave+1]    = {'bass', channel}
+		stave_is_part_of_two[next_free_istave+1] = true
+		next_free_istave = next_free_istave + 2
+	else
+		patchchannel2staveclef[patchchannel] = {next_free_istave, clef}
+		stave2clefchannel[next_free_istave] = {clef, channel}
+		next_free_istave = next_free_istave + 1
+	end
+end
+
+-- generate muscript's "systems" command:
+local n_staves  = next_free_istave - 1
+local n_systems = math.floor(13 / (n_staves))
+local system_command = {}
+for i,patchchannel in ipairs(patchchannels) do
+	local staveclef = patchchannel2staveclef[patchchannel]
+	if #staveclef == 4 then
+		table.insert(system_command, ' 19-25-19')
+	else
+		table.insert(system_command, ' 19')
+	end
+end
+system_command = table.concat(system_command, ' 25') .. '/'
+local systems_command = tostring(n_systems) .. ' systems /' .. 
+  string.rep(system_command, n_systems)
+print(systems_command)
+print("title "..filename.."\npagenum")
+print("leftfoot Score extracted by midi2muscript "..Version)
+print("# See: http://www.pjb.com.au/midi/midi2muscript.html")
+
+for cha = 0,15 do
+	if channel2firstpatch[cha] then
+		print('midi channel '..cha..' patch '..channel2firstpatch[cha])
+	end
+end
+
+-- should at least take account of overall notes/bar ..
+print("/\n4 bars | 48 | 48 | 48 | 48 |")
+
+-- generate the muscript for each bar
+local note2letter = {'C','C','D','E','E','F','F','G','G',
+ 'A','B','B','c','c','d','e','e','f','f','g','g','a','b','b'}
+local note2acc = {'','#','','b','','','#','','#','','b',''}
+local previous_accidental = {} -- must reset at the beginning of each bar
+function note2str(clef, event)
+	local s,t,dt,cha,note,vol = unpack(event)
+	if (s == "control_change") then
+		if (dt == 64) then
+			if (note > 63) then return "Ped" else return "*" end
+		end
+		return ''
+	end
+	if (s ~= 'note') then return '' end
+	if string.find(clef, '^treble') then
+		note = note - 24
+	elseif clef == 'alto' then
+		note = note - 12
+	end
+	if string.find(clef, '8vab$') then
+		note = note + 12
+	elseif string.find(clef, '8va$') then
+		note = note - 12
+	end
+	local octave = ''
+	if (note < 36) then
+		local o = math.floor((47-note) / 12)
+		octave = string.rep('_', o)
+		note   = note + (12 * o)
+	elseif (note >= 60) then
+		local o = math.floor((note-48) / 12)
+		octave = string.rep('~', o)
+		note   = note - (12 * o)
+	end
+	note = note - 36
+	-- 20150508 add 'n' if there has been a previous accidental on this letter
+	local acc = note2acc[1+note%12]
+	local n2l = note2letter[1+note%12]
+	if acc ~= '' then
+		previous_accidental[n2l] = acc
+	elseif acc=='' and previous_accidental[n2l] then
+		acc = 'n'
+		previous_accidental[n2l] = nil
+	end
+	return(note2letter[1+note%24]..octave..acc)
+end
+
+local one_over_log2 = 1.0 / math.log(2)
+function log2(x)
+	return (one_over_log2*math.log(x))
+end
+function midibar2pulse(midibar, start_time, end_time)
+	-- decide on the npulses_per_bar, minimum say 70 mS,
+	-- which minimises sigma(off_pulse^2)
+	-- local barlength_ms = midibar[#midibar][2] - midibar[1][2]
+	-- local last_note_t = midibar[1][2]
+	local barlength_ms = start_time - end_time
+	local last_note_t = start_time
+	local shortest_gt_70ms = 1000000
+	for ievent,event in ipairs(midibar) do
+		-- pick shortest note-to-note dt > 70mS
+		--   and that's your first estimate of the pulse
+		if event[1] == 'note' then
+			local gap = event[2]-last_note_t
+			if (gap<shortest_gt_70ms) and (gap>70) then
+				shortest_gt_70ms = gap
+				last_note_t = event[2]
+			end
+		end
+	end  -- 20150509 this ignores the last note, and there might only be one...
+	local pulse_ms = shortest_gt_70ms
+	while true do
+		-- pick the next-shortest; ist it 2.0* the dt ? 1.5* ?
+		-- and so on
+		for ievent,event in ipairs(midibar) do
+-- XXX
+		end
+		break
+	end
+	-- then adjust it to a submultiple of the bar-length
+	local n_pulses = round(barlength_ms/pulse_ms)
+	pulse_ms = barlength_ms / n_pulses
+	-- and choose smq,qua,cro or min to keep the cro between 1000 and 500 mS
+	-- (could align pulse with neighbouring bars, to keep bordeline cases sane)
+	local pulse_rhythm = 2 ^ (2 + round(log2(707.0/pulse_ms)))
+	return pulse_ms, tostring(pulse_rhythm)
+end
+
+function pulse_mul (pulse_rhythm, n)
+	if n <0.5 then return '' end
+	if n <1.2 then return pulse_rhythm end
+	-- should handle '163', '83', '43'
+	local log2_n = log2(n)
+	local floor_log2_n = math.floor(log2_n + 0.001)
+	local base_rhythm = tostring(tonumber(pulse_rhythm) / (2^floor_log2_n))
+	local log_ratio_to_base = log2_n - floor_log2_n
+	if log_ratio_to_base < 0.2 then
+		return(base_rhythm)
+	elseif log_ratio_to_base > 0.5 and log_ratio_to_base < 0.63 then
+		return(base_rhythm..'.')
+	elseif log_ratio_to_base > 0.75 and log_ratio_to_base < 0.86 then
+		return(base_rhythm..'..')
+	else
+		return(base_rhythm)
+	end
+end
+
+local firstbar = true
+function midibar2muscript (track, start_index, end_index)
+	local midibar = deepcopy(slice(track, start_index, end_index))
+	local start_time = 0
+	if start_index > 0 then start_time = track[start_index][2] end
+	local end_time   = track[end_index][2]
+	previous_accidental = {} -- must reset at the beginning of each bar
+	-- first choose beats, of about the right length,
+	--   to minimise their average (or total?) distance-to-weight
+	-- then choose sub-beats, of about the right length,
+	--   to minimise their average (or total?) distance-to-weight
+	local bar_duration = end_time - start_time   -- temporarily in millisec
+	print('| '..string.format('%g', 0.001*bar_duration))
+	--- should pulse_rhythm be set for the whole system, not just the stave ?
+	local pulse_ms,pulse_rhythm = midibar2pulse(midibar,start_time,end_time)
+	local istave2so_far = {}
+	local reigning_rhythm = {}
+	for ievent,event in ipairs(midibar) do -- quantise everything to the pulse
+		if ievent>1 then
+			event[2] = round((event[2]-start_time) / pulse_ms)
+		end
+		if event[1]=='note' then event[3]=round(event[3]/pulse_ms) end
+	end
+	midibar[1][2] = midibar[1][2] - start_time
+	midibar[#midibar] = nil   -- we no longer need the start of the next bar
+	bar_duration = round(bar_duration/pulse_ms)  -- now in pulses
+	for istave = 1,n_staves do
+		local line_words = {'='..istave..','}
+		-- could detect majority stemdir, or even beam plausibly...
+		local clef,channel = unpack(stave2clefchannel[istave])
+		if firstbar then
+			table.insert(line_words, clef)
+			table.insert(line_words, 'cha'..channel)
+		end
+		-- now the notes:
+		istave2so_far[istave] = 0 -- should distinguish =1' =1,
+		reigning_rhythm[istave] = ''
+		local function rest_at_start(ipulse)
+			-- a rest is needed ahead of the first note
+			if ipulse == 0 then return end
+			local rest = pulse_mul(pulse_rhythm, ipulse)
+			if rest == '' then return end
+			table.insert(line_words, rest)
+			reigning_rhythm[istave] = rest
+			table.insert(line_words, 'rest')
+		end
+
+		-- put notes starting at same time into the same <chord>
+		local function its_this_stave (event)
+			if stave_is_part_of_two[istave] then
+				if event[1] == 'note' then
+					return ((clef=='treble' and event[5]>59) or (
+					  		clef=='bass' and event[5]<60))
+				else
+					return true
+				end
+			else
+				return true
+			end
+		end
+		local ipulse2events = {}
+		local ipulse2notes  = {}   -- only these ones need printing
+		local num_notes_in_bar = 0
+		for ievent,event in ipairs(midibar) do
+			local channelindex = MIDI.Event2channelindex[event[1]]
+			if channelindex and (event[channelindex] == channel) then
+				if its_this_stave(event) then
+					if not ipulse2events[event[2]] then
+						ipulse2events[event[2]] = {}
+					end
+					table.insert(ipulse2events[event[2]], event)
+					if event[1] == 'note' then
+						if not ipulse2notes[event[2]] then
+							ipulse2notes[event[2]] = {}
+						end
+						table.insert(ipulse2notes[event[2]], event)
+						num_notes_in_bar = num_notes_in_bar + 1
+					end
+				end
+			end
+		end
+
+		-- we loop through each pulse in the bar
+		local no_note_yet = true
+		local note_ipulses = {}
+		for n in pairs(ipulse2notes) do table.insert(note_ipulses,n) end
+		table.sort(note_ipulses)
+		for ii,ipulse in ipairs(note_ipulses) do
+			-- it's only a chord if there is more than one _note_
+			-- so we need a local chord_notes and a local chord_ccs
+			local chord_notes = ipulse2notes[ipulse]
+			for ievent,event in pairs(ipulse2notes[ipulse]) do
+				if no_note_yet then
+					rest_at_start(ipulse)
+					no_note_yet = false
+				end
+				-- detect Ped and * here...
+			end
+			if #chord_notes > 0 then
+				local events = ipulse2events[ipulse]
+				local event = events[1] -- handle chord of unequal lengths ?
+-- We ignore durations for the moment; just make the note last until the next.
+				local next_ipulse = note_ipulses[ii+1] or bar_duration
+				local note_duration = pulse_mul(pulse_rhythm,next_ipulse-ipulse)
+				-- Later step; if event[3] is definitely too long and overlaps, 
+				-- then =1' and =1, are introduced, assigned according to
+				-- the relative pitches: event[5] and next_event[5]
+				if note_duration ~= reigning_rhythm[istave] then
+					table.insert(line_words, note_duration)
+					reigning_rhythm[istave] = note_duration
+				end
+				if #chord_notes == 1 then
+					table.insert(line_words, note2str(clef, chord_notes[1]))
+				elseif  #chord_notes > 1 then
+					table.insert(line_words,
+					  '<'..note2str(clef,chord_notes[1]))
+					local i = 2
+					while i < #chord_notes do
+						table.insert(line_words,
+						  note2str(clef,chord_notes[i]))
+						i = i + 1
+					end
+					table.insert(line_words,
+					  note2str(clef,chord_notes[#chord_notes])..'>')
+				end
+			end
+		end
+-- instead of this loop, see above
+--[[
+		for ievent,event in ipairs(midibar) do
+			if event[1] == 'note' and event[4] == channel then
+-- can we make this if-then-else a callable function ?
+				if stave_is_part_of_two[istave] then
+					if (clef=='treble' and event[5]>59) or (
+					  clef=='bass' and event[5]<60) then
+						-- ipulse2events
+						rhythm_if_necessary(ievent,event)
+						table.insert(line_words, note2str(clef, event))
+					end
+				else
+					-- ipulse2events
+					rhythm_if_necessary(ievent,event)
+					table.insert(line_words, note2str(clef, event))
+				end
+			elseif event[1] == 'control_change' and event[3] == channel then
+				if event[4] == 64 then   -- Ped
+					if event[5] > 63 then
+						-- ipulse2events
+						line_words[#line_words]=line_words[#line_words]..'-P'
+					else
+						-- ipulse2events
+						line_words[#line_words]=line_words[#line_words]..'-*'
+					end
+				end
+			end
+		end
+]]
+		print(table.concat(line_words, ' '))
+	end
+	if firstbar then firstbar = false end
+	return ''
+end
+
+-- then, for each bar:
+for ibar, barline_ievent in ipairs(barline_ievents) do
+	if ibar == #barline_ievents then break end
+	-- barline_ievents are the INDEXES, not the TIMES
+	midibar2muscript(track, barline_ievent, barline_ievents[ibar+1])
+end
+
+os.exit(0)
+
+--[[
+
+-- PLAN A was:
+-- deem any note starting less than 0.05beat before the barline and
+-- lasting till longer than 0.05beat after to be starting on the barline
+-- deem any note finishing within 0.05beat after the next barline to
+-- finish on the barline
+-- deem anything within 0.05beat of a barline to happen on the barline
+-- divide the events up into an array of bars and throw away the barlines
+-- for each bar, for each channel ^=9, for each beat:
+-- .2 .4 .6 .8 means quintuplets. Otherwise, choose the closest out of:
+-- .125 .167 .250 .333 .375 .500 .625 .667 .750 .833 .875
+--    .146 .208 .291 .354 .437 .563 .646 .709 .792 .854
+-- More subtly: could prefer smq's if there's a qua, else prefer qua3's
+--     if there's a qua,
+--         if there's a smq, we force onto dsq's
+--         else we decide between  dsq smq dsq  and  smq3 smq3 smq3
+--     else if there's a smq3, we force onto smq3's
+-- Enough flexibility must remain to handle grace-notes sensibly
+-- lengths of notes :-(  identify rests or staccato
+-- construct bars, an array of arrays {'| 2.4','=1 treble 4 G A', ... }
+-- must decide whether to split a channel over 2 staves
+-- add in the muscript  system  according to the detected channels
+-- print the muscript to stdout
+
+=pod
+
+=head1 NAME
+
+midi2muscript - Lua script to convert midi-files to muscript
+
+=head1 SYNOPSIS
+
+ midi2muscript t.mid >t
+ midi2muscript t.mid | muscript >t.ps ; gv t.ps
+
+=head1 DESCRIPTION
+
+Each channel gets its own stave.
+
+Other note_on and note_off events
+are rounded to the nearest plausible subdivision of a beat.
+If the improvisation has been made without a metronome-track,
+overdubbing an improvisation with a metronome-track is not hard,
+and can be repeated until satisfactory.
+
+Then note_offs could also be interpreted,
+to assign the notes to different voices,
+e.g. if it's held, say, more than twice as long as the pulse.
+
+=head1 SUPERSEDED
+
+The following tries were aimed at measuring the tempo:
+
+The delta-time of each event is assigned to a Bin
+if it is within +/-20% (adjustable) of the bin-average.
+Then it gets put into the bin, thereby influencing the average.
+If it fits no bin, it starts a new one.
+
+At the end, the bin-averages are fitted against the integer-multiples
+(low whole-numbers), starting with the "shortest" (>0.1sec) as unity.
+
+Or: could start with narrower bins,
+then at the end amalgamate them into +/-20% bins,
+separating them at the minima, or at the longest sequences of empty bins.
+
+The binning should be re-evaluated every, say, beat;
+and the bin-average should favour the more recent (the pulse may have changed!)
+
+=head1 OPTIONS
+
+=over 3
+
+=item I<-b 1.96>
+
+suggests a desirable B<b>arlength (in seconds; 1.96 seconds in this example)
+which I<midi2muscript> will use as a guide when choosing plausible barlines.
+
+=item I<-t 6/8>
+
+suggests the B<t>ime-signature which I<midi2muscript> will use
+when dividing the bar into shorter notes.
+
+=item I<-v>
+
+Prints version number.
+
+=back
+
+=head1 CHANGES
+
+ 20150510 1.2 as released
+ 20120829 1.1 first half-working header
+ 20110426 1.0 first working version
+
+=head1 AUTHOR
+
+Peter J Billam   http://www.pjb.com.au/comp/contact.html
+
+=head1 SEE ALSO
+
+ http://www.pjb.com.au/
+ lua(1).
+
+=cut
+]]
+
+-- see also 75% though midichord  "code from an old midi2muscript",
+-- see also harmony_pl  "sub midi2figbas"  in Perl
+-- see also harmony     "def midi2figbas"  in Python
+-- could use NumLua, or LuaFFT to get the pulse for each channel ?
+-- Seeing as it doesn't have to be processed time-wise
+--  (we have the whole file!), pick out the most obvious barlines (markers,
+--  loudest notes, big chords, low long notes that change the harmony)
+--  and then pick the less and less obvious barlines at suitable time-gaps
+--  between them (perhaps inspired by a fourier analysis?);
+--  we should be able to build up a plausible set of barlines.
+-- Then, some similar heuristic should be able to pick beats within each bar
+
+-- 20120723
+-- Should be easy to assign each note its metric
+-- then find the say 10mS periods which contain the biggest totals of metric
+
+-- from ~/log/work   at 20150430
+--  THE ADVANTAGES OF WORKING DIRECTLY FROM THE MIDI:
+--  * can split into channels
+--  * can get the pitches without error
+--  SO, go heuristic:
+--  1) bar-length
+--  * find the most periodic channel
+--  * convert channels to incremental pitch and find the most periodic
+--  * convert channels to [UDud0] and find the most periodic
+--  This period will have a simple-whole-number relationship to the bar-length
+--    often 1, else usually a low multiple or submultiple
+--  2) beat-length and pulse-length
+--
+--  Could also search from the pulse-length upwards:
+--    perhaps use Math.Evol to seek the quantisation-time (say 100-1000ms)
+--    which least changes the score (or opus)
+--  a problem with which is that
+--    it doesn't handle a change-of-tempo in the middle.
+
+-- but in the case of triplets, quintuplets etc ?  we need the *beat* !
+--   it's that low-multiple-or-submultiple problem again...
+
+-- LuaFFT:  fft (input, inverse)   but the Homepage is trash :-(
+--   Calculates the Fast Fourier Transformation of the given input
+--      + input: A set of points that will be transformed. At this
+--        point, the input has to be a list of complex numbers,
+--        according to the format in complex.lua.
+--      + inverse: Boolean that controls whether a transformation or
+--        inverse transformation will be carried out.
+--   Returns a list of complex numbers with the same size as the input
+--      list. Contains the fourier transformation of the input.
+
+-- NumLua looks more promising:
+--  cd /tmp; git clone https://github.com/carvalho/numlua
+--  file:///home/pjb/lua/NumLua_doc/index.html#matrix
+-- matrix.fft(m [, inverse [, wisdomonly [, inplace]]])
+--   Computes the fast Fourier transform of complex matrix m. If inverse
+--   is true, computes the normalized inverse FFT. wisdomonly is a
+--   FFTW-specific parameter: if true, a plan to compute the transform is
+--   only created if wisdom is available for the given problem, that is,
+--   a FFTW_WISDOM_ONLY flag is passed when building the plan. The default
+--   flag is FFTW_ESTIMATE. If inplace is true, m is updated in-place.
+--   See also: matrix.fct, fft.plan
+-- matrix.fct(m [, inverse [, wisdomonly [, inplace]]])
+--   Computes the discrete cosine transform of real matrix m. If inverse
+--   is true, computes the normalized inverse DCT. wisdomonly is a
+--   FFTW-specific parameter: if true, a plan to compute the transform is
+--   only created if wisdom is available for the given problem, that is,
+--   a FFTW_WISDOM_ONLY flag is passed when building the plan. The default
+--   flag is FFTW_ESTIMATE. If inplace is true, m is updated in-place.
+--   See also: matrix.fft, fft.plan
+-- a = matrix({{1, 2, 3}, {0, -1, -4}}, true)
+-- b = matrix(a:shape(1, true))
+-- p = fft.plan(b, false, fft.flag["measure"]) -- direct transform
+-- ip = fft.plan(b, true, fft.flag["measure"]) -- inverse transform
+-- b._ = a
+-- p(); print(b:pretty()) -- execute direct
+--                 1+0i    1-1.7320508075689i    1+1.7320508075689i
+--                11+0i   -4+3.4641016151378i   -4-3.4641016151378i
+-- ip(); print(b:pretty()) -- execute inverse
+--   1+0i    2+0i    3+0i
+--   0+0i   -1+0i   -4+0i
+
+-- 20150502  OK: A PLAN:
+--  take the score in millisec ticks, scale it to the next-lower power of two,
+--  put each note, regardless of channel, into a bin,
+--  use NumLua to get the FFT, look for peaks meaning pulse or beat or bar,
+--  and rescale them back into milliseconds.
+--  could do the same per-channel (one of them's probably keeping the beat!)
+-- THEN: do the same on the reigning-chord-changes to pick out the barlines,
+--  again doing the same per-channel and choose the clearest signal.

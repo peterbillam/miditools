@@ -6,8 +6,8 @@
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
 #
-my $Version       = '3.4'; # -i Invert option implies also -A
-my $VersionDate   = '12oct2014';
+my $Version       = '3.5'; # bend recognised as midi-in-stave
+my $VersionDate   = '29mar2015';
 use Text::ParseWords;
 
 my $Amount = 0;
@@ -517,12 +517,12 @@ sub midi_in_stave { my $str = $_[$[];
 			return 1;
 		} elsif ($str =~ /^volu?m?e?\+(\d+)$/) {
 			return 1;
-		} elsif ($str =~ /^volu?m?e?-(\d+)$/) {
+		} elsif ($str =~ /^volu?m?e?-(\d+)$/)  {
 			return 1;
 		} else {
 			return 0;
 		}
-	} elsif ($str =~ /^lega?t?o?(\d+)$/) {
+	} elsif ($str =~ /^lega?t?o?(\d+)$/)   {
 		return 1;
 	} elsif ($str =~ /^chan?n?e?l?(\d+)$/) {
 		return 1;
@@ -530,7 +530,9 @@ sub midi_in_stave { my $str = $_[$[];
 		return 1;
 	} elsif ($str =~ /^vibr?a?t?o?(\d+)$/)    {
 		return 1;
-	} elsif ($str =~ /^cc\d+=\d+$/)    {
+	} elsif ($str =~ /^cc\d+=\d+$/)  {
+		return 1;
+	} elsif ($str =~ /^bend\d+$/)    {  # 3.5
 		return 1;
 	} else {
 		return 0;
@@ -760,6 +762,7 @@ For example,
 
 =head1 CHANGES
 
+ 20150329 3.5 bend recognised as midi-in-stave
  20141012 3.4 -i option implies also -A
  20141004 3.3 -i Invert option inverts around c
  20140621 3.2 introduce septuplets eg 167

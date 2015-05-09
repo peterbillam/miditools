@@ -12,7 +12,8 @@ using ps2txt and vi, to ease the documentation of the
 CPAN module.
 Authoritative is
 <A HREF="http://connect.creativelabs.com/developer/SoundFont/sfspec21.pdf">
-the original PDF</A>.
+the original PDF</A>, and failing that then
+<A HREF="sfspec21.pdf">a local copy</A>.
 </I></TD></TR></TABLE>
 </CENTER><P>
 <A NAME="i0"></A>
@@ -398,7 +399,7 @@ typical function in current and future wavetable synthesizers.
 </P><A NAME="1.5"></A><P>
 <B>1.5  Future Enhancements to the SoundFont 2 Standard</B>
 The SoundFont 2 standard is designed to allow for enhancements based
-on future wavetable synthesistechnology capabilities by additional
+on future wavetable synthesis technology capabilities by additional
 enumerations of generators and modulators.  This will be done as
 required in an upwardly compatible manner.  Suggestions for additions
 can be made via e-mail to soundfont@emu.com.  In general, our policy for
@@ -3135,15 +3136,17 @@ Pitch Fc Volume
 Figure 2: Generator Based Modulation Structure
 </P><A NAME="9.2"></A><P>
 <B>9.2  MIDI Functions</B>
-The response to certain MIDI commands is defined within the MIDI
-specification, and is therefore not considered to be part of the SoundFont
-2 specification.  These MIDI commands may not be used as
-sources for the Modulator implementation.
+The response to certain MIDI commands is defined within
+<A HREF="http://www.midi.org/techspecs/midimessages.php#3">
+the MIDI specification</A>,
+and is therefore not considered to be part of the SoundFont 2 specification.
+These MIDI commands may not be used as sources for the Modulator
+implementation.
 For completeness, the expected responses are given here.
 Specification Version 2.00b Note:*
 </P><P>
 MIDI Key Number to Pitch, noted here in the 2.00a version of this
-specification, is the "Scale Tune"parameter in the Generator list,
+specification, is the "Scale Tune" parameter in the Generator list,
 is also considered a true Modulator and is therefore removed from
 this list.*
 </P><P>
@@ -3169,27 +3172,39 @@ either the RPN or NRPNimplementation mechanism, depending on the Data
 Entry mode.<BR>
 <B>MIDI CC64 Sustain</B>
 - ACTIVE when greater than or equal to 64.  When the
-sustain function is active,all notes in the key-on state remain in the
+sustain function is active, all notes in the key-on state remain in the
 key-on state regardless of whether a key-off command for the note arrives.
 The key-off commands are stored, and when sustain becomes inactive,
 all stored key-off commands are executed.<BR>
 <B>MIDI CC66 Soft</B>
 - ACTIVE when greater than or equal to 64.  When active,
-all new key-ons aremodulated in such a way to make the note sound "soft."
+all new key-ons are modulated in such a way to make the note sound "soft."
 This typically affects initial attenuation and
-filter cutoff is a pre-defined manner.<BR>
+filter cutoff in a pre-defined manner.
+&nbsp; <FONT COLOR="#990000"><I>
+Editor's note: This is a mistake in the SoundFont spec!
+<A HREF="http://www.midi.org/techspecs/midimessages.php#3">
+the MIDI specification</A>
+says that the Soft Pedal should be CC67.
+</I></FONT><BR>
 <B>MIDI CC67 Sostenuto</B>
 - ACTIVE when greater than or equal to 64.
-When sostenuto becomes active,all notes currently in the key-on state
+When sostenuto becomes active, all notes currently in the key-on state
 remain in the key-on state until the sostenuto becomes inactive.
 All other notes behave normally.  Notes maintained by sostenuto in key-on
-state remain in key-on stateeven if sustain is switched on and off.<BR>
+state remain in key-on state even if sustain is switched on and off.
+&nbsp; <FONT COLOR="#990000"><I>
+Editor's note: This is a mistake in the SoundFont spec!
+<A HREF="http://www.midi.org/techspecs/midimessages.php#3">
+the MIDI specification</A>
+says that the Sostenuto Pedal should be CC66.
+</I></FONT><BR>
 <B>MIDI CC98 NRPN LSB</B>
 - When received, should be processed by the NRPN
 implementation mechanism.<BR>
 <B>MIDI CC99 NRPN MSB</B>
 - When received, should put the synthesizer in NRPN
-Data Entry mode andthen should be processed by the NRPN implementation
+Data Entry mode and then should be processed by the NRPN implementation
 mechanism.<BR>
 <B>MIDI CC100 RPN LSB</B>
 - When received, should be processed by the RPN
@@ -3204,7 +3219,7 @@ playing in the key-on state bypass the release phase and are shut off,
 regardless of the sustain or sostenuto positions.<BR>
 <B>MIDI CC121 Reset All Controllers</B>
 - Defined as Reset All Controllers as
-defined by the MIDIspecification. This typically resets the values of
+defined by the MIDI specification. This typically resets the values of
 the MIDI continuous controllers to a power-on or default state.<BR>
 <B>MIDI CC123 All Notes Off</B>
 - When received with any data value, all notes
@@ -3230,7 +3245,7 @@ A semitone is 1/12 of an octave, and value 69 is 440 Hz (A-440).
 Negative values and values above 127 are allowed.
 <BR>
 RELATIVE SEMITONES - A relative logarithmic measure of frequency ratio
-based on units of 1/12 ofan octave, which is the twelfth root of two,
+based on units of 1/12 of an octave, which is the twelfth root of two,
 approximately 1.059463094.
 <BR>
 ABSOLUTE CENTS - An absolute logarithmic measure of frequency based on
@@ -3239,11 +3254,11 @@ octave, and value 6900 is 440 Hz (A-440).  Negative values and
 values above 12700 are allowed.
 <BR>
 RELATIVE CENTS - A relative logarithmic measure of frequency ratio based
-on units of 1/1200 of anoctave, which is the twelve hundredth root of two,
+on units of 1/1200 of an octave, which is the twelve hundredth root of two,
 approximately 1.000577790.
 <BR>
 ABSOLUTE CENTIBELS - An absolute measure of the attenuation of a signal,
-based on a reference ofzero being no attenuation.  A centibel is a tenth
+based on a reference of zero being no attenuation.  A centibel is a tenth
 of a decibel, or a ratio in signal amplitude of the two
 hundredth root of 10, approximately 1.011579454.
 <BR>
@@ -3259,7 +3274,7 @@ RELATIVE TIMECENTS - A relative measure of time ratio, based on a unit
 size of the twelve hundredth root of two, approximately 1.011579454.
 <BR>
 ABSOLUTE PERCENT - An absolute measure of gain, based on a reference
-of unity.  In SoundFont 2,absolute percent is measured in 0.1% units,
+of unity.  In SoundFont 2, absolute percent is measured in 0.1% units,
 so a value of zero is 0% and a value of 1000 is 100%.
 <BR>
 RELATIVE PERCENT - A relative measure of gain difference.  In SoundFont 2,
@@ -3295,19 +3310,19 @@ A generator at the preset level adds to a generator at the
 instrument level if both generators are identical.
 </LI><LI>
 A generator in a global preset zone that is identical to a default
-generator or to a generator inan instrument adds to that generator.
+generator or to a generator in an instrument adds to that generator.
 </LI><LI>
 A generator in a global preset zone which is not identical to a
 default generator and is not identical to a generator in an instrument
 has its effect added to the given synthesis parameter.
 </LI><LI>
 A generator in a local preset zone that is identical to a generator
-in a global preset zonesupersedes or replaces that generator in the
+in a global preset zone supersedes or replaces that generator in the
 global preset zone. That generator then has its effects added to
 the destination-summing node of all zones in the given instrument.
 </LI><LI>
 A generator in a local preset zone which is not identical to a default
-generator or a generator ina global preset zone has its effects added
+generator or a generator in a global preset zone has its effects added
 to the destination summing node of all zones in the given instrument.
 </LI><LI>
 If the generator operator is a Range Generator,
@@ -3317,7 +3332,7 @@ velocity ranges in the instrument that is used in the preset zone.
 </LI><LI>
 <A NAME="p66"></A>
 If the generator operator is a Substitution Generator or a Sample
-Generator, they are illegal atthe preset level. The only Index Generator
+Generator, they are illegal at the preset level. The only Index Generator
 legal at the Preset Level is 'instrumentID', whereas
 the only Index Generator legal at the Instrument Level is 'sampleID'
 </LI></UL>
@@ -3333,10 +3348,10 @@ The SoundFont Modulator Controller model is a general-purpose
 mechanism intended to allow for flexible and complex
 real-time control over the synthesis parameters provided.
 While SoundFont 2.00 provides a mechanism to set initial conditions for a
-wide variety of synthesis parameters or generators atmultiple levels of
+wide variety of synthesis parameters or generators at multiple levels of
 hierarchy (Preset/Instrument level, Global/Local zones, etc.), the addition
 of the SoundFont Modulator Controller Model provides a mechanism to allow
-real-time control over thosesame parameters at the same levels of hierarchy.
+real-time control over those same parameters at the same levels of hierarchy.
 </P><P>
 The SoundFont Modulator Controller model is what it takes
 to turn the rather simplistic generator based synthesis model

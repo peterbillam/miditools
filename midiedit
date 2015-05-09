@@ -37,8 +37,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '6.7'; # skip refreshes if <10ms to next event
-my $VersionDate = '20141201';
+my $Version = '6.9'; # all_sounds_off also turns all notes off
+my $VersionDate = '20150411';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -378,9 +378,9 @@ sub add_to_history {
 	#debug("add_to_h2: Ihistory=$Ihistory History=$#History History=@History");
 }
 sub all_sounds_off {   # 2.2
-	# we could keep track of the channels which have been sent notes so far...
 	foreach my $c (0..15) {
 		MIDI::ALSA::output(MIDI::ALSA::controllerevent($c,120,0));
+		MIDI::ALSA::output(MIDI::ALSA::controllerevent($c,123,0));  # 6.9
 	}
 }
 
@@ -903,6 +903,9 @@ sub event2str { my ($ie) = @_;
 		} elsif ($event[$[] eq 'pitch_wheel_change') {
 			$str = sprintf('%s %5s %4d %6d', @event);
 		} elsif (4 == scalar @event) {
+			if ($event[$[] eq 'channel_after_touch') {  # 6.8
+				$event[$[] = 'cha_aftertouch';
+			}
 			$str = sprintf(' %14s %6s %5d %5d', @event);
 		} elsif (3 == scalar @event) {
 			$str = sprintf(' %14s %6s %5d', @event);
@@ -915,6 +918,9 @@ sub event2str { my ($ie) = @_;
 		} elsif (5 == scalar @event) {
 			$str = sprintf(' %14s %6d %5d %5d %5d', @event);
 		} elsif (4 == scalar @event) {
+			if ($event[$[] eq 'channel_after_touch') {  # 6.8
+				$event[$[] = 'cha_aftertouch';
+			}
 			$str = sprintf(' %14s %6d %5d %5d', @event);
 		} elsif (3 == scalar @event) {
 			$str = sprintf(' %14s %6d %5d', @event);
@@ -2282,6 +2288,8 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 6.9 20150411, all_sounds_off also turns all notes off
+ 6.8 20150223, display channel_after_touch column-aligned as cha_aftertouch
  6.7 20141201, skip refreshes if <10ms to next event
  6.6 20141104, removed misleading 'm=mark' help-text
  6.5 20140703, display_events controller_change events display controller-names

@@ -1,0 +1,142 @@
+<HTML><HEAD><TITLE>midi2muscript</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midi2muscript</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<H2><a name="name">NAME</a></H2>
+<p><B>midi2muscript</B> &nbsp; - &nbsp; Lua script to convert midi-files to
+<A HREF="../../muscript/index.html">muscript</A>
+</p><p>
+</p>
+<hr />
+<H2><a name="synopsis">SYNOPSIS</a></H2>
+<pre>
+ midi2muscript t.mid &gt;t
+ muscript t &gt;t.ps ; gv t.ps
+ midi2muscript t.mid | muscript &gt;t.ps ; gv t.ps
+</pre><p></p>
+
+<hr />
+<H2><a name="description">DESCRIPTION</a></H2>
+Each channel gets its own stave.
+</P><P>
+Other note_on and note_off events
+are rounded to the nearest plausible subdivision of a beat.
+If the improvisation has been made without a metronome-track,
+overdubbing an improvisation with a metronome-track is not hard,
+and can be repeated until satisfactory.
+</P><P>
+Then note_offs could also be interpreted,
+to assign the notes to different voices,
+e.g. if it's held, say, more than twice as long as the pulse.
+
+</p><p></p>
+
+<hr />
+<H2><a name="options">OPTIONS</a></H2>
+<dl>
+
+<dt><B><a name="option_b"><I>-b 1.96
+</I></a></B></dt><dd><p>
+suggests a desirable <B>B</B>arlength
+(in seconds; 1.96 seconds in this example)
+which <I>midi2muscript</I> will use as a guide
+when choosing plausible barlines.
+</p></dd>
+
+<dt><B><a name="option_t"><I>-t 6/8
+</I></a></B></dt><dd><p>
+suggests the <B>T</B>ime-signature which <I>midi2muscript</I> will use
+when dividing the bar into shorter notes.
+</p></dd>
+
+<dt><B><a name="option_v"<I>-v</I></a></B></dt>
+<dd>
+<p>Prints the Version</p>
+</dd>
+</dl><p></p>
+
+<hr />
+<H2><a name="changes">CHANGES</a></H2>
+<pre>
+ 20150510 1.2 as released
+ 20120829 1.1 first half-working header
+ 20110426 1.0 first working version
+</pre><p></P>
+
+<hr />
+<H2><a name="download">DOWNLOAD</a></H2>
+<p><I>midi2muscript</I> is available at:</p>
+<pre>
+ <a href="http://www.pjb.com.au/midi/free/midi2muscript">http://www.pjb.com.au/midi/free/midi2muscript</a></pre>
+<p>Just move it into your <I>PATH</I>, make it executable,
+and if necessary edit the first line to match where <I>Lua</I> is
+installed on your system.</p>
+<p>You will also need the <I>MIDI</I>
+and <I>DataDumper</I> modules:</p>
+<pre>
+ luarocks install MIDI DataDumper
+</pre>
+<p>See:</p>
+<pre>
+ <a href="http://www.pjb.com.au/comp/lua/MIDI.html#download">http://www.pjb.com.au/comp/lua/MIDI.html#download</a>
+</pre>
+<p>
+</p>
+<hr />
+<H2><a name="author">AUTHOR</a></H2>
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<H2><a name="see_also">SEE ALSO</a></H2>
+<pre>
+ <a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
+ <a href="http://www.pjb.com.au/midi/index.html">http://www.pjb.com.au/midi/index.html</a>
+ <a href="http://www.pjb.com.au/midi/midi2muscript.html">http://www.pjb.com.au/midi/midi2muscript.html</a>
+</A></pre>
+
+</body>
+
+</html>
