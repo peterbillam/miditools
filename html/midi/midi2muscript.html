@@ -7,7 +7,8 @@ CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
 <BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
 <DIV>
 <H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=126 HEIGHT=52>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
 <FONT COLOR="#800000"><I>midi2muscript</I></FONT>
 </H1>
 
@@ -44,8 +45,8 @@ CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
 <p>
 </p>
 <hr />
-<H2><a name="name">NAME</a></H2>
-<p><B>midi2muscript</B> &nbsp; - &nbsp; Lua script to convert midi-files to
+<H2><a name="name">NAME</a></H2><p>
+&nbsp; <B>midi2muscript</B> &nbsp; - &nbsp; Lua script to convert midi-files to
 <A HREF="../../muscript/index.html">muscript</A>
 </p><p>
 </p>
@@ -59,6 +60,8 @@ CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
 
 <hr />
 <H2><a name="description">DESCRIPTION</a></H2>
+<I>midi2muscript</I> is still in its very early versions.
+</P><P>
 Each channel gets its own stave.
 </P><P>
 Other note_on and note_off events
@@ -100,6 +103,7 @@ when dividing the bar into shorter notes.
 <hr />
 <H2><a name="changes">CHANGES</a></H2>
 <pre>
+ 20150515 1.3 real note-durations; fixed important bug in midibar2pulse()
  20150510 1.2 as released
  20120829 1.1 first half-working header
  20110426 1.0 first working version
@@ -113,10 +117,9 @@ when dividing the bar into shorter notes.
 <p>Just move it into your <I>PATH</I>, make it executable,
 and if necessary edit the first line to match where <I>Lua</I> is
 installed on your system.</p>
-<p>You will also need the <I>MIDI</I>
-and <I>DataDumper</I> modules:</p>
+<p>You will also need the <I>MIDI</I> module:</p>
 <pre>
- luarocks install MIDI DataDumper
+ luarocks install midi
 </pre>
 <p>See:</p>
 <pre>
@@ -135,6 +138,8 @@ and <I>DataDumper</I> modules:</p>
  <a href="http://www.pjb.com.au/">http://www.pjb.com.au/</a>
  <a href="http://www.pjb.com.au/midi/index.html">http://www.pjb.com.au/midi/index.html</a>
  <a href="http://www.pjb.com.au/midi/midi2muscript.html">http://www.pjb.com.au/midi/midi2muscript.html</a>
+ <a href="http://www.pjb.com.au/muscript/index.html">http://www.pjb.com.au/muscript/index.html</a>
+ <a href="http://www.pjb.com.au/comp/lua/MIDI.html">http://www.pjb.com.au/comp/lua/MIDI.html</a>
 </A></pre>
 
 </body>

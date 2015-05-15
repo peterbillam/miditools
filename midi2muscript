@@ -1,9 +1,19 @@
 #! /usr/local/bin/lua
 local MIDI= require 'MIDI'
 require 'DataDumper'
+-- 20150511 priorities:
+--   Pedal (useful in impros),
+--   note-lengths, including notes lasting several bars
+--   volumes
+--   barlines conforming to metronome (to retain structure when overdubbing)
+--   -b (BarLength or BeatLength??) and -t options (think 5/8 7/8 3/8)
+--   preference for barlines on harmony-changes
+--   preference for keeping the same barlength
+--   reasonable beaming
+--   beaming conforming to metronome
 
-local Version = '1.2'
-local VersionDate = '20150509'
+local Version = '1.3'
+local VersionDate = '20150515'
 
 
 --------- basic infrastructure that I put in almost everything ----------
@@ -139,6 +149,7 @@ end
 
 -- command-line options:
 local filename = '-'
+local Barlength = 1.6
 local iarg=1; while arg[iarg] ~= nil do
 	local argument = arg[iarg]
 	if argument == '-v' or argument == '--version' then
@@ -150,7 +161,7 @@ local iarg=1; while arg[iarg] ~= nil do
 	-- aside from [a-z], - is a synonym for * (0 or more repetitions)
 	elseif argument == '-b' then
 		iarg = iarg + 1
-		Beat = tonumber(arg[iarg])
+		Barlength = tonumber(arg[iarg])
 	else
 		filename = argument
 		break
@@ -162,8 +173,8 @@ local score =  MIDI.mix_scores({file2millisec(filename),}) -- reduce to 1 track
 local track = score[2]
 
 -- go through the score evaluating the weight of each note:
---   is_metronome + lowness + duration + velocity + duration*is_newchord
---- 20150518 BUT lowness is probably wrong if it's a solo recorder or whistle!
+-- is_metronome + lowness + duration + velocity + duration*is_newchord
+-- 20150518 BUT lowness is probably wrong if it's a solo recorder or whistle!
 local weights       = {}  -- indexed by event-number
 -- The score track is returned sorted by the end-times of the notes, so if
 -- you need it sorted by their start-times you have to do that yourself: 
@@ -171,19 +182,18 @@ table.sort(track, function (e1,e2) return e1[2]<e2[2] end)
 for ievent,event in ipairs(track) do
 	if event[1] == 'note' then
 		local weight = 0
-		if event[4] == 9 then
-			if event[5] == 33 then
-				weight = 200 + event[6]
-			elseif event[5] == 34 then
-				weight = 400 + event[6]
+		if event[4] == 9 then  -- assign lots of weight to mentronome bells
+			if     event[5] == 34 then weight = 400 + event[6]
+			elseif event[5] == 33 then weight = 200 + event[6]
+			else                       weight = 100 + event[6]
 			end
 		else 
 			weight = 127-event[5] + round(0.15*event[3]) + event[6]
 			-- should keep track of newchords and add it in here...
-			-- should assign lots of weight to mentronome bells,
-			--   or to mentronome clicks if there are no bells close by...
 		end
 		weights[ievent] = weight
+	elseif event[1] == 'time_signature' then
+	   weights[ievent] = 500
 	end
 end
 
@@ -238,7 +248,7 @@ end
 --- 20150509 but this forces the barlines to be on a note, no rests allowed
 local barline_ievents = {}
 local barline_times   = {}
-local desirable_number_of_barlines = round( track[#track][2] / 1600 )
+local max_number_of_barlines = round(track[#track][2]/(Barlength*700))
 local number_of_barlines = 0
 for i, weight in ipairs(weights_in_order) do
 	for j, ievent in ipairs(clumped_weight2ievents[weight]) do
@@ -246,7 +256,7 @@ for i, weight in ipairs(weights_in_order) do
 		-- is time too close to an old, more-strongly-known, barline ?
 		local is_too_close = false
 		for old_time, one in pairs(barline_times) do
-			if math.abs(time - old_time) < 900 then
+			if math.abs(time - old_time) < Barlength*650 then
 				is_too_close = true
 				break
 			end
@@ -255,7 +265,7 @@ for i, weight in ipairs(weights_in_order) do
 			table.insert(barline_ievents, ievent)
 			barline_times[time] = 1
 			number_of_barlines = number_of_barlines + 1
-			if number_of_barlines > desirable_number_of_barlines then break end
+			if number_of_barlines > max_number_of_barlines then break end
 		end
 	end
 end
@@ -392,14 +402,19 @@ local note2letter = {'C','C','D','E','E','F','F','G','G',
  'A','B','B','c','c','d','e','e','f','f','g','g','a','b','b'}
 local note2acc = {'','#','','b','','','#','','#','','b',''}
 local previous_accidental = {} -- must reset at the beginning of each bar
+function pedal2str(event)
+	local s,t,dt,cha,note,vol = unpack(event)
+	if (s == "control_change") then  -- must work out how to use these
+		if (dt == 64) then
+			if (note > 63) then return "-P" else return "-*" end
+		elseif (dt == 66) then
+			if (note > 63) then return "-Sos" else return "-*Sos" end
+		end
+	end
+	return nil
+end
 function note2str(clef, event)
 	local s,t,dt,cha,note,vol = unpack(event)
-	if (s == "control_change") then
-		if (dt == 64) then
-			if (note > 63) then return "Ped" else return "*" end
-		end
-		return ''
-	end
 	if (s ~= 'note') then return '' end
 	if string.find(clef, '^treble') then
 		note = note - 24
@@ -441,31 +456,28 @@ end
 function midibar2pulse(midibar, start_time, end_time)
 	-- decide on the npulses_per_bar, minimum say 70 mS,
 	-- which minimises sigma(off_pulse^2)
-	-- local barlength_ms = midibar[#midibar][2] - midibar[1][2]
-	-- local last_note_t = midibar[1][2]
+	-- warn(DataDumper{midibar, start_time, end_time})
 	local barlength_ms = start_time - end_time
 	local last_note_t = start_time
-	local shortest_gt_70ms = 1000000
+	local shortest_gt_70ms = 1000000  -- huge
 	for ievent,event in ipairs(midibar) do
 		-- pick shortest note-to-note dt > 70mS
 		--   and that's your first estimate of the pulse
 		if event[1] == 'note' then
-			local gap = event[2]-last_note_t
-			if (gap<shortest_gt_70ms) and (gap>70) then
-				shortest_gt_70ms = gap
-				last_note_t = event[2]
-			end
+			local gap = event[2] - last_note_t
+			if gap<shortest_gt_70ms and gap>70 then shortest_gt_70ms=gap end
+			last_note_t = event[2]
 		end
-	end  -- 20150509 this ignores the last note, and there might only be one...
-	local pulse_ms = shortest_gt_70ms
-	while true do
-		-- pick the next-shortest; ist it 2.0* the dt ? 1.5* ?
-		-- and so on
-		for ievent,event in ipairs(midibar) do
--- XXX
-		end
-		break
 	end
+	local gap = end_time - last_note_t  -- and from last note to end-of-bar
+	if (gap<shortest_gt_70ms) and (gap>70) then shortest_gt_70ms = gap end
+	local pulse_ms = shortest_gt_70ms
+	-- while true do
+		-- pick the next-shortest; is it 2.0* the dt ? 1.5* ?  and so on
+		-- for ievent,event in ipairs(midibar) do
+		-- 	end
+	--	break
+	--  end
 	-- then adjust it to a submultiple of the bar-length
 	local n_pulses = round(barlength_ms/pulse_ms)
 	pulse_ms = barlength_ms / n_pulses
@@ -509,21 +521,26 @@ function midibar2muscript (track, start_index, end_index)
 	print('| '..string.format('%g', 0.001*bar_duration))
 	--- should pulse_rhythm be set for the whole system, not just the stave ?
 	local pulse_ms,pulse_rhythm = midibar2pulse(midibar,start_time,end_time)
+--warn('pulse_ms=',pulse_ms,' pulse_rhythm=',pulse_rhythm)
 	local istave2so_far = {}
 	local reigning_rhythm = {}
 	for ievent,event in ipairs(midibar) do -- quantise everything to the pulse
 		if ievent>1 then
 			event[2] = round((event[2]-start_time) / pulse_ms)
 		end
-		if event[1]=='note' then event[3]=round(event[3]/pulse_ms) end
+		if event[1]=='note' then
+			event[3]=round(event[3]/pulse_ms)  -- duration
+			if event[3]<1 then event[3] = 1 end
+		end
 	end
 	midibar[1][2] = midibar[1][2] - start_time
 	midibar[#midibar] = nil   -- we no longer need the start of the next bar
 	bar_duration = round(bar_duration/pulse_ms)  -- now in pulses
 	for istave = 1,n_staves do
-		local line_words = {'='..istave..','}
-		-- could detect majority stemdir, or even beam plausibly...
 		local clef,channel = unpack(stave2clefchannel[istave])
+		-- should detect majority stemdir (perhaps even plausibly beam!)
+		local line_words = {'='..istave}  -- ..','
+		-- we could append "," or "'" to linewords[1] much later :-)
 		if firstbar then
 			table.insert(line_words, clef)
 			table.insert(line_words, 'cha'..channel)
@@ -547,6 +564,8 @@ function midibar2muscript (track, start_index, end_index)
 				if event[1] == 'note' then
 					return ((clef=='treble' and event[5]>59) or (
 					  		clef=='bass' and event[5]<60))
+				elseif(pedal2str(event)) then -- Ped marks go on the bass clef
+					if clef=='bass' then return true else return false end
 				else
 					return true
 				end
@@ -554,8 +573,9 @@ function midibar2muscript (track, start_index, end_index)
 				return true
 			end
 		end
-		local ipulse2events = {}
-		local ipulse2notes  = {}   -- only these ones need printing
+		local ipulse2events = {}  -- 20150510 is this usefully used ?
+		local ipulse2notes  = {}  -- these notes need printing
+		local ipulse2pedals = {}  -- pedals go on a separate line with blanks
 		local num_notes_in_bar = 0
 		for ievent,event in ipairs(midibar) do
 			local channelindex = MIDI.Event2channelindex[event[1]]
@@ -571,6 +591,12 @@ function midibar2muscript (track, start_index, end_index)
 						end
 						table.insert(ipulse2notes[event[2]], event)
 						num_notes_in_bar = num_notes_in_bar + 1
+					elseif pedal2str(event) then
+-- 20150510 -* and -P on the same pulse must condense to one -P option
+						if not ipulse2pedals[event[2]] then
+							ipulse2pedals[event[2]] = {}
+						end
+						table.insert(ipulse2pedals[event[2]], event)
 					end
 				end
 			end
@@ -579,8 +605,20 @@ function midibar2muscript (track, start_index, end_index)
 		-- we loop through each pulse in the bar
 		local no_note_yet = true
 		local note_ipulses = {}
-		for n in pairs(ipulse2notes) do table.insert(note_ipulses,n) end
+		for n in pairs(ipulse2notes)  do table.insert(note_ipulses,n)  end
 		table.sort(note_ipulses)
+		local pedal_ipulses = {}
+		for n in pairs(ipulse2pedals) do table.insert(pedal_ipulses,n) end
+		table.sort(pedal_ipulses)
+-- 20150510 there might be ipulse2pedals on a pulse with no notes, so we
+-- use a separate loop over pulses, generating a separate line with blanks
+-- 20150513 OR: we should loop through all pulses ipulse=1,bar_duration
+--   then test 1) if there's a note and 2) if there's a pedal;
+--   because then we can append the pedal-str to the most recent note-str
+--   BUT then we have a problem seeing the next_ipulse :-(
+--     then again: we should use the REAL duration, not time-to-next_ipulse!
+--     then again again, the duration could be several bars, needing ties...
+-- XXXX
 		for ii,ipulse in ipairs(note_ipulses) do
 			-- it's only a chord if there is more than one _note_
 			-- so we need a local chord_notes and a local chord_ccs
@@ -595,9 +633,12 @@ function midibar2muscript (track, start_index, end_index)
 			if #chord_notes > 0 then
 				local events = ipulse2events[ipulse]
 				local event = events[1] -- handle chord of unequal lengths ?
--- We ignore durations for the moment; just make the note last until the next.
 				local next_ipulse = note_ipulses[ii+1] or bar_duration
-				local note_duration = pulse_mul(pulse_rhythm,next_ipulse-ipulse)
+-- XXX control-changes get through here, but next line assumes it's a note !!
+--warn('ipulse=',ipulse,' ',event[1],' duration=',event[3],' pitch=',event[5])
+				local note_duration = pulse_mul(pulse_rhythm,event[3])
+				local rest_pulses   = next_ipulse - event[2] - event[3]
+--warn('next_ipulse=',next_ipulse,' note_duration=',note_duration,' rest_pulses=',rest_pulses)
 				-- Later step; if event[3] is definitely too long and overlaps, 
 				-- then =1' and =1, are introduced, assigned according to
 				-- the relative pitches: event[5] and next_event[5]
@@ -619,8 +660,18 @@ function midibar2muscript (track, start_index, end_index)
 					table.insert(line_words,
 					  note2str(clef,chord_notes[#chord_notes])..'>')
 				end
+				if rest_pulses > 0 then -- any rest?
+					local rest_duration = pulse_mul(pulse_rhythm,rest_pulses)
+--warn('rest_pulses=',rest_pulses,' rest_duration=',rest_duration)
+					if rest_duration ~= reigning_rhythm[istave] then
+						table.insert(line_words, rest_duration)
+						reigning_rhythm[istave] = rest_duration
+					end
+					table.insert(line_words, 'rest')
+                end
 			end
 		end
+
 -- instead of this loop, see above
 --[[
 		for ievent,event in ipairs(midibar) do
@@ -638,8 +689,9 @@ function midibar2muscript (track, start_index, end_index)
 					rhythm_if_necessary(ievent,event)
 					table.insert(line_words, note2str(clef, event))
 				end
+-- 20150511 IF there's a note on the same pulse then for best vertical spacing:
 			elseif event[1] == 'control_change' and event[3] == channel then
-				if event[4] == 64 then   -- Ped
+				if event[4] == 64 then   -- Ped; likewise SosPed...
 					if event[5] > 63 then
 						-- ipulse2events
 						line_words[#line_words]=line_words[#line_words]..'-P'
@@ -651,6 +703,7 @@ function midibar2muscript (track, start_index, end_index)
 			end
 		end
 ]]
+
 		print(table.concat(line_words, ' '))
 	end
 	if firstbar then firstbar = false end
@@ -757,6 +810,7 @@ Prints version number.
 
 =head1 CHANGES
 
+ 20150515 1.3 real note-durations; fixed important bug in midibar2pulse()
  20150510 1.2 as released
  20120829 1.1 first half-working header
  20110426 1.0 first working version
