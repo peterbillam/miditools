@@ -6,8 +6,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.2'
-local VersionDate  = '21apr2014';
+local Version = '1.3'
+local VersionDate  = '25may2015';
 
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
@@ -199,53 +199,53 @@ local Number2patch = {   -- General MIDI patch numbers:
 -------------------- infrastructure from pjblib.lua --------------------
 
 local function _debug(s)
-    local DEBUG = io.open('/tmp/debug', 'a')
-    DEBUG:write(s.."\n")
-    DEBUG:close()
+	local DEBUG = io.open('/tmp/debug', 'a')
+	DEBUG:write(s.."\n")
+	DEBUG:close()
 end
 
 local function deepcopy(object)  -- http://lua-users.org/wiki/CopyTable
-    local lookup_table = {}
-    local function _copy(object)
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
-        end
-        local new_table = {}
-        lookup_table[object] = new_table
-        for index, value in pairs(object) do
-            new_table[_copy(index)] = _copy(value)
-        end
-        return setmetatable(new_table, getmetatable(object))
-    end
-    return _copy(object)
+	local lookup_table = {}
+	local function _copy(object)
+	    if type(object) ~= "table" then
+	        return object
+	    elseif lookup_table[object] then
+	        return lookup_table[object]
+	    end
+	    local new_table = {}
+	    lookup_table[object] = new_table
+	    for index, value in pairs(object) do
+	        new_table[_copy(index)] = _copy(value)
+	    end
+	    return setmetatable(new_table, getmetatable(object))
+	end
+	return _copy(object)
 end
 
 local function sorted_keys(t, f)
-    local a = {}
-    for k,v in pairs(t) do a[#a+1] = k end
-    table.sort(a, f)
-    return  a
+	local a = {}
+	for k,v in pairs(t) do a[#a+1] = k end
+	table.sort(a, f)
+	return  a
 end
 
 local function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
-    if not s or string.len(s)<2 then return {s} end
-    if not pattern then return {s} end
-    if maxNb and maxNb <2 then return {s} end
-    local result = { }
-    local theStart = 1
-    local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
-    local nb = 1
-    while theSplitStart do
-        table.insert( result, string.sub(s,theStart,theSplitStart-1) )
-        theStart = theSplitEnd + 1
-        theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
-        nb = nb + 1
-        if maxNb and nb >= maxNb then break end
-    end
-    table.insert( result, string.sub(s,theStart,-1) )
-    return result
+	if not s or string.len(s)<2 then return {s} end
+	if not pattern then return {s} end
+	if maxNb and maxNb <2 then return {s} end
+	local result = { }
+	local theStart = 1
+	local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+	local nb = 1
+	while theSplitStart do
+	    table.insert( result, string.sub(s,theStart,theSplitStart-1) )
+	    theStart = theSplitEnd + 1
+	    theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+	    nb = nb + 1
+	    if maxNb and nb >= maxNb then break end
+	end
+	table.insert( result, string.sub(s,theStart,-1) )
+	return result
 end
 local function which(s)
 	local f
@@ -262,7 +262,7 @@ local function warn(str) io.stderr:write(str,'\n') end
 local function round(x) return math.floor(x+0.5) end
 
 function GetTerminalSize()  -- from ~/lua/lib/readkey.lua
-    local width, height
+	local width, height
 	local xwininfo = which('xwininfo')  -- do we have xwininfo ?
 	local windowid = os.getenv('WINDOWID')
 	if xwininfo and windowid then
@@ -383,7 +383,7 @@ local function display_connectedfrom()
 	reread_clientnames()
 	local src_client_nums = {}
 	for k,v in ipairs(ALSA.listconnectedfrom()) do
-    	-- an array of 3-element arrays {{outputport,dest_client,dest_port},}
+		-- an array of 3-element arrays {{outputport,dest_client,dest_port},}
 		table.insert(src_client_nums, v[2])
 	end
 	if #src_client_nums < 1 then
@@ -414,7 +414,7 @@ local function display_connectedto()
 	reread_clientnames()
 	local destclient_nums = {}
 	for k,v in ipairs(ALSA.listconnectedto()) do
-    	-- an array of 3-element arrays { {outputport,dest_client,dest_port}, }
+		-- an array of 3-element arrays { {outputport,dest_client,dest_port}, }
 		table.insert(destclient_nums, v[2])
 	end
 	if #destclient_nums < 1 then
@@ -452,6 +452,14 @@ local function display_channels()
 	display_headers()
 	for k,cha in ipairs(sorted_keys(Cha2Client)) do
 		display_cha(cha)
+	end
+end
+
+function play_wav (wavfile)  -- defend against ;&>|`$()[]
+	wavfile = string.gsub(wavfile, '[;&>|`$(){}]', '')
+	if POSIX.fork() == 0 then
+		local rc = os.execute("play -q "..wavfile)
+		if not rc then print("\r\ncommand was: play -q "..wavfile.."\r\n") end
 	end
 end
 
@@ -526,6 +534,7 @@ POSIX.signal( 28, function (signo)  -- SIGWINCH handler
 	park_and_refresh()
 end )
 
+
 while true do  -- the event loop
 	local alsaevent = ALSA.input()
 	if   alsaevent[1] == ALSA.SND_SEQ_EVENT_PORT_UNSUBSCRIBED
@@ -551,7 +560,6 @@ while true do  -- the event loop
 
 	if not Clientnumber2Clientname[source_client] then reread_clientnames() end
 
-	local need_to_redisplay_channels = false
 	if alsaevent[1] == ALSA.SND_SEQ_EVENT_CONTROLLER then
 		if     alsaevent[8][5] == 0  then
 			Cha2Patch[cha] = nil
@@ -562,18 +570,21 @@ while true do  -- the event loop
 		else
 			Cha2Controller[cha] = { alsaevent[8][5], alsaevent[8][6] }
 		end
-		need_to_redisplay_channels = true
 	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_PGMCHANGE then
 		Cha2Patch[cha] = alsaevent[8][6]
 	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_SYSEX then
 		-- GM1 is f0,7e,7f,09,01,f7  GM2 is f0,7e,7f,09,03,f7
-		local gm1 = string.format("%c%c%c%c%c%c",0xf0,0x7e,0x7f,0x09,0x01,0xf7)
-		local gm2 = string.format("%c%c%c%c%c%c",0xf0,0x7e,0x7f,0x09,0x03,0xf7)
+		local gm1 = "\xf0\x7e\x7f\x09\x01\xf7" -- 1.3 no need for string.format
+		local gm2 = "\xf0\x7e\x7f\x09\x03\xf7"
 		if alsaevent[8][1] == gm1 or alsaevent[8][1] == gm2 then
 			Cha2BankMSB = {}
 			Cha2BankLSB = {}
 		end
-		need_to_redisplay_channels = true
+		local wavfile = string.match(alsaevent[8][1],'}!play%s([%g%s]+)\xF7')
+		if wavfile then  -- 1.3
+			play_wav(wavfile)
+			goto next
+		end
 	end
 	display_channels() -- even if it's just a note the From might have changed
 	park_and_refresh()
@@ -581,47 +592,6 @@ while true do  -- the event loop
 end
 CURSES.endwin()
 os.exit()
-
------------------------- ~/lua/pjblib.lua ------------------------
-
-local P = require 'posix'
-
-local function pairsByKeys(t,f)   -- Programming in Lua p.173
-    local a = {}
-    for n in pairs(t) do a[#a+1] = n end
-    table.sort(a,f)
-    local i = 0
-    return function() i = i+1; return a[i], t[a[i]] end
-end
-
-local function qw(s)  -- t = qw[[ foo  bar  baz ]]
-    local t = {} ; for x in s:gmatch("%S+") do t[#t+1] = x end ; return t
-end
-
-
-local function sleep(t)
-    local sec = math.floor(t)
-    local ns = (1000000000 * (t-sec))
-    P.nanosleep(sec,ns)
-end
-
-local function splice(array, offset, length, list)
-    local result = {}
-    if not offset then return {} end
-    if not length then length = -1 end
-    for i = 1,(offset-1) do result[#result+1] = array[i] end
-    if type(list) == 'table' then
-        for i,v in pairs(list) do result[#result+1] = v end
-    else
-        result[#result+1] = list
-    end
-    if length < 0 then
-        for i = offset, (#array+1-length) do result[#result+1] = array[i] end
-    else 
-        for i = (offset+length), #array   do result[#result+1] = array[i] end
-    end
-    return result
-end
 
 --[=[
 
@@ -749,6 +719,7 @@ The documentation is on the web at
 
 =head1 CHANGES
 
+ 20150525 1.3 secret "}!play file.wav\xF7" sysex introduced
  20140421 1.2 handles LINES=20 correctly
  20140420 1.1 displays connected from; adapts somewhat to screen size
  20140412 1.0 first working version

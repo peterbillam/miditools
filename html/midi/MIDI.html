@@ -75,13 +75,23 @@ event,&nbsp;with&nbsp;a&nbsp;duration:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;note&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;127&nbsp;&nbsp;(middle-C&nbsp;is&nbsp;60)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;patch&nbsp;=&nbsp;0&nbsp;to&nbsp;127&nbsp;(see&nbsp;<a href="http://www.pjb.com.au/muscript/gm.html">http://www.pjb.com.au/muscript/gm.html</a>&nbsp;)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pitch_wheel&nbsp;=&nbsp;a&nbsp;value&nbsp;-8192&nbsp;to&nbsp;8191&nbsp;(0x1FFF)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;raw&nbsp;=&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;binary&nbsp;data<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;raw&nbsp;=&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;binary&nbsp;data&nbsp;&nbsp;(for&nbsp;sysex&nbsp;events&nbsp;see&nbsp;below)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sequence_number&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;65,535&nbsp;(0xFFFF)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_pos&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;16,383&nbsp;(0x3FFF)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_number&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;127<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempo&nbsp;=&nbsp;microseconds&nbsp;per&nbsp;crochet&nbsp;(quarter-note),&nbsp;0&nbsp;to&nbsp;16777215<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text&nbsp;=&nbsp;a&nbsp;string&nbsp;of&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;of&nbsp;ASCII&nbsp;text<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ticks&nbsp;=&nbsp;the&nbsp;number&nbsp;of&nbsp;ticks&nbsp;per&nbsp;crochet&nbsp;(quarter-note)<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;In&nbsp;sysex_f0&nbsp;events,&nbsp;the&nbsp;raw&nbsp;data&nbsp;must&nbsp;not&nbsp;start&nbsp;with&nbsp;a&nbsp;\xF0&nbsp;byte,<br>
+&nbsp;&nbsp;&nbsp;since&nbsp;this&nbsp;gets&nbsp;added&nbsp;automatically;<br>
+&nbsp;&nbsp;&nbsp;but&nbsp;it&nbsp;must&nbsp;end&nbsp;with&nbsp;an&nbsp;explicit&nbsp;\xF7&nbsp;byte!<br>
+&nbsp;&nbsp;&nbsp;In&nbsp;the&nbsp;very&nbsp;unlikely&nbsp;case&nbsp;that&nbsp;you&nbsp;ever&nbsp;need&nbsp;to&nbsp;split&nbsp;sysex&nbsp;data<br>
+&nbsp;&nbsp;&nbsp;into&nbsp;one&nbsp;sysex_f0&nbsp;followed&nbsp;by&nbsp;one&nbsp;or&nbsp;more&nbsp;sysex_f7s,&nbsp;then&nbsp;only&nbsp;the<br>
+&nbsp;&nbsp;&nbsp;last&nbsp;of&nbsp;those&nbsp;sysex_f7&nbsp;events&nbsp;must&nbsp;end&nbsp;with&nbsp;the&nbsp;explicit&nbsp;\xF7&nbsp;byte<br>
+&nbsp;&nbsp;&nbsp;(again,&nbsp;the&nbsp;raw&nbsp;data&nbsp;of&nbsp;individual&nbsp;sysex_f7&nbsp;events&nbsp;must&nbsp;not&nbsp;start<br>
+&nbsp;&nbsp;&nbsp;with&nbsp;any&nbsp;\xF7&nbsp;byte,&nbsp;since&nbsp;this&nbsp;gets&nbsp;added&nbsp;automatically).<br>
+&nbsp;<br>
 &nbsp;<br>
 &nbsp;&nbsp;GOING&nbsp;THROUGH&nbsp;A&nbsp;SCORE&nbsp;WITHIN&nbsp;A&nbsp;PYTHON&nbsp;PROGRAM<br>
 &nbsp;&nbsp;&nbsp;&nbsp;channels&nbsp;=&nbsp;{2,3,5,8,13}<br>

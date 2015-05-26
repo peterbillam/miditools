@@ -431,15 +431,23 @@ event, with a duration:</p>
  velocity = a value 0 (soft) to 127 (loud)
  note = a value 0 to 127  (middle-C is 60)
  patch = 0 to 127 (see <a href="http://www.pjb.com.au/muscript/gm.html">www.pjb.com.au/muscript/gm.html</a> )
- pitch_wheel = a value -8192 to 8191 (0x1FFF)
- raw = 0 or more bytes of binary data
- sequence_number = a value 0 to 65,535 (0xFFFF)
- song_pos = a value 0 to 16,383 (0x3FFF)
+ pitch_wheel = a value -8192 to 8191 (\x1FFF)
+ raw = 0 or more bytes of binary data (for <I>sysex</I> events see below)
+ sequence_number = a value 0 to 65,535 (\xFFFF)
+ song_pos = a value 0 to 16,383 (\x3FFF)
  song_number = a value 0 to 127
  tempo = microseconds per crochet (quarter-note), 0 to 16777215
  text = a string of 0 or more bytes of of ASCII text
  ticks = the number of ticks per crochet (quarter-note)</pre>
 <p>
+In <I>sysex_f0</I> events, the <I>raw</I> data must not start with a \xF0
+byte, since this gets added automatically;<BR>
+&nbsp; but it must end with an explicit \xF7 byte !<BR>
+In the very unlikely case that you ever need to split <I>sysex</I> data
+into one <I>sysex_f0</I> followed by one or more <I>sysex_f7</I>s, then
+only the last of those <I>sysex_f7</I> events must end with the explicit \xF7
+byte &nbsp; (again, the <I>raw</I> data of individual <I>sysex_f7</I> events
+must not start with any \xF7 byte, since this gets added automatically).
 </p>
 <hr />
 <h2><a name="public_access_tables">PUBLIC-ACCESS TABLES</a></h2>

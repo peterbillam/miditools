@@ -159,6 +159,7 @@ my %Number2controller = (
 );
 
 if (! $UseCurses) {
+	use bytes;  # 20150526 because of sysexes that need to end with \xF7
 	my $opus = MIDI::Opus->new({ 'from_file' => $ARGV[$[]});
 	open(SAVEOUT, ">&STDOUT") || die "couldn't dup STDOUT: $!";
 	close STDOUT;

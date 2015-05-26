@@ -60,19 +60,37 @@ CONTENT="fluidity, fluidity.lua, MIDI, ALSA, Lua, module, luarock">
 
 <hr />
 <H2><a name="description">DESCRIPTION</a></H2>
-<I>midi2muscript</I> is still in its very early versions.
+<I>midi2muscript</I> is still in its early versions.
 </P><P>
-Each channel gets its own stave.
+Each <I>midi</I> channel gets its own <I>muscript</I> stave.
 </P><P>
-Other note_on and note_off events
-are rounded to the nearest plausible subdivision of a beat.
-If the improvisation has been made without a metronome-track,
+It uses some ad-hoc heuristics to guess where the barlines should go;
+it favours placing them where lots of notes begin, especially louder
+and longer notes.  Currently it also favours low notes, which usually
+works very well but sometimes backfires.
+</P><P>
+It gives a lot of weight to Metronome Bells
+<A HREF="../muscript/gm.html#perc">(GM Channel 9 note 34)</A>
+even if they have inaudibly low (but non-zero) volumes;
+so you can use the Metronome to control barline placement.
+If an improvisation has been made without a metronome-track,
 overdubbing an improvisation with a metronome-track is not hard,
-and can be repeated until satisfactory.
+and can be repeated until satisfactory;
+or you can edit the midi file eg: with
+<A HREF="midiedit.html">midiedit</A>
+to add Metronome Bells where you want your barlines.
 </P><P>
-Then note_offs could also be interpreted,
-to assign the notes to different voices,
-e.g. if it's held, say, more than twice as long as the pulse.
+In future, <I>midi2muscript</I> might also try to place barlines
+on sudden changes of harmony.
+</P><P>
+It currently makes no attempt to group 8th and 16th-notes under beams;
+you have to do this by hand if tidying up the score for being printed
+out and read by musicians.
+</P><P>
+<I>midi2muscript</I> was written to work like a 16-track tape recorder,
+for overdubbing one midi-track over another - except that at every stage
+you get to tidy up or change the result by working on it in
+<A HREF="../muscript/index.html">muscript</A> score form.
 
 </p><p></p>
 
@@ -88,12 +106,14 @@ which <I>midi2muscript</I> will use as a guide
 when choosing plausible barlines.
 </p></dd>
 
+<!--
 <dt><B><a name="option_t"><I>-t 6/8
 </I></a></B></dt><dd><p>
 suggests the <B>T</B>ime-signature which <I>midi2muscript</I> will use
 when dividing the bar into shorter notes.
 Currently unimplemented.
 </p></dd>
+-->
 
 <dt><B><a name="option_v"<I>-v</I></a></B></dt>
 <dd>

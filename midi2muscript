@@ -1,6 +1,6 @@
 #! /usr/local/bin/lua
 local MIDI= require 'MIDI'
-require 'DataDumper'
+--require 'DataDumper'
 -- 20150511 priorities:
 --   note-lengths, including notes lasting several bars
 --   -t option (think 5/8 7/8 3/8)
@@ -61,11 +61,11 @@ local function deepcopy(object)  -- http://lua-users.org/wiki/CopyTable
 	end
 	return _copy(object)
 end
-function str(t)
-	local s = string.gsub(DataDumper(t), '^%s*return%s*', '')
-	s= string.gsub(s, "%s*\n%s*", ' ')
-	return s
-end
+--function str(t)
+	--local s = string.gsub(DataDumper(t), '^%s*return%s*', '')
+	--s= string.gsub(s, "%s*\n%s*", ' ')
+	--return s
+--end
 function slice(l,i1,i2)
 	local s = {}
 	local i = i1
