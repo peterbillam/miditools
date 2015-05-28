@@ -37,8 +37,8 @@
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2d'; # clefspace now takes same space as clef
-$VersionDate           = '07may2015';
+$Version               = '3.2e'; # play command introduced to play wav files
+$VersionDate           = '27may2015';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $isyst $ibar and $istave
@@ -280,7 +280,7 @@ while (@Stack) {  # the main loop through the input-file
 		unshift @Stack, $line; set_var(\@Stack); next;
 	}
 	if ($line =~ /$VarArraySetRE/o) { # 3.1m
-		set_array($1,$2,$3,$4,$5); next;  # XXX
+		set_array($1,$2,$3,$4,$5); next;
 	}
 	my @lines = substitute($line,1); # now here in mainloop
 	while (@lines) {
@@ -319,7 +319,6 @@ sub interpret_syntax { my $line = $_[$[];
 		if (!&xml_header($line)) { $xml{'header finished'} = 1; redo; }
 	}
 	my $ps = !$Midi && !$Xml;   # either PS or EPS
-	# 3.2c whaddya mean, "next" ? a dozen times ...
 	if ($line =~ /^rightfoot\s(.*)$/) { if ($ps) {ps_rightfoot($1);} next; }
 	if ($line =~ /^leftfoot\s(.*)$/)  { if ($ps) {ps_leftfoot($1);}  next; }
 	if ($line =~ /^innerhead\s(.*)$/) { if ($ps) {ps_innerhead($1);} next; }
@@ -340,10 +339,12 @@ sub interpret_syntax { my $line = $_[$[];
 	if ($line =~ /^([rbiI])([ls]?)(\d?\.?\d*)\s(.*)$/) {
 		if ($Xml)   { xml_text($1,$2,$3,$4); next; }
 		if ($Midi)  { next; }
-		ps_text($1,$2,$3,$4);  next;    # 3.2c whaddya mean, "next" ?
+		ps_text($1,$2,$3,$4);  next;
 	}
+	if ($line =~ /^play\s+(.*)$/) { if ($Midi) {midi_play_wav($1);} next; }
 	warn "line $LineNum not recognised: $line\n";   # 2.9j
 }
+
 if ($Midi) {
 	midi_write();
 } elsif ($Xml) {
@@ -2709,6 +2710,13 @@ sub midi_in_stave { my $str = $_[$[];
 	} else {
 		return 0;
 	}
+}
+
+sub midi_play_wav { my $cmd = $_[$[];  # 3.2e
+	my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+	push @MidiScore, ['sysex_f0', $ticksatbarstart, '}!play '.$cmd."\xF7"];
+	$ticksatbarstart += 1;
+	return 1;
 }
 
 sub midi_expression { my ($ticks, $cha, $val) = @_;

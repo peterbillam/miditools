@@ -6,8 +6,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.3'
-local VersionDate  = '25may2015';
+local Version = '1.5'
+local VersionDate  = '28may2015';
 
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
@@ -543,11 +543,7 @@ while true do  -- the event loop
 		if HaveSystemConnection then display_connectedto() end
 		park_and_refresh()
 	else
-		if alsaevent[1] then
-			ALSA.output( alsaevent )  -- straight-through
-		end
-		-- not always a valid alsaevent :-( because the kernel's SIGWINCH
-		-- handler get disabled :-( and SIWINCH interrupts system-calls
+		ALSA.output( alsaevent )  -- straight-through
 	end
 	local source_client = alsaevent[6][1]
 	local source_port   = alsaevent[6][2]
@@ -573,17 +569,14 @@ while true do  -- the event loop
 	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_PGMCHANGE then
 		Cha2Patch[cha] = alsaevent[8][6]
 	elseif alsaevent[1] == ALSA.SND_SEQ_EVENT_SYSEX then
-		-- GM1 is f0,7e,7f,09,01,f7  GM2 is f0,7e,7f,09,03,f7
 		local gm1 = "\xf0\x7e\x7f\x09\x01\xf7" -- 1.3 no need for string.format
 		local gm2 = "\xf0\x7e\x7f\x09\x03\xf7"
 		if alsaevent[8][1] == gm1 or alsaevent[8][1] == gm2 then
 			Cha2BankMSB = {}
 			Cha2BankLSB = {}
-		end
-		local wavfile = string.match(alsaevent[8][1],'}!play%s([%g%s]+)\xF7')
-		if wavfile then  -- 1.3
-			play_wav(wavfile)
-			goto next
+		else
+			local cmd = string.match(alsaevent[8][1],'}!play%s([%g%s]+)\xF7')
+			if cmd then play_wav(cmd) end  -- 1.3
 		end
 	end
 	display_channels() -- even if it's just a note the From might have changed
@@ -719,6 +712,8 @@ The documentation is on the web at
 
 =head1 CHANGES
 
+ 20150528 1.5 double-output of play-sysex fixed
+ 20150527 1.4 secret play-sysex interpreted and not through-put
  20150525 1.3 secret "}!play file.wav\xF7" sysex introduced
  20140421 1.2 handles LINES=20 correctly
  20140420 1.1 displays connected from; adapts somewhat to screen size
