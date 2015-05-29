@@ -12,7 +12,7 @@ local VersionDate  = '28may2015';
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
 
-require 'DataDumper'
+--require 'DataDumper'
 
 local ALSA   = nil
 pcall(function() ALSA = require 'midialsa' end)
@@ -455,12 +455,16 @@ local function display_channels()
 	end
 end
 
-function play_wav (wavfile)  -- defend against ;&>|`$()[]
-	wavfile = string.gsub(wavfile, '[;&>|`$(){}]', '')
+function play_wav (cmd)  -- defend against ;&>|`$()[]
+	cmd = string.gsub(cmd, '[;&>|`$(){}]', '')
 	if POSIX.fork() == 0 then
-		local rc = os.execute("play -q "..wavfile)
-		if not rc then print("\r\ncommand was: play -q "..wavfile.."\r\n") end
+		local rc = os.execute("play -q "..cmd)
+		if not rc then print("\r\ncommand was: play -q "..cmd.."\r\n") end
 	end
+	-- http://luaposix.github.io/luaposix/modules/posix.unistd.html
+	-- exec (path, argt)   Execute a program without using the shell.
+	-- POSIX.exec( which('play'), {[0] = "-q", split(cmd)} )
+	-- but spaces in filenames ?  quotes round "| blurb" input-files ?
 end
 
 

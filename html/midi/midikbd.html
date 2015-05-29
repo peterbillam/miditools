@@ -65,7 +65,7 @@ CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
  U/D = Up/Down a semitone      PageUp/Down  = Up/Down an octave
  UpArrow    = Volume +10       DownArrow = Volume -10
  RightArrow = Pan +16          LeftArrow = Pan -16
- F1,F2  = take new pedal       F3,F4     = remove pedal
+ F1,F2=Una F3,F4=Tre   F5,F6=Sos F7,F8=*Sos   F9,F10=Ped F11,F12=*Ped
  M    = set a MIDI-Controller  X/Y = govern a Controller by mouse X/Y
  Home = reset all controllers  End = all sounds off
 
@@ -121,7 +121,21 @@ with more virtual sound-cards enabled, e.g.:<BR>
  &nbsp; <CODE>modprobe -r snd-virmidi</CODE><BR>
  &nbsp; <CODE> modprobe snd-virmidi enable=1,1</CODE>
 -->
-</p>
+</p><P>
+Since version 5.6, the user interface has changed to support
+the other two Pedals.
+Function keys F1-F4 now control the Una-corda/Tre-corde pedal,
+function keys F5-F8 control the Sostenuto-pedal,
+and the normal sustaining-pedal is now controlled by the function keys F9-F12.
+<BR>
+This means that <I>vt100</I> is no longer fully supported;
+if you don't have <I>xterm</I>
+you'll need eg: <I>vt510pcdos</I> or <I>vte+pcfkeys</I> etc.<BR>
+The test is that &nbsp; <CODE>tput&nbsp;kf12|cat&nbsp;-v</CODE> &nbsp;
+should return <CODE>^[[24~</CODE><BR>
+and that &nbsp; <CODE>tput&nbsp;kf8|cat&nbsp;-v</CODE> &nbsp;
+should return <CODE>^[[19~</CODE>
+</P>
 
 <hr />
 <h3><a name="options">OPTIONS</a></h3>
@@ -274,7 +288,7 @@ see <I>aconnect&nbsp;-oil</I>) in separate <I>xterm</I>s:<BR><CODE>
  &nbsp; <A HREF="midiecho.html">midiecho -i 14 -d 1,2200,2201,4400,4401 -s 5 -e 1,2,3,4,5</A></CODE><BR>
 </CODE>and<CODE><BR>
  &nbsp; midikbd -o 14 5:91:120 4:14:120 3:91:8 2:14:8 1:29:64 0:14:64
-</P></DD><DT><B>
+</CODE></P></DD><DT><B>
 3:91:y0 2:92:y-0 1:93:x-10 0:94:x10
 </B></DT><DD><P>
 The third example uses mouse movement X,Y
@@ -359,6 +373,8 @@ CPAN modules
 <hr />
 <h3><a name="changes">CHANGES</a></h3>
 <p>
+<BR><B>5.5</B>, 20150529, UI change: F1-F4=Una/Tre  F5-F8=Sos/*Sos  F9-F12=Ped
+<BR><B>5.5</B>, 20150528, the Synopsis responds to Pedal on/off
 <BR><B>5.4</B>, 20130225, -o 0 doesn't connect to anything
 <BR><B>5.3</B>, 20120407, the Y-controller works correctly
 <BR><B>5.2</B>, 20120401, changing the X- or Y-controller displays correctly

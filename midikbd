@@ -6,6 +6,12 @@
 #     This script is free software; you can redistribute it and/or      #
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
+# 20150529  a UI change to include the other pedals ?
+# F1,F2=Una-corda F3,F4=Tre-corde  F5,F6=Sos-pedal F7,F8=Sos-pedal-off
+#   F9,F10=Pedal F11,F12=Pedal-off  ?
+# ^[[15~^[OP^[OQ^[OR^[OS ^[[15~^[[17~^[[18~^[[19~ ^[[20~^[[21~^[[23~^[[24~
+# F1,F2=Una F3,F4=Tre  F5,F6=Sos F7,F8=*Sos  F9,F10=Ped F11,F12=*Ped
+
 use Term::ReadKey;
 use bytes;
 #use Term::Size(); my ($Xmax, $Ymax) = Term::Size::chars;
@@ -18,16 +24,19 @@ eval 'require Term::Clui'; if ($@) { die
 	"you'll need to install the Term::Clui module from www.cpan.org\n";
 }
 my $CurrentX; my $CurrentY;
-my $Version      = '5.4';   # -o 0 doesn't connect to anything
-my $VersionDate  = '25feb2013';
-my $Channel   = 0;
-my $Volume    = 100;
-my $Pan       = 64;
-my $Transpose = 0;
-my $Quiet     = 0;
-my $PedalIsOn = 0;
-my $KeyMap    = 'piano';
-my %KeyMaps   = (   # 4.0
+my $Version      = '5.6';  # UI change: F1-4=Una/Tre F5-8=Sos/*Sos F9-12=Ped
+my $VersionDate  = '29may2015';
+my $Channel    = 0;
+my $Volume     = 100;
+my $Pan        = 64;
+my $Transpose  = 0;
+my $Quiet      = 0;
+my $PedalIsOn  = 0;
+my $SosPedIsOn = 0;
+my $UnaPedIsOn = 0;
+my $PedalLineNum;
+my $KeyMap     = 'augmented';
+my %KeyMaps    = (   # 4.0
 	a=>'augmented', d=>'drumkit', h=>'harmonic', p=>'piano', w=>'wholetone',
 );
 my %Cha2patch;
@@ -81,6 +90,12 @@ while ($ARGV[$[] =~ /^-([CPa-z])([adhpw]?)/) {
 	}
 }
 foreach my $channel_spec (@ARGV) { process_channel_spec($channel_spec); }
+
+sub debug {
+    open (T, '>>', '/tmp/debug');
+    print T $_[$[],"\n";
+    close T;
+}
 
 my $in_syn; my $in_keys;
 while (<DATA>) {
@@ -258,7 +273,15 @@ sub display_midi_controllers {
 }
 sub display_keystrokes {
 	my @s = (@{$Keystrokes{$KeyMap}},"\n",@Synopsis);
-	gotoxy(1,$CursorRow+1); puts(@s); gotoxy(1,$CursorRow);
+	$PedalLineNum = $CursorRow-1;   # ??
+	foreach (@{$Keystrokes{$KeyMap}},@Synopsis) {
+		if (/F1,F2/) { break; }
+		$PedalLineNum += 1;
+	}
+	gotoxy(1,$CursorRow+1); puts(@s);
+	gotoxy(1,$PedalLineNum);
+	puts_clr(" F1,F2=Una             F5,F6=Sos              F9,F10=Ped");
+	gotoxy(1,$CursorRow);
 }
 sub clean_screen {
 	my @s = (@{$Keystrokes{$KeyMap}},"\n",@Synopsis);
@@ -392,28 +415,27 @@ sub new_Ycontroller {
 
 sub escape_seq {
 	my $c = ReadKey(0, STDIN);
-	if ($c eq 'O') {  # a FunctionKey F1..F4
+	if ($c eq 'O') {  # a FunctionKey F1..F4, 5.6 now UnaCorda/TreCorde
 		$c = ReadKey(0, STDIN);  # P,Q,R,S
-		# my $b = chr(0xB0 + $Channel);
 		if ($c eq 'P' or $c eq 'Q') {  # take or renew pedal 3.5
-			if ($PedalIsOn) {
-				# print $OFH "$b\x40\x00";
-				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
+			if ($UnaPedIsOn) {
+				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,0));
+			} else {
+				$UnaPedIsOn = 1;
+				gotoxy(12,$PedalLineNum); puts('F3,F4=Tre');
 			}
-			# print $OFH "$b\x40\x7F";
-			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,127));
-			$PedalIsOn = 1;
+			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,127));
 		} else {   # pedal off
-			if ($PedalIsOn) { # print $OFH "$b\x40\x00";
-				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
-				$PedalIsOn = 0;
+			if ($UnaPedIsOn) {
+				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,0));
+				$UnaPedIsOn = 0;
+				gotoxy(12,$PedalLineNum); puts('         ');
 			}
 		}
-		return;
+		gotoxy(1,$CursorRow); return;
 	}
 	if ($c ne '[') { return; }
 	$c = ReadKey(0, STDIN);
-	
 	if      ($c eq '5') {  # PageUp,
 		if ($KeyMap ne 'drumkit') {
 			$Transpose += 12; display_transpose(); return;
@@ -450,6 +472,39 @@ sub escape_seq {
 		display_pan();
 	} elsif ($c eq 'F') { all_sounds_off();
 	} elsif ($c eq 'H') { reset_all_controllers();
+	} elsif ($c eq '1') {   # 5.6
+		$c = ReadKey(0, STDIN);  # 5,7,8,9
+		if ($c eq '5' or $c eq '7') {  # Sos
+			if ($SosPedIsOn) {
+				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,0));
+			} else {
+				$SosPedIsOn = 1;
+				gotoxy(34,$PedalLineNum); puts('F7,F8=*Sos');
+			}
+			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,127));
+		} elsif ($c eq '8' or $c eq '9') {  # *Sos
+			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,0));
+			$SosPedIsOn = 0;
+			gotoxy(34,$PedalLineNum); puts('          ');
+		}
+		gotoxy(1,$CursorRow);  return;
+	} elsif ($c eq '2') {   # 5.6
+		$c = ReadKey(0, STDIN);  # 0,1,3,4
+		if ($c eq '0' or $c eq '1') {  # Ped
+			if ($PedalIsOn) {
+				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
+			} else {
+				$PedalIsOn = 1;
+				gotoxy(58,$PedalLineNum); puts('F11,F12=*Ped');
+			}
+			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,127));
+		} elsif ($c eq '3' or $c eq '4') {  # *Ped
+			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
+			$PedalIsOn = 0;
+			gotoxy(58,$PedalLineNum); puts('            ');
+		}
+		gotoxy(1,$CursorRow);  return;
+	} elsif ($c eq '2') {   # 5.6
 	} elsif ($c eq 'M') {   # 3.6
 		# ^[[M#XY  where X is (chr(32+x)), Y is (chr(32+y)), top-left is !!=1,1
 		# and LeftButtonPress = ^[[M XY  Mid = ^[[M!XY   Right = ^[[M"XY
@@ -643,8 +698,6 @@ sub puts   { my $s = join q{}, @_;
 	if ($s =~ /\r\n?$/) { $Icol = 0;
 	} else { $Icol += length($s);   # BUG, wrong on multiline strings!
 	}
-	# print STDERR "$s\e[K";   # and clear-to-eol
-	# should be caller's responsibility ? or an option ? a different sub ?
 	print STDERR $s;
 }
 sub puts_30c {  my $s = $_[$[];   # assumes no newlines
@@ -653,7 +706,6 @@ sub puts_30c {  my $s = $_[$[];   # assumes no newlines
 	$Icol += length($s);
 }
 sub puts_clr {  my $s = $_[$[];   # assumes no newlines
-	my $rest = 30-length($s);
 	print STDERR "$s\e[K";
 	$Icol += length($s);
 }
@@ -677,17 +729,19 @@ sub left  {
 	print STDERR "\e[D" x $_[$[]; $Icol -= $_[$[];
 }
 sub gotoxy { my $newcol = shift; my $newrow = shift;
+	if ($newrow > $Irow)      { down($newrow-$Irow);
+	} elsif ($newrow < $Irow) { up($Irow-$newrow);
+	}
 	if ($newcol == 0) { print STDERR "\r" ; $Icol = 0;
 	} elsif ($newcol > $Icol) { right($newcol-$Icol);
 	} elsif ($newcol < $Icol) { left($Icol-$newcol);
-	}
-	if ($newrow > $Irow)      { down($newrow-$Irow);
-	} elsif ($newrow < $Irow) { up($Irow-$newrow);
 	}
 }
 
 
 __END__
+formerly:
+ F1,F2  = take new pedal       F3,F4     = remove pedal
 
 =pod
 
@@ -721,7 +775,7 @@ midikbd - a simple monophonic ascii-midi-keyboard
  U/D = Up/Down a semitone      PageUp/Down  = Up/Down an octave
  UpArrow    = Volume +10       DownArrow = Volume -10
  RightArrow = Pan +16          LeftArrow = Pan -16  
- F1,F2  = take new pedal       F3,F4     = remove pedal
+ F1,F2=Una F3,F4=Tre   F5,F6=Sos F7,F8=*Sos   F9,F10=Ped F11,F12=*Ped
  M    = set a MIDI-Controller  X/Y = govern a Controller by mouse X/Y
  Home = reset all controllers  End = all sounds off
 
@@ -932,6 +986,8 @@ This option is superseded by the I<ChannelSpec> arguments.
 
 =head1 CHANGES
 
+ 20150529  5.6  UI change: F1-F4=Una/Tre  F5-F8=Sos/*Sos  F9-F12=Ped
+ 20150528  5.5  the Synopsis responds to Pedal on/off
  20130225  5.4  -o 0 doesn't connect to anything
  20120407  5.3  the Y-controller works correctly
  20120401  5.2  changing the X- or Y-controller is displayed correctly
