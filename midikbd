@@ -167,10 +167,10 @@ while (1) {
 		if ($KeyMap ne 'drumkit') { $Transpose -= 1; display_transpose(); }
 		next;
 	} elsif ($c eq 'M')  { new_midi_controller(); next;  # 4.2
-	} elsif ($c eq 'X')  { new_Xcontroller(); next;  # 4.3
-	} elsif ($c eq 'Y')  { new_Ycontroller(); next;  # 4.3
-	} elsif ($c eq "\e") { escape_seq();  next;
-	} elsif ($c eq "A")  { new_alsa();  next;   # 4.6
+	} elsif ($c eq 'X')  { new_Xcontroller();     next;  # 4.3
+	} elsif ($c eq 'Y')  { new_Ycontroller();     next;  # 4.3
+	} elsif ($c eq "\e") { escape_seq();          next;
+	} elsif ($c eq "A")  { new_alsa();            next;   # 4.6
 	}
 	my $note = $Char2note{$c};
 	my $tra = $note + $Transpose ;
@@ -422,14 +422,14 @@ sub escape_seq {
 				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,0));
 			} else {
 				$UnaPedIsOn = 1;
-				gotoxy(12,$PedalLineNum); puts('F3,F4=Tre');
+				if (!$Quiet) { gotoxy(12,$PedalLineNum); puts('F3,F4=Tre'); }
 			}
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,127));
 		} else {   # pedal off
 			if ($UnaPedIsOn) {
 				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,67,0));
 				$UnaPedIsOn = 0;
-				gotoxy(12,$PedalLineNum); puts('         ');
+				if (!$Quiet) { gotoxy(12,$PedalLineNum); puts('         '); }
 			}
 		}
 		gotoxy(1,$CursorRow); return;
@@ -457,8 +457,6 @@ sub escape_seq {
 		if ($Pan < 16)  { $Pan = 16; } else { $Pan += 16; }
 		if ($Pan > 127) { $Pan = 127; }
 		$Cha2pan{$Channel} = $Pan;
-		# my $b = chr(0xB0 + $Channel);  my $p = chr($Pan);
-		# print $OFH "$b\x0A$p";
 		MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,10,$Pan));
 		display_pan();
 	} elsif ($c eq 'D') {  # 3.2 ArrowLeft is now Pan
@@ -466,8 +464,6 @@ sub escape_seq {
 		if ($Pan >112)  { $Pan = 112; } else { $Pan -= 16; }
 		if ($Pan < 1)   { $Pan = 1; }
 		$Cha2pan{$Channel} = $Pan;
-		# my $b = chr(0xB0 + $Channel);  my $p = chr($Pan);
-		# print $OFH "$b\x0A$p";
 		MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,10,$Pan));
 		display_pan();
 	} elsif ($c eq 'F') { all_sounds_off();
@@ -479,14 +475,15 @@ sub escape_seq {
 				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,0));
 			} else {
 				$SosPedIsOn = 1;
-				gotoxy(34,$PedalLineNum); puts('F7,F8=*Sos');
+				if (!$Quiet) { gotoxy(34,$PedalLineNum); puts('F7,F8=*Sos'); }
 			}
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,127));
 		} elsif ($c eq '8' or $c eq '9') {  # *Sos
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,66,0));
 			$SosPedIsOn = 0;
-			gotoxy(34,$PedalLineNum); puts('          ');
+			if (!$Quiet) { gotoxy(34,$PedalLineNum); puts('          '); }
 		}
+		$c = ReadKey(0, STDIN);  # throw away trailing tilde
 		gotoxy(1,$CursorRow);  return;
 	} elsif ($c eq '2') {   # 5.6
 		$c = ReadKey(0, STDIN);  # 0,1,3,4
@@ -495,16 +492,16 @@ sub escape_seq {
 				MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
 			} else {
 				$PedalIsOn = 1;
-				gotoxy(58,$PedalLineNum); puts('F11,F12=*Ped');
+				if (!$Quiet) {gotoxy(58,$PedalLineNum); puts('F11,F12=*Ped');}
 			}
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,127));
 		} elsif ($c eq '3' or $c eq '4') {  # *Ped
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($Channel,64,0));
 			$PedalIsOn = 0;
-			gotoxy(58,$PedalLineNum); puts('            ');
+			if (!$Quiet) { gotoxy(58,$PedalLineNum); puts('            '); }
 		}
+		$c = ReadKey(0, STDIN);  # throw away trailing tilde
 		gotoxy(1,$CursorRow);  return;
-	} elsif ($c eq '2') {   # 5.6
 	} elsif ($c eq 'M') {   # 3.6
 		# ^[[M#XY  where X is (chr(32+x)), Y is (chr(32+y)), top-left is !!=1,1
 		# and LeftButtonPress = ^[[M XY  Mid = ^[[M!XY   Right = ^[[M"XY
