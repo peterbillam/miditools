@@ -246,17 +246,7 @@ The last three elements are also arrays:</p>
 for handling events differently according to their source or destination.
 <A HREF="#constants">The event-type constants, beginning with SND_SEQ_,
 are available as module variables</A>.
-</p><p>
-Note that if the event is of type SND_SEQ_EVENT_PORT_SUBSCRIBED
-or SND_SEQ_EVENT_PORT_UNSUBSCRIBED,
-then that message has come from the System,
-and its <I>dest_port</I> tells you which of your ports is involved.
-But its <I>src_client</I> and <I>src_port</I> do not tell you
-which other client connected or disconnected; you'll need to use
-<A HREF="#listconnectedfrom">listconnectedfrom()</A>
-or
-<A HREF="#listconnectedto">listconnectedto()</A>
-to see what's happened.
+
 </p><p>
 The data array is mostly as documented in
 <a href="http://alsa-project.org/alsa-doc/alsa-lib/seq.html">
@@ -273,18 +263,32 @@ For most other events,  the elements are
 </p><p>
 The <I>channel</I> element is always 0..15<BR>
 In the SND_SEQ_EVENT_PITCHBEND event
-the <I>value</I> element is from -8192..+8191;
-logical, but not the more usual 0..16383
+the <I>value</I> element is from -8192..+8191
+(not 0..16383).
+</p><p>
+If a connection terminates,
+then <a href="#input"><code>input()</code></a> returns,
+and the next event will be of type SND_SEQ_EVENT_PORT_UNSUBSCRIBED
+</p><p>
+Note that if the event is of type SND_SEQ_EVENT_PORT_SUBSCRIBED
+or SND_SEQ_EVENT_PORT_UNSUBSCRIBED,
+then that message has come from the System,
+and its <I>dest_port</I> tells you which of your ports is involved.
+But its <I>src_client</I> and <I>src_port</I> do not tell you
+which other client connected or disconnected; you'll need to use
+<A HREF="#listconnectedfrom">listconnectedfrom()</A>
+or
+<A HREF="#listconnectedto">listconnectedto()</A>
+to see what's happened.
 </p>
 </dd>
 
 <dt><strong><a name="inputpending" class="item">
 <em>inputpending</em>()</a></strong></dt>
 <dd>
-<p>Return the number of bytes available in input buffer.
-Use before <a href="#input"><code>input()</code></a>  to wait till an event is ready to be read. 
-If a connection terminates, then <a href="#inputpending"><code>inputpending()</code></a> returns,
-and the next event will be of type SND_SEQ_EVENT_PORT_UNSUBSCRIBED</p>
+<p>Returns the number of bytes available in the input buffer.
+Use before <a href="#input"><code>input()</code></a>
+to check whether an event is ready to be read.
 </dd>
 
 <dt><strong><a name="output" class="item"> <em>output</em>(

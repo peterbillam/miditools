@@ -24,8 +24,8 @@ eval 'require Term::Clui'; if ($@) { die
 	"you'll need to install the Term::Clui module from www.cpan.org\n";
 }
 my $CurrentX; my $CurrentY;
-my $Version      = '5.6';  # UI change: F1-4=Una/Tre F5-8=Sos/*Sos F9-12=Ped
-my $VersionDate  = '29may2015';
+my $Version      = '5.7';  # X and Y mouse-control fixed
+my $VersionDate  = '31may2015';
 my $Channel    = 0;
 my $Volume     = 100;
 my $Pan        = 64;
@@ -508,7 +508,7 @@ sub escape_seq {
 		my $c = ReadKey(0, STDIN);
 		my $x = ReadKey(0, STDIN);
 		my $y = ReadKey(0, STDIN);
-		next unless $c eq '#';
+		next unless $c eq '#' or $c eq 'C';  # 20150531 but c is now 'C' !?
 		$x = round ((ord($x)-32) * 127.8 / $Xmax);
         if ($x >127) { $x = 127; }
         $y = 126 - round ((ord($y)-33) * 127.8 / $Ymax);
@@ -663,11 +663,10 @@ sub x_controllers { my $x = $_[$[];
 	if ($x > 127) { $x = 127; } elsif ($x < 0) { $x = 0; }
 	while (my ($cha, $con) = each %Cha2Xcontroller) {
 		if ($con < 0) { $con = 0-$con; $x = 127-$x; }
-		# warn "x_controllers cha=$cha xc=$xc\n";
-		$x = 128*$x + $x;   # two bytes full...
 		if ($con == 1000) {  # special-cased for Pitch-Bend
+			$x = 128*$x + $x - 8192 ;   # two bytes full, -8192..+8191
 			# my $b = chr(0xE0 + $cha); print $OFH "$b$xc$xc";
-			MIDI::ALSA::output(MIDI::ALSA::pitchbendevent($cha,$con,$x));
+			MIDI::ALSA::output(MIDI::ALSA::pitchbendevent($cha,$x));
 		} else {
 			# my $b = chr(0xB0+$cha); my $c = chr($con); print $OFH "$b$c$xc";
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($cha,$con,$x));
@@ -678,10 +677,10 @@ sub y_controllers { my $y = $_[$[];
 	if ($y > 127) { $y = 127; } elsif ($y < 0) { $y = 0; }
 	while (my ($cha, $con) = each %Cha2Ycontroller) {
 		if ($con < 0) { $con = 0-$con; $y = 127-$y; }
-		$y = 128*$y + $y;   # two bytes full...
 		if ($con == 1000) {  # special-cased for Pitch-Bend
+			$y = 128*$y + $y - 8192;   # two bytes full, -8192..+8191
 			# my $b = chr(0xE0 + $cha); print $OFH "$b$yc$yc";
-			MIDI::ALSA::output(MIDI::ALSA::pitchbendevent($cha,$con,$y));
+			MIDI::ALSA::output(MIDI::ALSA::pitchbendevent($cha,$y));
 		} else {
 			# my $b = chr(0xB0+$cha); my $c = chr($con); print $OFH "$b$c$yc";
 			MIDI::ALSA::output(MIDI::ALSA::controllerevent($cha,$con,$y));
@@ -838,8 +837,8 @@ and then
 
 =item I<-k augmented> or I<-k drumkit> etc.
 
-Selects the B<k>eymap: possible keymaps are I<augmented>, I<drumkit>,
-I<harmonic>, I<piano> (the default) and I<wholetone>.
+Selects the B<k>eymap: possible keymaps are I<augmented> (the default),
+I<drumkit>, I<harmonic>, I<piano> and I<wholetone>.
 All keymappings are aimed at the US-keyboard; this could be seen as a bug.
 The I<augmented> keymap is particularly good for improvisation.
 The I<drumkit> keymap preselects Channel 9; in this mode,
@@ -848,7 +847,6 @@ The I<harmonic> keymap is sort of inspired by accordion buttons,
 and makes it very easy to play major and minor triads;
 this is unfortunately not very useful as I<midikbd> is only monophonic,
 which could also be seen as a bug.
-The I<piano> keymap is the default.
 
  the "piano" keymap (bottom 2 rows round middleC, top 2 treble clef):
     1    2    3        5    6       8    9    0        =   Back
@@ -951,7 +949,7 @@ and 93 on channel 1;
 and the X-motions of the mouse cross-fade from patch 93 to 94,
 and the Y-motions raise and lower patches 91 and 92 in opposite directions.
 
-And then, in a different I<xterm>, you run:
+Previously, in a different I<xterm>, you have to be running:
 
  midiecho -i 14 -d 1,1,1 -s 1,1,1 -e 1,2,3
 
@@ -983,6 +981,7 @@ This option is superseded by the I<ChannelSpec> arguments.
 
 =head1 CHANGES
 
+ 20150531  5.7  X and Y mouse-control fixed
  20150529  5.6  UI change: F1-F4=Una/Tre  F5-F8=Sos/*Sos  F9-F12=Ped
  20150528  5.5  the Synopsis responds to Pedal on/off
  20130225  5.4  -o 0 doesn't connect to anything

@@ -89,7 +89,8 @@ this may sound, er, unexpected.
 </p><p>
 Different
 <A HREF="#option_k">key-to-note mappings are available</A>.
-The default mapping (<I>piano</I>) gives a range of just over three octaves.
+The default mapping is <I>augmented</I>.
+The <I>piano</I> mapping gives a range of just over three octaves.
 The lower two rows get the notes round Middle-C, so that <B>z</B> is the C
 below Middle-C and <B>/</B> is the E above it.  Then the upper two rows
 get the treble-clef notes, so that <B>Tab</B> is the E above Middle-C
@@ -192,9 +193,8 @@ and then<BR><CODE>
 <strong><em>-k wholetone</em></strong>
 </dt><dd>
 <p>
-Selects the <B>k</B>eymap: possible keymaps are <I>augmented</I>,
-<I>drumkit</I>, <I>harmonic</I>,
-<I>piano</I> (the default), and <I>wholetone</I>.
+Selects the <B>k</B>eymap: possible keymaps are <I>augmented</I> (the default),
+<I>drumkit</I>, <I>harmonic</I>, <I>piano</I>, and <I>wholetone</I>.
 All keymappings are aimed at the US-keyboard; this could be seen as a bug.
 The <I>augmented</I> keymap is particularly good for improvisation.
 The <I>drumkit</I> keymap preselects Channel 9; in this mode,
@@ -203,7 +203,6 @@ The <I>harmonic</I> keymap is sort of inspired by accordion buttons,
 and makes it very easy to play major and minor triads;
 this is unfortunately not very useful as <I>midikbd</I> is only monophonic,
 which could also be seen as a bug.
-The <I>piano</I> keymap is the default.
 </p>
 <PRE>
  the "piano" keymap (bottom 2 rows round middleC, top 2 treble clef):
@@ -314,7 +313,7 @@ and 93 on channel 1;
 and the X-motions of the mouse cross-fade from patch 93 to 94,
 and the Y-motions raise and lower patches 91 and 92 in opposite directions
 </P><P>
-And then, in a different <I>xterm</I>, you run:<BR><CODE>
+Previously, in a different <I>xterm</I>, you have to be running:<BR><CODE>
  &nbsp; <A HREF="midiecho.html">midiecho -i 14 -d 1,1,1 -s 1,1,1 -e 1,2,3</A>
 </CODE><BR>
 (very wild :-).
@@ -373,7 +372,8 @@ CPAN modules
 <hr />
 <h3><a name="changes">CHANGES</a></h3>
 <p>
-<BR><B>5.5</B>, 20150529, UI change: F1-F4=Una/Tre  F5-F8=Sos/*Sos  F9-F12=Ped
+<BR><B>5.7</B>, 20150531, X and Y mouse-control fixed
+<BR><B>5.6</B>, 20150529, UI change: F1-F4=Una/Tre  F5-F8=Sos/*Sos  F9-F12=Ped
 <BR><B>5.5</B>, 20150528, the Synopsis responds to Pedal on/off
 <BR><B>5.4</B>, 20130225, -o 0 doesn't connect to anything
 <BR><B>5.3</B>, 20120407, the Y-controller works correctly
