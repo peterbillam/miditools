@@ -20,15 +20,16 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1; # $Data::Dumper::Indent = 0;
 
 use Time::HiRes();
 select STDERR; $|=1; select STDOUT;
-my $Version      = '2.0';  # @LoopChannels convenience variable eliminated
-my $VersionDate  = '24feb2013';
+my $Version      = '2.1';  # Pedal no longer enters Command-mode; EraseLoopset
+#  bug fixed; NextLoopset entered immediately if Paused; screensaver disabled
+my $VersionDate  = '04jun2015';
 
 my $RecordingChannel = undef;
 my $InputPort     = '';
 my $OutputPort    = '';
 my @L             = (); # @Loopsets 1.8 LoH of BarLength and Channels
 my $NextLoopset   = undef;  # the change will occur at the next barline
-my $IL            = 0;  # $CurrentLoopset mnemonic $i_loop
+my $IL            = 0;  # $CurrentLoopset ; mnemonic $i_loop
 my @Cha2Patch     = (); # automatic; midiloop fills this in by eavesdropping
 # each Loopset remembers these channels independently;
 # this can be saved in a .mid file by replaying any patch_changes
@@ -74,6 +75,7 @@ my %Pitch2Number = %Pitch2Number88; # adjust to what keys user plays, or to -k
 my $ModeChangeKey  = 108;
 my $Home = $ENV{'LOGDIR'} || $ENV{'HOME'} || (getpwuid($>))[$[+7];
 my $MidiloopDir = $ENV{'MIDILOOP_DIR'} || "$Home/midiloop";  # or -d option
+my $XdgScreensaver = which('xdg-screensaver');   # 2.1
 $| = 1;   # autoflush on STDOUT
 
 # vt100 globals
@@ -132,6 +134,10 @@ while ($ARGV[$[] =~ /^-([a-z]|X)/) {
 	}
 }
 
+if ($XdgScreensaver and $ENV{'WINDOWID'}) {  # 2.1
+	system("$XdgScreensaver suspend ".$ENV{'WINDOWID'});
+}
+
 # code based on midiecho's RealTime mode....
 
 if (!$OutputPort) { $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'}; }
@@ -160,25 +166,15 @@ END {
 	clrtoeos();
 	print STDERR "\n";
 	Term::ReadKey::ReadMode(0);  
+	if ($XdgScreensaver and $ENV{'WINDOWID'}) {  # 2.1
+		system("$XdgScreensaver resume ".$ENV{'WINDOWID'});
+	}
 }
-$SIG{'INT'} = sub {
-	exit;
-};
+$SIG{'INT'} = sub { exit; };  # so that END gets invoked after ctrl-C
 
 $SIG{'ALRM'} = sub {    # play one bar, and increment the BarCount
-	if (defined $NextLoopset) {  # a change! ; swap to the new loop
-		my $default_bl = $L[$IL]{'BarLength'} || 1.0,
-		$IL = $NextLoopset;
-		undef $NextLoopset;
-		if (! defined $L[$IL]{'BarLength'}) {
-			my @tmp  = @{$L[$IL]{'Channels'}};   # should deepcopy ?
-			$L[$IL] = { BarLength => $default_bl, Channels => \@tmp };
-		}
-		$BarCount = -1;
-		output_patch_changes();
-		display_loopsets();
-		display_channels();
-	}
+	if (defined $NextLoopset) {  change_to_new_loopset(); }
+
 	if ($Paused) { return; }
 	$BarCount += 1;   # restarts from -1 when the Loopset changes
 	my ($queue_running,$now,$events) = MIDI::ALSA::status();
@@ -236,6 +232,13 @@ exit 0;
 
 #------------------------ infrastructure ----------------------------
 
+sub which {
+	my $f;
+	my @PATH = split (":",$ENV{PATH});
+	foreach $d (@PATH) {$f="$d/$_[$[]";
+	return $f if -x $f; }
+}
+
 sub round { my $x = $_[$[];
     if ($x > 0.0) { return int ($x + 0.5); }
     if ($x < 0.0) { return int ($x - 0.5); }
@@ -243,14 +246,15 @@ sub round { my $x = $_[$[];
 }
 
 sub is_mode_change {
+# I'm not sure I want Pedal to enter command-mode; the Pedal might be useful.
 	if (
 	  ($_[0] == MIDI::ALSA::SND_SEQ_EVENT_NOTEON()
 	    and $_[$#_][1] == $ModeChangeKey)
-	  or
-	  ($_[0] == MIDI::ALSA::SND_SEQ_EVENT_CONTROLLER()
-	    and $_[$#_][4] == 64
-	    and $_[$#_][5] > 63
-	  )) { return 1;
+#	  or   # mis-feature ? removed 2.1
+#	  ($_[0] == MIDI::ALSA::SND_SEQ_EVENT_CONTROLLER()
+#	    and $_[$#_][4] == 64
+#	    and $_[$#_][5] > 63
+	  ) { return 1;
 	} else {
 		return 0;
 	}
@@ -292,12 +296,28 @@ sub display_recording { my $bar_num = $_[$[];
 	puts_clr($s);
 }
 
-sub other_loopsets {
+sub other_loopsets {  # scans the @L array
 	my @other_loopsets = ();
 	for my $i (0..$#L) {
 		if ($i != $IL) { push @other_loopsets, $i; }
 	}
+	if ($NextLoopset) { push @other_loopsets, $NextLoopset; }  # 2.1
 	return @other_loopsets;
+}
+
+sub change_to_new_loopset {  # 2.1
+	if (not $NextLoopset) { return; }
+	my $default_bl = $L[$IL]{'BarLength'} || 1.0,
+	$IL = $NextLoopset;
+	undef $NextLoopset;
+	if (! defined $L[$IL]{'BarLength'}) {
+		my @tmp  = @{$L[$IL]{'Channels'}};   # should deepcopy ?
+		$L[$IL] = { BarLength => $default_bl, Channels => \@tmp };
+	}
+	$BarCount = -1;
+	output_patch_changes();
+	display_loopsets();
+	display_channels();
 }
 
 sub output_patch_changes {
@@ -661,11 +681,16 @@ sub handle_command { my $cmd = $_[$[];
 				$IL -= 1;
 			} elsif ($IL == $loopset) {
 				$IL = 0;
+				$NextLoopset = 0;   # 2.1
+				if ($Paused) { change_to_new_loopset(); }
 			}
+			display_loopsets();   # 2.1
 		}
 	} elsif ($cmd eq 'NewLoopset') {
 		if (16 <= @L) { next; }
 		$NextLoopset = $#L + 1;
+		if ($Paused) { change_to_new_loopset(); }   # 2.1
+		display_loopsets();
 	} elsif ($cmd eq 'GotoLoopset') {
 		my @other_loopsets = other_loopsets();
 		if (! @other_loopsets) { next; }
@@ -878,8 +903,8 @@ midiloop - Makes multiple sets of multi-channel MIDI loops
  # what your options are,
  # and the top note of the keyboard (by default treble c~~~ = midi 108)
  # switches you into and out of command-mode.
- # All choices are made using the numbers 0..15,  which are mapped
- # on an 88-note keyboard to notes treble D to e~ (midi 62 to 88)
+ # All choices are made using the numbers 0..15,  which are mapped on
+ # an 88-note keyboard to the white notes treble D to e~ (midi 62 to 88)
 
  midiloop -i Keystation -k 49   # use my 49-note keyboard,
  # on which 0..15 are mapped to notes bass D to e~ (midi 38 to 64)
@@ -895,7 +920,7 @@ midiloop - Makes multiple sets of multi-channel MIDI loops
 
 =head1 DESCRIPTION
 
-midiloop creates an ALSA-MIDI client, and records and replays sets of loops.
+I<midiloop> creates an ALSA-MIDI client, and records and replays sets of loops.
 There can be up to sixteen Loopsets.
 Each loopset can have up to sixteen midi-channels,
 each of which can be muted or unmuted.
@@ -909,11 +934,11 @@ and the organ could play a 7.2-second sequence.
 
 The user-interface depends on the computer-screen being
 visible by the performer,
-but it uses the notes of the midi-keyboard to get user-input,
-not the keys of the computer-keyboard.
+since it uses the notes of the midi-keyboard to get user-input
+(not the keys of the computer-keyboard).
 This leads to fast operation in a performance situation.
 
-and allows a whole set-up, with several loops and many channels,
+It also allows a whole set-up, with several loops and many channels,
 to be stored on disc as notes in a standard midi-file.
 
 =head1 LOOPS
@@ -1010,6 +1035,8 @@ It uses the MIDI::ALSA module which is available at
 
 =head1 CHANGES
 
+ 20150604 2.1 Pedal no longer enters Command-mode; Erase Loopset bug fixed;
+	NextLoopset entered immediately if Paused; screensaver disabled
  20130224 2.0 shorter varnames; @LoopChannels convenience-var eliminated
  20130223 1.9 each LoopChannel is a hashref
  20130222 1.8 each Loopset is a hashref
