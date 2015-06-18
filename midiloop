@@ -22,8 +22,8 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1; # $Data::Dumper::Indent = 0;
 
 use Time::HiRes();
 select STDERR; $|=1; select STDOUT;
-my $Version = '2.6'; # introduced -m filename
-my $VersionDate  = '17jun2015';
+my $Version = '2.7'; # LoadLoopsets command works
+my $VersionDate  = '18jun2015';
 
 my $RecordingChannel = undef;
 my $InputPort     = '';
@@ -296,6 +296,12 @@ sub round { my $x = $_[$[];
 }
 
 sub debug { open (T, '>>', '/tmp/debug'); print T $_[$[],"\n"; close T; }
+
+sub mtime { my $f = $_[$[];
+	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,
+	  $blksize,$blocks) = stat "$MidiloopDir/$f";
+	return $mtime;
+}
 
 sub generate_muscript_header { my $file = $_[$[];
 	# should test   $ModeChangeKey
@@ -723,6 +729,8 @@ sub relevant_cmds {
 		} elsif ($Num2Cmd[$i] eq 'SaveLoopsets' and $IL>=0
 		  and (@{$L[$IL]{'Channels'}} or @other_loopsets)) {
 			push @relevant_cmds, $i;
+		} elsif ($Num2Cmd[$i] eq 'LoadLoopsets') {
+			push @relevant_cmds, $i;
 		} elsif ($Num2Cmd[$i] eq 'Quit') {
 			push @relevant_cmds, $i;
 		}
@@ -737,7 +745,7 @@ sub saved_loopsets {
 sub load_loopset { my $file = $_[$[];   # opDir
 	if ($file =~ /^\w/) { $file = "$MidiloopDir/$file"; }
 	if ($file !~ /\.dump$/) { $file = "$file.dump"; }
-	warn " Loaded file $file\n";
+	$Message = " Loaded file $file";
 	if (! open(F, '<', $file)) { die "can't open $file: $!\n"; }
 	my @txt = <F>;
 	close F;
@@ -768,6 +776,50 @@ sub load_loopset { my $file = $_[$[];   # opDir
 	return 1;
 }
 
+sub load_loopset_interactive {
+	# load a loopset in ~/midiloop/ or $MIDILOOP_DIR
+	# automatically assign it to the lowest free loopset-number
+	if (! -d $MidiloopDir) {
+		$Message = "no such directory: $MidiloopDir\n"; return;
+	}
+	if (! opendir(D, $MidiloopDir)) {
+		$Message = "can't open directory $MidiloopDir: $!\n"; return;
+	}
+	my @rawdumps = grep {/.dump$/ && -f "$MidiloopDir/$_"} readdir(D);
+	closedir D;
+	if (not @rawdumps) {
+		$Message = "no dump-files found in $MidiloopDir";  return;
+	}
+	my @dumps = sort { mtime($b)>mtime($a) } @rawdumps;
+	splice @dumps, 16;  # 15?
+	my @a = ();
+	foreach my $i (0..$#dumps) {
+		my $s = $dumps[$i] ; $s =~ s/.dump$//;
+		# borrowed from relevant_cmds and invoke display_keystrokes
+		push @a, "$i=$s";
+	}
+	gotoxy(1,$CursorRow); clrtoeos();
+	my $y = $CursorRow+1;
+	my @rows = ();  my $irow = $[;
+	foreach my $a_str (@a) {
+		if (! $rows[$irow]) {
+			$rows[$irow] = $a_str;
+		} elsif ((length($rows[$irow]) + length($a_str) + 4) < $COLS) {
+			$rows[$irow] = $rows[$irow].',  '.$a_str;
+		} else {
+			$irow += 1;
+			$rows[$irow] = $a_str;
+		}
+	}
+	foreach my $row (@rows) { gotoxy(2,$y);   puts_clr($row);  $y += 1; }
+	my @a2 = (0..$#dumps);
+	my $i = ask_n('load which file', $CursorRow, \@a2);
+	$Paused = 1;
+	load_loopset($dumps[$i]);
+	$NextLoopset = $IL;
+	change_to_new_loopset(); display_loopsets();
+	display_barlength(); display_channels(); display_keystrokes();
+}
 
 sub handle_command { my $cmd = $_[$[];
 	if ($cmd eq 'Pause') {
@@ -796,19 +848,6 @@ sub handle_command { my $cmd = $_[$[];
 		display_keystrokes();
 	} elsif ($cmd eq 'EraseChannel') {
 		# an EraseChannel which doesn't destroy channel,barlength etc
-		#my @loopsets = $[..$#L;
-		#my $loopset = ask_n("erase which Loopset", $CursorRow, \@loopsets);
-		#if (defined $loopset and confirm("OK to erase loopset $loopset")) {
-		#	splice(@L, $loopset,1);
-		#	if ($IL > $loopset) { # XXX misbehaves if IL=0 is the only loopset
-		#		$IL -= 1;
-		#	} elsif ($IL == $loopset) {
-		#		$IL = 0;
-		#		$NextLoopset = 0;   # 2.1
-		#		if ($Paused) { change_to_new_loopset(); }
-		#	}
-		#	display_loopsets();   # 2.1
-		#}
 		my @channels = all_channels();   # 2.2
 		my $cha;
 		if (1 == scalar @channels) { $cha = $channels[$[];
@@ -863,10 +902,7 @@ sub handle_command { my $cmd = $_[$[];
 		print F dump_text(@L);
 		close F;
 		$Message = "saved to file $MidiloopDir/$filename.dump";
-	} elsif ($cmd eq 'LoadLoopsets') { # But how to fileselect ?
-		# load a loopset   (if there is one in ~/midiloop/ or $MIDILOOP_DIR)
-		#     (automatically assigns it to the lowest free loopset-number)
-		#     buy how can the user choose which one ?
+	} elsif ($cmd eq 'LoadLoopsets') {  load_loopset_interactive();
 	} elsif ($cmd eq 'Quit') { # But how to fileselect ?
 		if (confirm("OK to Quit")) { exit; }
 	}
@@ -1353,6 +1389,7 @@ I<muscript> is available at
 
 =head1 CHANGES
 
+ 20150618 2.7 LoadLoopsets command works
  20150617 2.6 introduced '-m filename'
  20150615 2.5 starts up with no loopsets needing a explicit NewLoopset command
  20150614 2.4 many bugs fixed around NewLoopset and GotoLoopset
@@ -1363,7 +1400,7 @@ I<muscript> is available at
  20130224 2.0 shorter varnames; @LoopChannels convenience-var eliminated
  20130223 1.9 each LoopChannel is a hashref
  20130222 1.8 each Loopset is a hashref
- 20130221 1.7 LoadLoopset corrects the channel if necessary
+ 20130221 1.7 LoadLoopsets corrects the channel if necessary
  20130209 1.6 Loopsets stored in NOTE-form; SaveLoopset much improved
  20130207 1.5 SaveLoopset works
  20130103 1.4 starting the change to Loopsets, BarLengths, NumBars
@@ -1396,7 +1433,4 @@ Midiloop with a "this is the ending" Loopset, which doesn't loop
 
 A Loopset might also display comments,
 even if they have to be set by C<vi ~/midiloop/whatever.dump>
-
-Could do LoadLoopset command, offering a choice of the sixteen
-most recent files in the C<~/midiloop/> directory.
 
