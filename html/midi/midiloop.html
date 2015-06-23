@@ -1,0 +1,517 @@
+<HTML><HEAD><TITLE>midiloop</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../muscript/styles.css" title="PJB Muscript Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../muscript/logo.gif" ALT=" " WIDTH=81 HEIGHT=32>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>midiloop</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+  <li><a href="#name">NAME</a></li>
+  <li><a href="#synopsis">SYNOPSIS</a></li>
+  <li><a href="#description">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#userinterface">USER INTERFACE</a></li>
+  <li><a href="#options">OPTIONS</a></li>
+  <li><a href="#commands">COMMANDS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#usingmuscript">USING MUSCRIPT</a></li>
+  <li><a href="#download">DOWNLOAD</a></li>
+  <li><a href="#changes">CHANGES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#author">AUTHOR</a></li>
+  <li><a href="#seealso">SEE ALSO</a></li>
+  <li><a href="#todo">TO DO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<hr />
+<H3><a name="name">NAME</a></H3><P>
+
+&nbsp; &nbsp;
+<B>midiloop</B> - Makes multiple sets of multi-channel MIDI loops
+
+</P><HR><H3><a name="synopsis">SYNOPSIS</a></H3>
+
+<pre><code> midiloop -i ProKeys -o MySynth  # use my 88-note keyboard,
+ # on which 0..15 are mapped to notes treble D to e~ (midi 62 to 88)
+
+ midiloop -i Keystation -k 49   # to use a 49-note keyboard, or
+ midiloop -i Keystation -k 61   # to use a 61-note keyboard,
+ # on which 0..15 are mapped to notes bass D to e~ (midi 38 to 64)
+
+ midiloop -i Keystation -k 25   # use my 25-note keyboard,
+ # on which 0..13 are mapped to notes bass c to treble B (midi 48 to 59)
+
+ # Saved loopsets are expressed in Perl, the notes in MIDI::ALSA format
+ midiloop -i Pro -l 201302_1452  # loads a previously saved loopset
+ cd ~/midiloop ; ls -l           # inspect the saved loopsets
+ perldoc MIDI::ALSA     # for the event format see the &quot;input&quot; function
+ vi ~/midiloop/201302_1452.dump  # edit a loopset file (in Perl)
+
+ # compose your loopsets in muscript:
+ vi ~/mus/my_loop       # it&#39;s a muscript file
+ midiloop -m ~/mus/my_loop | muscript -midi | aplaymidi -p midiloop -
+
+ midiloop -v            # prints the version
+ perldoc midiloop       # read the manual :-)</code></pre>
+
+<hr />
+<H3><a name="description">DESCRIPTION</a></H3>
+<p><i>midiloop</i> creates an ALSA-MIDI client, and records and replays
+sets of loops. There can be up to sixteen Loopsets. Each loopset can have
+up to sixteen midi-channels, each of which can be muted or unmuted.</p>
+
+<p>Once <i>midiloop</i> is launched, all the user-interface is driven
+by the keys of the midi-keyboard (not the computer-keyboard). This leads
+to fast operation in a performance situation. The user-interface depends
+on the computer-screen being visible by the performer, because it tells
+you what the current status is and what your options are.</p>
+
+<p>The top note of the keyboard switches you into and out of
+command-mode. All other data is entered using the numbers 0..15, which
+are mapped onto some of the white notes (see USER INTERFACE).</p>
+
+<p>This also allows a whole set-up, with several loops and many channels,
+to be performed by notes in a standard midi-file (see the <b>-m</b>
+option).</p>
+
+<p>Each loopset has a basic barlength in seconds, but each channel
+within that loopset can loop at an integer multiple (1..15) of that
+basic barlength. For example, the drums could loop at 1.8 seconds,
+but the bass could play a 3.6-second riff, and the organ could play a
+7.2-second sequence.</p>
+
+<p>All changes in what&#39;s being played (<i>Play/Pause, Mute, Unmute,
+GotoMuteset, GotoLoopset)</i> take place not immediately but at the
+next barline. This means a <i>midiloop</i> performance never loses
+the beat.</p>
+
+<HR>
+<H3><a name="userinterface">USER INTERFACE</a></H3>
+
+<p>The user-interface is built for speed during performance. Your
+data-input-device is the white keys on your midi-keyboard;
+<i>midiloop</i>&#39;s output-device is the computer-screen.</p>
+
+<p>The top note on your (88-, 61-, 49- or 25-note) midi-keyboard toggles
+you into <b>Command-mode</b>. <i>midiloop</i> will respond immediately,
+telling you what the valid choices are, each choice having a number
+between 0 and 15.</p>
+
+<p>The only other keys involved express those numbers 0 to 15. The
+mapping is the same as is used to express channel-numbers by (at least)
+<i>M-Audio Keystation</i> and <i>ProKeys</i> keyboards. (You may want
+to number those keys with little white-paper sticky labels.)</p>
+
+<p>On an 88-note keyboard, 0..15 are <b>treble D to e~</b> (midi 62 to 88)
+<BR>
+On an 61-note or 49-note keyboard, 0..15 are <b>bass D to e~</b>
+(midi 38 to 64). (The 61-note keyboard is assumed to have three treble
+octaves and two bass octaves, so that middle-C lies left-of-center.)
+<BR>
+If you have to use a 25-note keyboard, the numbers 0..13 are mapped to
+white notes <b>bass c to treble B</b> (midi 48 to 59); that&#39;s all you
+need to enter the commands, but it restricts you to 0..13 in channels,
+loopsets and mutesets.</p>
+
+<p>Whenever you are asked for a number, <i>midiloop</i> displays a list
+of the available responses. Numbers not in this list will be ignored by
+<i>midiloop</i>. Whenever you are asked for confirmation, the numbers are
+(0,1), with <b>0</b> meaning <b>No</b> and <b>1</b> meaning <b>Yes</b>
+(as in <i>C</i> and <i>Perl</i>).</p>
+
+<p>A couple of screenshots of <i>midiloop</i>&#39;s side of the dialogue:</p>
+
+<pre><code> box8:tmp&gt; midiloop -i Pro -o Rol -l hambone
+ Paused
+ We are in Loopset 0  (we also have a Loopset 1)
+ BarLength is 3.04 sec    We have Channels 0,1,2,3,9
+ Mutesets :  no mutesets
+
+   channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
+   channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
+   channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
+   channel 3,   muted, 2 bars, patch 18 = Rock Organ
+   channel 9, unmuted, 5 bars, percussion
+
+ Loaded file /home/pjb/midiloop/hambone.dump
+
+ play treble c~~~ to enter command-mode</code></pre>
+
+<p>So then if we press c~~~ and enter command-mode, we get:</p>
+
+<pre><code> Paused
+ We are in Loopset 0  (we also have a Loopset 1)
+ BarLength is 3.04 sec    We have Channels 0,1,2,3,9
+ Mutesets :  no mutesets
+
+   channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
+   channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
+   channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
+   channel 3,   muted, 2 bars, patch 18 = Rock Organ
+   channel 9, unmuted, 5 bars, percussion
+
+  do what (0,1,2,3,5,6,9,10,11,12,13) ? 
+
+ 0=Pause,  1=Mute,  2=Unmute,  3=Record,  5=EraseChannel,  6=SaveMuteset
+ 9=NewLoopset,  10=GotoLoopset,  11=SaveLoopsets,  12=LoadLoopsets,  13=Quit
+ c~~~ to re-enter play-mode</code></pre>
+
+<HR>
+<H3><a name="options">OPTIONS</a></H3>
+<dl>
+<dt><b><A NAME="o-d">-d ~/otherstuff/wierdgrooves/</A></b></dt>
+<dd>
+
+<p>Over-ride the default <i>~/midiloop/</i> <b>D</b>irectory (and also the environment variable <i>$MIDILOOP_DIR</i>, if that&#39;s set).</p>
+
+</dd>
+<dt><b><A NAME="o-i">-i Keyst:1</A></b></dt>
+<dd>
+
+<p>Connect the <b>I</b>nput from ALSA-MIDI client <i>Keyst:1</i></p>
+
+</dd>
+<dt><b><A NAME="o-k">-k 49</A></b></dt>
+<dd>
+
+<p>Tells <i>midiloop</i> which size <b>K</b>eyboard you&#39;ll be
+using. The available values are 88, 61, 49 and 25. This affects the
+<i>ModeChangeKey</i>, which is the top note on the keyboard, and the keys
+entering the numbers 0 to 15, which on an 88-note keyboard are the white
+notes treble D to e~, and on an 49-note keyboard are two octaves lower,
+bass D to e~. These conventions are modelled on the Channel-entry keys
+used by M-Audio (counting channels 0..15 of course :-).</p>
+
+<p>If no <b>-k</b> option is specified but a <b>-i</b> option has been
+provided, then <i>midiloop</i> checks if the number &quot;49&quot;
+occurs in its input-client name (eg: <i>Keystation 49e</i>), and if so
+sets up for a 49-note keyboard. Otherwise, the default is 88.</p>
+
+</dd>
+<dt><b><A NAME="o-l">-l 20130214_1425</A></b></dt>
+<dd>
+
+<p><b>L</b>oads the previously saved Loopset <i>20130214_1425.dump</i>,
+probably from the user&#39;s <i>~/midiloop/</i> directory, though this
+can be over-ridden with the environment variable <i>$MIDILOOP_DIR</i>
+or with the <b>-d</b> option.</p>
+
+<p>The Loopsets are saved in Perl <i>Data::Dumper</i> format,
+but with helpful added comments to tell you which Loopset, Channel
+and Bar you&#39;re in. The file can be edited with some care and a
+text-editor. The events are <i>MIDI::ALSA</i> events, as documented
+in <i>perldoc MIDI::ALSA</i> in the section on the function
+<i>input()</i></p>
+
+</dd>
+<dt><b><A NAME="o-m">-m muscriptfile.txt</A></b></dt>
+<dd>
+
+<p>This option does not start a <i>midiloop</i>. This option
+generates some header lines in <b>M</b>uscript format, prepended
+to <i>muscriptfile.txt</i> to allow it to be played into a running
+<i>midiloop</i>. If the filename is not present, just the header lines
+are output. See the USING MUSCRIPT section.</p>
+
+</dd>
+<dt><b><A NAME="o-o">-o Syn</A></b></dt>
+<dd>
+
+<p>Connect the <b>O</b>utput to ALSA-MIDI client <i>Syn</i>. The special
+value <i>-o 0</i> tells midiloop not to connect to any other client. If
+the <i>-o</i> option is not specified, the default is the environment
+variable <i>$ALSA_OUTPUT_PORTS</i></p>
+
+</dd>
+<dt><b><A NAME="o-v">-v</A></b></dt>
+<dd>
+
+<p>Print the <b>V</b>ersion</p>
+
+</dd>
+</dl>
+
+<HR>
+<H3><A NAME="commands">COMMANDS</A></H3>
+
+<dl>
+
+<dt><b><A NAME="pause">Pause</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: D) corresponding to 0, this toggles between
+Pause-mode (which pauses all the channels) and Play-mode.</p>
+
+</dd>
+<dt><b><A NAME="mute">Mute</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: E) corresponding to 1, this allows you to
+Mute any of the (currently unmuted) channels.</p>
+
+</dd>
+<dt><b><A NAME="unmute">Unute</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: F) corresponding to 2, this allows you to
+Unmute any of the (currently muted) channels.</p>
+
+</dd>
+<dt><b><A NAME="record">Record</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: G) corresponding to 3, this allows you to
+Record a loop on the channel your MIDI-keyboard is currently set to. If
+that channel already exists, your new recording will overdub onto it;
+if that channel does not yet exist, the channel will be created.</p>
+
+<p>If the current LoopSet still has no channels, you will be asked
+to choose a Barlength. In any case, you will be asked to choose how
+many bars this channel&#39;s loop will last. (All channels in a LoopSet
+share a common BarLength, but their loops can last for different numbers
+of bars.)</p>
+
+<p>You will be asked whether you want a Metronome. If it&#39;s a
+currently-empty LoopSet, you&#39;ll probably want to choose 1=Yes;
+but if there are already some recorded channels, you may want to choose
+0=No. The Metronome is a guide only; it is not recorded.</p>
+
+<p>Later, when you Mute or UnMute, or change LoopSets, the change will
+occur not instantly, but at the next start of the loop. The Metronome
+will help you to lay down a loop which has its end-of-loop in a musically
+sensible place.</p>
+
+</dd>
+<dt><b><A NAME="erasechannel">EraseChannel</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: A) corresponding to 4, this allows you
+to Erase any of the channels in the current LoopSet. Do this if, for
+example, you&#39;re not happy with what you just recorded. <b>If</b>
+there is more that one channel, you will be asked which channel. You
+will then be asked for confirmation.</p>
+
+</dd>
+<dt><b><A NAME="barlength">Barlength</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: B) corresponding to 5, this allows you to
+change the Barlength. That will change the tempo of the whole LoopSet
+(all channels).</p>
+
+</dd>
+<dt><b><A NAME="savemuteset">SaveMuteset</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: c) corresponding to 6, this creates a new
+MuteSet, and saves in it the current Muted/Unmuted state of all the
+channels. Each LoopSet can have up to 16 MuteSets (0..15).</p>
+
+</dd>
+<dt><b><A NAME="gotomuteset">GotoMuteset</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: d) corresponding to 7, this allows you
+to invoke any of your MuteSets. The change takes place at the next
+Barline. <b>If</b> there is more that one other Muteset, you will be
+asked which Muteset.</p>
+
+</dd>
+<dt><b><A NAME="erasemuteset">EraseMuteset</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: e) corresponding to 8, this allows you to
+Erase any of the MuteSets (in in the current LoopSet). <b>If</b> there
+is more that one Muteset, you will be asked which Muteset.</p>
+
+</dd>
+<dt><b><A NAME="newmuteset">NewMuteset</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: f) corresponding to 9, this creates a new,
+empty, LoopSet, then goes to it and enters <i>Pause</i> mode.</p>
+
+</dd>
+<dt><b><A NAME="gotoloopset">GotoLoopset</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: g) corresponding to 10, this allows you to
+switch to any one of your LoopSets. <b>If</b> there is more that one
+other Loopset, you will be asked which Loopset.</p>
+
+<p><i>GotoLoopset</i> allows you change (at the next Barline) from one
+section of the piece (eg: the verse) to another (eg: the middle-8),</p>
+
+</dd>
+<dt><b><A NAME="saveloopsets">SaveLoopsets</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: a) corresponding to 11, this allows you to
+save all the LoopSets to a <i>.dump</i> file in <i>~/midiloop/</i></p>
+
+<p>These files are in <i>perl</i>, and can be edited with your favourite
+text-editor and checked with <i>perl -c</i></p>
+
+<p>The data is in <i>AlsaMidi</i> format: see <i>perldoc&nbsp;MIDI::ALSA</i></p>
+
+</dd>
+<dt><b><A NAME="loadloopsets">LoadLoopsets</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: b) corresponding to 12, this gives you a
+choice of the most recent <i>.dump</i> files in <i>~/midiloop/</i></p>
+
+<p>One <i>.dump</i> file can contain multiple LoopSets, each containing
+multiple Channels.</p>
+
+</dd>
+<dt><b><A NAME="quit">Quit</A></b></dt>
+<dd>
+<p>Invoked by the note (eg: c~) corresponding to 13, this allows you to
+Quit from <i>midiloop</i> You&#39;ll will be asked for confirmation with
+1=Yes or 0=No.</p>
+
+</dd>
+</dl>
+
+<HR>
+<H3><A NAME="usingmuscript">USING MUSCRIPT</A></H3>
+
+<ul>
+
+<p>Because the user-interface of <i>midiloop</i> uses the midi-keyboard,
+it can also be controlled by computer-generated midi files. This allows
+loops to be composed using eg: <i>muscript</i>. The <b>-m</b> option
+makes this easier.</p>
+
+<p><i>midiloop -m -k 88</i> or <i>midiloop -m -k 49</i> output a set of
+variable-definitions for use as a header within <i>muscript</i> files, see
+<A HREF="http://www.pjb.com.au/muscript/variables.html">
+www.pjb.com.au/muscript/variables.html</A>
+</p>
+
+<p>If a filename is given after the <i>-m</i> then its contents are
+output after the header. Eg:</p>
+
+<pre><code> midiloop -m /tmp/myloop | muscript -midi | aplaymidi -p midiloop -</code></pre>
+
+<p><code>$CMD</code> is the ModeChangeKey, which toggles in and out
+of Command-Mode</p>
+
+<p>Within Command-Mode, the main commands are: <code>$PAUSE</code>
+<code>$REC</code> <code>$NEWMUTES</code> <code>$NEWLOOPS</code>
+<code>$GOTOLOOPS</code> <code>$SAVE</code> and <code>$QUIT</code></p>
+
+<p>The numbers 0..15 are: <code>$K0</code> <code>$K1</code>
+<code>$K2</code> <code>$K3</code> <code>$K4</code> <code>$K5</code>
+<code>$K6</code> <code>$K7</code> <code>$K8</code> <code>$K9</code>
+<code>$K10</code> <code>$K11</code> <code>$K12</code> <code>$K13</code>
+<code>$K14</code> and <code>$K15</code></p>
+
+<p>The binary keys are: <code>$YES</code> and <code>$NO</code></p>
+
+<p>See
+<A HREF="http://www.pjb.com.au/midi/free/loop_1">
+www.pjb.com.au/midi/free/loop_1</A>
+for an example of such a file.</p>
+
+<p>The commands <code>$CMD</code> are <code>$PAUSE</code> are
+toggles. Unlike a real human, <i>muscript</i> can&#39;t see what the
+screen is saying, so when working in <i>muscript</i> don&#39;t lose
+track of which mode it&#39;s in ! Also other commands have a dialogue
+which changes with circumstances; for example <code>$GOTOLOOPS</code>
+will not ask &quot;<i>Go to which Loopset</i>&quot; if there&#39;s only
+one other Loopset. To diagnose these problems it helps to play your
+file at much-reduced speed so you have time to follow the dialogue,
+and see at what point it goes wrong.</p>
+
+</ul>
+
+<HR>
+<H3><A NAME="download">DOWNLOAD</A></H3>
+
+<ul>
+<p><i>midiloop</i> is available at
+<A HREF="http://www.pjb.com.au/midi/free/midiloop">
+www.pjb.com.au/midi/free/midiloop</A>
+</p>
+
+<p>It uses the <i>MIDI::ALSA</i> module which is available at
+<A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">
+search.cpan.org/perldoc?MIDI::ALSA</A>
+</p>
+
+<p><i>muscript</i> is available at
+<A HREF="http://www.pjb.com.au/muscript/muscript">
+www.pjb.com.au/muscript/muscript</A>
+</p>
+</UL>
+
+<HR>
+<H3><A NAME="changes">CHANGES</A></H3>
+
+<pre><code> 20150623 3.1 Message disappears after 3 displays; various bugfixes
+ 20150622 3.0 SaveMuteset, GotoMuteset and EraseMuteset working
+ 20150621 2.9 61-key kbds as 49; 25-key ask_n uses white-notes 48 to 71
+ 20150618 2.8 LoadLoopsets only offered if dumpfiles exist
+ 20150618 2.7 LoadLoopsets command works
+ 20150617 2.6 introduced &#39;-m filename&#39;
+ 20150615 2.5 starts with no loopsets, needing a NewLoopset command
+ 20150614 2.4 many bugs fixed around NewLoopset and GotoLoopset
+ 20150608 2.3 autodetects detects 49-note keyboards
+ 20150605 2.2 handles -k 49; NOTEON vol=0 means OFF; EraseChannel; bugfixes
+ 20150604 2.1 Pedal no longer enters Command-mode; Erase Loopset bug fixed;
+        NextLoopset entered immediately if Paused; screensaver disabled
+ 20130224 2.0 shorter varnames; @LoopChannels convenience-var eliminated
+ 20130223 1.9 each LoopChannel is a hashref
+ 20130222 1.8 each Loopset is a hashref
+ 20130221 1.7 LoadLoopsets corrects the channel if necessary
+ 20130209 1.6 Loopsets stored in NOTE-form; SaveLoopset much improved
+ 20130207 1.5 SaveLoopset works
+ 20130103 1.4 starting the change to Loopsets, BarLengths, NumBars
+ 20121024 1.3 overdubbing, muting, replacing any channel
+ 20120929 1.2 convert NOTEONs unterminated in the loop to NOTEs
+ 20120922 1.1 seems to respond correctly to the Pedal :-)
+ 20120909 1.0 forked from an old fade-based midiecho-like version</code></pre>
+
+<HR>
+<H3><A NAME="author">AUTHOR</A></H3>
+<UL>
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+</UL>
+<HR>
+<H3><A NAME="seealso">SEE ALSO</A></H3>
+
+<p><code>
+&nbsp; <A HREF="http://www.pjb.com.au/">www.pjb.com.au/</A><BR>
+&nbsp; <A HREF="http://www.pjb.com.au/midi/">www.pjb.com.au/midi/</A><BR>
+&nbsp; <A HREF="http://www.pjb.com.au/midi/midiloop.html">
+www.pjb.com.au/midi/midiloop.html</A><BR>
+&nbsp; <A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">
+search.cpan.org/perldoc?MIDI::ALSA</A><BR>
+&nbsp; <A HREF="http://www.pjb.com.au/comp/lua/midialsa.html#input">
+www.pjb.com.au/comp/lua/midialsa.html#input</A><BR>
+&nbsp; <A HREF="http://www.pjb.com.au/muscript/index.html">
+www.pjb.com.au/muscript/index.html</A><BR>
+&nbsp; <A HREF="http://www.pjb.com.au/muscript/variables.html">
+www.pjb.com.au/muscript/variables.html</A>
+</code></p>
+
+<HR>
+<H3><A NAME="todo">TO DO</A></H3>
+<UL>
+<p>Midiloop with rabbit and mt2, as well as just cycle.<BR>
+Midiloop with a &quot;this is the ending&quot; Loopset,
+which doesn&#39;t loop<BR>
+A Loopset might also display comments, even if they have to be set
+by <code>vi ~/midiloop/whatever.dump</code></p>
+</UL>
+</body>
+
+</html>

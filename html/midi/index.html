@@ -97,20 +97,25 @@ Use <B><I><A HREF="midikbd.html">midikbd</A></I></B>
 on ALSA systems as a simple monophonic ascii-midi-keyboard
 
 </LI><LI>
+<SPAN CLASS="new"><B>New !</B></SPAN> &nbsp;
+Use <B><I><A HREF="midiloop.html">midiloop</A></I></B>
+creates a MIDI::ALSA client which records and replays sets of loops
+
+</LI><LI>
 Use
 <B><I><A HREF="http://search.cpan.org/perldoc?MIDI::SoundFont">
 MIDI::SoundFont</A></I></B>
 to manipulate .sf2 SoundFont and .pat and .zip Gravis files
 
 </LI><LI>
-Use <B><I><A HREF="midi2wavs.html">midi2wavs</A></I></B>
-to generate a separate .wav file for each midi channel
-
-</LI><LI>
 <SPAN CLASS="new"><B>New !</B></SPAN> &nbsp;
 Use <B><I><A HREF="midi2muscript.html">midi2muscript</A></I></B>
 to convert a midi file into
 <A HREF="../muscript/index.html">muscript</A> text input syntax
+
+</LI><LI>
+Use <B><I><A HREF="midi2wavs.html">midi2wavs</A></I></B>
+to generate a separate .wav file for each midi channel
 
 </LI><LI>
 <A NAME="python">Use</A>
@@ -186,9 +191,9 @@ function init() {
     var window_height=window.innerHeight||Math.round(0.97*screen.availHeight);
     var window_width =window.innerWidth ||Math.round(0.97*screen.availWidth);
     var sqrt_area = Math.sqrt(window_height * window_width);
-    var font_size  = "" + Math.round(sqrt_area / 48) + "px";
+    var font_size  = "" + Math.round(sqrt_area / 50) + "px";
     var title_size = "" + Math.round(sqrt_area / 32) + "px";
-    var new_size   = "" + Math.round(sqrt_area / 43) + "px";
+    var new_size   = "" + Math.round(sqrt_area / 45) + "px";
     // 20091023, for IE, see Ajax p.129 ...
     var sheet = document.styleSheets[0];
 
