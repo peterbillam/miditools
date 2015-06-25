@@ -145,7 +145,6 @@ of the available responses. Numbers not in this list will be ignored by
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
  Mutesets :  no mutesets
-
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
    channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
@@ -162,7 +161,6 @@ of the available responses. Numbers not in this list will be ignored by
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
  Mutesets :  no mutesets
-
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
    channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
@@ -227,10 +225,10 @@ in <i>perldoc MIDI::ALSA</i> in the section on the function
 <dd>
 
 <p>This option does not start a <i>midiloop</i>. This option
-generates some header lines in <b>M</b>uscript format, prepended
-to <i>muscriptfile.txt</i> to allow it to be played into a running
+generates some header lines in <b>M</b>uscript format, prepended to
+<i>muscriptfile.txt</i> to allow it to be played into a running
 <i>midiloop</i>. If the filename is not present, just the header lines
-are output. See the USING MUSCRIPT section.</p>
+are output. See the <a href="#usingmuscript">USING MUSCRIPT</a> section.</p>
 
 </dd>
 <dt><b><A NAME="o-o">-o Syn</A></b></dt>
@@ -280,8 +278,9 @@ Record a loop on the channel your MIDI-keyboard is currently set to. If
 that channel already exists, your new recording will overdub onto it;
 if that channel does not yet exist, the channel will be created.</p>
 
-<p>If the current LoopSet still has no channels, you will be asked
-to choose a Barlength. In any case, you will be asked to choose how
+<p>If the current LoopSet still has no channels, you will be asked to
+<A HREF="#barlength">choose a Barlength</A>.
+In any case, you will be asked to choose how
 many bars this channel&#39;s loop will last. (All channels in a LoopSet
 share a common BarLength, but their loops can last for different numbers
 of bars.)</p>
@@ -310,7 +309,14 @@ will then be asked for confirmation.</p>
 <dd>
 <p>Invoked by the note (eg: B) corresponding to 5, this allows you to
 change the Barlength. That will change the tempo of the whole LoopSet
-(all channels).</p>
+(all channels). The choices (since version 3.2) are:
+0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,
+8=1.38, 9=1.44, 10=1.52, 11=1.60, 12=1.68, 13=1.76, 14=1.84, 15=1.92.
+<BR>
+So if you need a 2-second bar, you use two 1-second bars, and so on.
+<BR>
+If you need finer graduations, you have to <I>SaveLoopsets</I>
+into a <I>dump</I> file, and edit it by hand.</p>
 
 </dd>
 <dt><b><A NAME="savemuteset">SaveMuteset</A></b></dt>
@@ -419,7 +425,12 @@ of Command-Mode</p>
 <p>See
 <A HREF="http://www.pjb.com.au/midi/free/loop_1">
 www.pjb.com.au/midi/free/loop_1</A>
-for an example of such a file.</p>
+and
+<A HREF="http://www.pjb.com.au/midi/free/rubycon_1_390s">
+www.pjb.com.au/midi/free/rubycon_1_390s</A>
+for examples of such a file.<BR>
+The author tends to keep these files in
+<I>~/midiloop/src/</I></p>
 
 <p>The commands <code>$CMD</code> are <code>$PAUSE</code> are
 toggles. Unlike a real human, <i>muscript</i> can&#39;t see what the
@@ -456,7 +467,8 @@ www.pjb.com.au/muscript/muscript</A>
 <HR>
 <H3><A NAME="changes">CHANGES</A></H3>
 
-<pre><code> 20150623 3.1 Message disappears after 3 displays; various bugfixes
+<pre><code> 20150624 3.2 much finer choice of Barlengths
+ 20150623 3.1 Message disappears after 3 displays; various bugfixes
  20150622 3.0 SaveMuteset, GotoMuteset and EraseMuteset working
  20150621 2.9 61-key kbds as 49; 25-key ask_n uses white-notes 48 to 71
  20150618 2.8 LoadLoopsets only offered if dumpfiles exist
