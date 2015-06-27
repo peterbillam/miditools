@@ -100,7 +100,7 @@ but the bass could play a 3.6-second riff, and the organ could play a
 7.2-second sequence.</p>
 
 <p>All changes in what&#39;s being played (<i>Play/Pause, Mute, Unmute,
-GotoMuteset, GotoLoopset)</i> take place not immediately but at the
+GotoMuting, GotoLoopset)</i> take place not immediately but at the
 next barline. This means a <i>midiloop</i> performance never loses
 the beat.</p>
 
@@ -130,7 +130,7 @@ octaves and two bass octaves, so that middle-C lies left-of-center.)
 If you have to use a 25-note keyboard, the numbers 0..13 are mapped to
 white notes <b>bass c to treble B</b> (midi 48 to 59); that&#39;s all you
 need to enter the commands, but it restricts you to 0..13 in channels,
-loopsets and mutesets.</p>
+loopsets and mutings.</p>
 
 <p>Whenever you are asked for a number, <i>midiloop</i> displays a list
 of the available responses. Numbers not in this list will be ignored by
@@ -144,7 +144,7 @@ of the available responses. Numbers not in this list will be ignored by
  Paused
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
- Mutesets :  no mutesets
+ Mutings :  no mutings
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
    channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
@@ -160,7 +160,7 @@ of the available responses. Numbers not in this list will be ignored by
 <pre><code> Paused
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
- Mutesets :  no mutesets
+ Mutings :  no mutings
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
    channel 2, unmuted, 3 bars, patch 32 = Acoustic Bass
@@ -169,7 +169,7 @@ of the available responses. Numbers not in this list will be ignored by
 
   do what (0,1,2,3,5,6,9,10,11,12,13) ? 
 
- 0=Pause,  1=Mute,  2=Unmute,  3=Record,  5=EraseChannel,  6=SaveMuteset
+ 0=Pause,  1=Mute,  2=Unmute,  3=Record,  4=EraseChannel,  6=SaveMuting
  9=NewLoopset,  10=GotoLoopset,  11=SaveLoopsets,  12=LoadLoopsets,  13=Quit
  c~~~ to re-enter play-mode</code></pre>
 
@@ -278,8 +278,17 @@ Record a loop on the channel your MIDI-keyboard is currently set to. If
 that channel already exists, your new recording will overdub onto it;
 if that channel does not yet exist, the channel will be created.</p>
 
-<p>If the current LoopSet still has no channels, you will be asked to
-<A HREF="#barlength">choose a Barlength</A>.
+<p>If the current LoopSet still has no channels,
+you will be asked to choose a Barlength  (in seconds).
+All channels in the LoopSet share this same Barlength.
+The choices are:<BR>
+0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,<BR>
+8=1.38, 9=1.44, 10=1.52, 11=1.60,
+12=1.68, 13=1.76, 14=1.84, 15=1.92 seconds.<BR>
+If you need a 2-second bar, you use two 1-second bars, and so on.
+(If you need finer graduations, you have to <I>SaveLoopsets</I>
+ into a  I<dump> file, and edit it by hand.)
+</P><P>
 In any case, you will be asked to choose how
 many bars this channel&#39;s loop will last. (All channels in a LoopSet
 share a common BarLength, but their loops can last for different numbers
@@ -305,43 +314,29 @@ there is more that one channel, you will be asked which channel. You
 will then be asked for confirmation.</p>
 
 </dd>
-<dt><b><A NAME="barlength">Barlength</A></b></dt>
-<dd>
-<p>Invoked by the note (eg: B) corresponding to 5, this allows you to
-change the Barlength. That will change the tempo of the whole LoopSet
-(all channels). The choices (since version 3.2) are:
-0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,
-8=1.38, 9=1.44, 10=1.52, 11=1.60, 12=1.68, 13=1.76, 14=1.84, 15=1.92.
-<BR>
-So if you need a 2-second bar, you use two 1-second bars, and so on.
-<BR>
-If you need finer graduations, you have to <I>SaveLoopsets</I>
-into a <I>dump</I> file, and edit it by hand.</p>
-
-</dd>
-<dt><b><A NAME="savemuteset">SaveMuteset</A></b></dt>
+<dt><b><A NAME="savemuting">SaveMuting</A></b></dt>
 <dd>
 <p>Invoked by the note (eg: c) corresponding to 6, this creates a new
-MuteSet, and saves in it the current Muted/Unmuted state of all the
-channels. Each LoopSet can have up to 16 MuteSets (0..15).</p>
+Muting, and saves in it the current Muted/Unmuted state of all the
+channels. Each LoopSet can have up to 16 Mutings (0..15).</p>
 
 </dd>
-<dt><b><A NAME="gotomuteset">GotoMuteset</A></b></dt>
+<dt><b><A NAME="gotomuting">GotoMuting</A></b></dt>
 <dd>
 <p>Invoked by the note (eg: d) corresponding to 7, this allows you
-to invoke any of your MuteSets. The change takes place at the next
-Barline. <b>If</b> there is more that one other Muteset, you will be
-asked which Muteset.</p>
+to invoke any of your Mutings. The change takes place at the next
+Barline. <b>If</b> there is more that one other Muting, you will be
+asked which Muting.</p>
 
 </dd>
-<dt><b><A NAME="erasemuteset">EraseMuteset</A></b></dt>
+<dt><b><A NAME="erasemuting">EraseMuting</A></b></dt>
 <dd>
 <p>Invoked by the note (eg: e) corresponding to 8, this allows you to
-Erase any of the MuteSets (in in the current LoopSet). <b>If</b> there
-is more that one Muteset, you will be asked which Muteset.</p>
+Erase any of the Mutings (in in the current LoopSet). <b>If</b> there
+is more that one Muting, you will be asked which Muting.</p>
 
 </dd>
-<dt><b><A NAME="newmuteset">NewMuteset</A></b></dt>
+<dt><b><A NAME="newmuting">NewMuting</A></b></dt>
 <dd>
 <p>Invoked by the note (eg: f) corresponding to 9, this creates a new,
 empty, LoopSet, then goes to it and enters <i>Pause</i> mode.</p>
@@ -467,7 +462,8 @@ www.pjb.com.au/muscript/muscript</A>
 <HR>
 <H3><A NAME="changes">CHANGES</A></H3>
 
-<pre><code> 20150624 3.2 much finer choice of Barlengths
+<pre><code> 20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting
+ 20150624 3.2 much finer choice of Barlengths
  20150623 3.1 Message disappears after 3 displays; various bugfixes
  20150622 3.0 SaveMuteset, GotoMuteset and EraseMuteset working
  20150621 2.9 61-key kbds as 49; 25-key ask_n uses white-notes 48 to 71

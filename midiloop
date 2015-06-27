@@ -9,7 +9,6 @@
 
 # 20150608 on linux console, should use setterm --blank 0 (or 10 on exit)
 # 61-note kbd uses D1-E3 like the 49-note, but of course 96 for ModeChange
-# must implement Mutesets
 
 #use strict;
 #use warnings;
@@ -18,8 +17,8 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1; # $Data::Dumper::Indent = 0;
 
 use Time::HiRes();
 select STDERR; $|=1; select STDOUT;
-my $Version = '3.2'; # much finer choice of Barlengths
-my $VersionDate  = '24jun2015';
+my $Version = '3.3'; # notes-off when exiting Record; Muteset renamed Muting
+my $VersionDate  = '26jun2015';
 
 my $RecordingChannel = undef;
 my $InputPort      = '';
@@ -43,8 +42,8 @@ my @LoopEvents     = ();  # events with NOTEONs and OFFs combined into NOTEs
 my $LoopIndex      = $[;  # the event within the loop
 my $IsCmdMode      = 0;   # are we in command-mode ?
 my $DefaultChannel = 0;   # set by is_mode_change(), used by do_recording()
-my $CurrentMuteset = -1;
-# $L[$IL]{'Mutesets'}[$i_muteset][$cha] = 1 or 0 or undef
+my $CurrentMuting = -1;
+# $L[$IL]{'Mutings'}[$i_muteset][$cha] = 1 or 0 or undef
 my $Message        = '';
 my $Message_1      = '';  # 3.1 message-ageing
 my $Message_2      = '';  # 3.1 message-ageing
@@ -52,7 +51,7 @@ my @Num2Cmd        = (    # order: global,channel,loopset) :
 	'Pause', 'Mute', 'Unmute',
 	'Record', 'EraseChannel', 'Barlength',
 	# if channels already recorded, change barlength speeds up the whole loop
-	'SaveMuteset', 'GotoMuteset', 'EraseMuteset',
+	'SaveMuting', 'GotoMuting', 'EraseMuting',
 	'NewLoopset', 'GotoLoopset',
 	'SaveLoopsets', 'LoadLoopsets', 'Quit'
 );
@@ -395,7 +394,7 @@ $SIG{'ALRM'} = sub {    # play one bar, and increment the BarCount
 
 display_paused();
 display_loopsets();
-display_mutesets();
+display_mutings();
 display_channels();
 display_keystrokes();
 
@@ -569,28 +568,23 @@ sub display_recording { my $mod_bar_num = $_[$[];
 
 sub other_loopsets {  # scans the @L array
 	my @other_loopsets = ();
-	for my $i (0..$#L) {
-		if ($i != $IL) { push @other_loopsets, $i; }
-	}
-# XXX no, surely... NextLoopset might be already present in other_loopsets, no?
+	for my $i (0..$#L) { if ($i != $IL) { push @other_loopsets, $i; } }
+	# XXX surely NextLoopset might be already present in other_loopsets, no?
 	if ($NextLoopset) { push @other_loopsets, $NextLoopset; }  # 2.1
 	return @other_loopsets;
 }
 
 sub change_to_new_loopset {  # 2.1
 	if (not defined $NextLoopset) { return; }
-	# my $default_bl = $L[$IL]{'BarLength'} || 1.0,
 	$IL = $NextLoopset;
 	undef $NextLoopset;
-	if (! defined $L[$IL]{'BarLength'}) {
-		# my @tmp  = @{$L[$IL]{'Channels'}};   # should deepcopy ?
-		# $L[$IL] = { BarLength => $default_bl, Channels => \@tmp };
-		ask_barlength();
-	}
-	# @{$L[$IL]{'Channels'}} = (); # XXX
+	if (! defined $L[$IL]{'BarLength'}) { ask_barlength(); }
+	my @mutings = @{ $L[$IL]{'Mutings'} };  # 3.3
+	if (@mutings) { $CurrentMuting=$#mutings; } else { $CurrentMuting=-1; }
 	$BarCount = -1;
+	$Message = "";
 	output_patch_changes(); display_paused(); display_loopsets();
-	display_mutesets();   display_channels(); display_keystrokes();
+	display_mutings();   display_channels(); display_keystrokes();
 }
 
 sub output_patch_changes {
@@ -649,14 +643,14 @@ sub display_barlength {
 	puts_xy_clr(1, 3, join('',@s));
 }
 
-sub cha2mutesetstr { my $cha = $_[$[];
+sub cha2mutingstr { my $cha = $_[$[];
 	my @str_a = ();
 	foreach my $cha (0..15) {
 		if (defined $L[$IL]{'Channels'}[$cha]{'Muted'}) {
 			if ($L[$IL]{'Channels'}[$cha]{'Muted'}) {
-				$L[$IL]{'Mutesets'}[$CurrentMuteset][$cha] = 1;
+				$L[$IL]{'Mutings'}[$CurrentMuting][$cha] = 1;
 			} else {
-				$L[$IL]{'Mutesets'}[$CurrentMuteset][$cha] = 0;
+				$L[$IL]{'Mutings'}[$CurrentMuting][$cha] = 0;
 				push @str_a, $cha;
 			}
 		}
@@ -664,25 +658,25 @@ sub cha2mutesetstr { my $cha = $_[$[];
 	return join(',', @str_a);
 }
 
-sub display_mutesets {
+sub display_mutings {
 	my @s = ();
-	if ($IL < 0) { push @s, " No Mutesets yet";
+	if ($IL < 0) { push @s, " No Mutings yet";
 	} else {
-		push @s, " Mutesets :";
-		my $we_have_mutesets = 0;
+		push @s, " Mutings :";
+		my $we_have_mutings = 0;
 		foreach my $im (0..15) {
-			if (not $L[$IL]{'Mutesets'}[$im]) { next; }
+			if (not $L[$IL]{'Mutings'}[$im]) { next; }
 			my @s2 = ();
 			foreach my $cha (0..15) {
-				my $is_muted = $L[$IL]{'Mutesets'}[$im][$cha];
+				my $is_muted = $L[$IL]{'Mutings'}[$im][$cha];
 				if (defined $is_muted and $is_muted==0) { push @s2, "$cha"; }
 			}
 			if (@s2) {
 				push @s, "$im=".join(',',@s2);
-				$we_have_mutesets = 1;
+				$we_have_mutings = 1;
 			}
 		}
-		if (! $we_have_mutesets) { push @s, " no mutesets"; }
+		if (! $we_have_mutings) { push @s, " no mutings saved"; }
 	}
 	puts_xy_clr(1, 4, join(' ',@s));
 }
@@ -857,6 +851,7 @@ sub do_recording {
 			debug("noteon without noteoff in the loop; pitch=$pitch");
 		}
 	}
+	MIDI::ALSA::output(MIDI::ALSA::controllerevent($cha,123,0)); # 3.3 notesoff
 	$L[$IL]{'Channels'}[$cha] = \%new_channel;
 	$Message = "Recorded channel $cha";
 }
@@ -906,14 +901,14 @@ sub relevant_cmds {
 			push @relevant_cmds, $i;
 		} elsif ($Num2Cmd[$i] eq 'EraseChannel' and all_channels()) {
 			push @relevant_cmds, $i;
-		} elsif ($Num2Cmd[$i] eq 'SaveMuteset' and $CurrentMuteset<15
+		} elsif ($Num2Cmd[$i] eq 'SaveMuting' and $CurrentMuting<15
 		  and all_channels()) {
 			push @relevant_cmds, $i;
-		} elsif ($Num2Cmd[$i] eq 'GotoMuteset' and $CurrentMuteset>=0
-			and @{$L[$IL]{'Mutesets'}} > 0.5) {
+		} elsif ($Num2Cmd[$i] eq 'GotoMuting' and $CurrentMuting>=0
+			and @{$L[$IL]{'Mutings'}} > 0.5) {
 			push @relevant_cmds, $i;
-		} elsif ($Num2Cmd[$i] eq 'EraseMuteset'
-		  and $IL>=0 and @{$L[$IL]{'Mutesets'}} ) {
+		} elsif ($Num2Cmd[$i] eq 'EraseMuting'
+		  and $IL>=0 and @{$L[$IL]{'Mutings'}} ) {
 			push @relevant_cmds, $i;
 		} elsif ($Num2Cmd[$i] eq 'NewLoopset' and (
 			$IL<0 or (@{$L[$IL]{'Channels'}} and 15 > @other_loopsets) )) {
@@ -1066,53 +1061,53 @@ sub handle_command { my $cmd = $_[$[];
 			display_paused(); display_loopsets();
 			display_channels(); display_keystrokes();
 		}
-	} elsif ($cmd eq 'SaveMuteset') {
-		if ($CurrentMuteset >= 15 ) { next ; }
-		$CurrentMuteset += 1;
-		$L[$IL]{'Mutesets'}[$CurrentMuteset] = [];
-		my $s = cha2mutesetstr($cha);
+	} elsif ($cmd eq 'SaveMuting') {
+		if ($CurrentMuting >= 15 ) { next ; }
+		$CurrentMuting += 1;
+		$L[$IL]{'Mutings'}[$CurrentMuting] = [];
+		my $s = cha2mutingstr($cha);
 		if ($s) {
-		 $Message = "Muteset $CurrentMuteset created with channels $s unmuted";
+		 $Message = "Muting $CurrentMuting created with channels $s unmuted";
 		} else {
-		 $Message = "Muteset $CurrentMuteset created with no channels unmuted";
+		 $Message = "Muting $CurrentMuting created with no channels unmuted";
 		}
-		display_mutesets(); display_keystrokes();
-	} elsif ($cmd eq 'GotoMuteset') {
-		if ($CurrentMuteset < 0) { next ; }   # shouldn't happen
-		my $max_muteset = $#{$L[$IL]{'Mutesets'}};
-		my $which_muteset = 0;
-		if ($max_muteset > 0) {
-			$which_muteset = ask_n('go to which Muteset', [0..$max_muteset]);
+		display_mutings(); display_keystrokes();
+	} elsif ($cmd eq 'GotoMuting') {
+		if ($CurrentMuting < 0) { next ; }   # shouldn't happen
+		my $max_muting = $#{$L[$IL]{'Mutings'}};
+		my $which_muting = 0;
+		if ($max_muting > 0) {
+			$which_muting = ask_n('go to which Muting', [0..$max_muting]);
 		}
-		$CurrentMuteset = $which_muteset;
-		$Message = "reloaded muteset $which_muteset";
-		my $muteset_ref = $L[$IL]{'Mutesets'}[$which_muteset];
+		$CurrentMuting = $which_muting;
+		$Message = "reloaded muting $which_muting";
+		my $muting_ref = $L[$IL]{'Mutings'}[$which_muting];
 		foreach my $cha (0..15) {   # redo each channel's muted/unmuted
-			if (! defined $muteset_ref->[$cha]) { next; }
-			if ($muteset_ref->[$cha]==0) {
+			if (! defined $muting_ref->[$cha]) { next; }
+			if ($muting_ref->[$cha]==0) {
 				if (defined $L[$IL]{'Channels'}[$cha]{'Muted'}) {
 					$L[$IL]{'Channels'}[$cha]{'Muted'} = 0;
 				}
-			} elsif ($muteset_ref->[$cha] == 1) {
+			} elsif ($muting_ref->[$cha] == 1) {
 				if (defined $L[$IL]{'Channels'}[$cha]{'Muted'}) {
 					$L[$IL]{'Channels'}[$cha]{'Muted'} = 1;
 				}
 			}
 		}
 		display_channels(); display_keystrokes();
-	} elsif ($cmd eq 'EraseMuteset') {
-		if ($CurrentMuteset < 0) { next ; }   # shouldn't happen
-		my $max_muteset = $#{$L[$IL]{'Mutesets'}};
-		my $which_muteset = 0; 
-		if ($max_muteset > 0) {
-			$which_muteset = ask_n('erase which Muteset', [0..$max_muteset]);
+	} elsif ($cmd eq 'EraseMuting') {
+		if ($CurrentMuting < 0) { next ; }   # shouldn't happen
+		my $max_muting = $#{$L[$IL]{'Mutings'}};
+		my $which_muting = 0; 
+		if ($max_muting > 0) {
+			$which_muting = ask_n('erase which Muting', [0..$max_muting]);
 		}
-		foreach my $im ($which_muteset+1 .. $max_muteset) {
-			$L[$IL]{'Mutesets'}[$im-1] = $L[$IL]{'Mutesets'}[$im];
+		foreach my $im ($which_muting+1 .. $max_muting) {
+			$L[$IL]{'Mutings'}[$im-1] = $L[$IL]{'Mutings'}[$im];
 		}
-		$L[$IL]{'Mutesets'}[$max_muteset] = undef;
-		if ($which_muteset <= $CurrentMuteset) { $CurrentMuteset -= 1; }
-		display_mutesets(); display_keystrokes();
+		$L[$IL]{'Mutings'}[$max_muting] = undef;
+		if ($which_muting <= $CurrentMuting) { $CurrentMuting -= 1; }
+		display_mutings(); display_keystrokes();
 	} elsif ($cmd eq 'NewLoopset') {
 		if (16 <= @L) { next; }
 		$NextLoopset = $#L + 1;
@@ -1129,7 +1124,8 @@ sub handle_command { my $cmd = $_[$[];
 		}
 		if (! defined $next_loopset) { next; }
 		$NextLoopset = $next_loopset;
-		display_loopsets(); display_paused(); display_mutesets();
+		$Message = "next barline we will change to loopset $NextLoopset";
+		display_loopsets(); display_paused(); display_mutings();
 		display_channels(); display_keystrokes();
 	} elsif ($cmd eq 'SaveLoopsets') { # use Dumper, not .mid, for load-speed
 		# save the loopset (into ~/midiloop/ or $MIDILOOP_DIR)
@@ -1149,14 +1145,14 @@ sub handle_command { my $cmd = $_[$[];
 		$L[$IL] = {
 			BarLength=>$L[$IL]{'BarLength'},
 			Channels=>$L[$IL]{'Channels'},
-			Mutesets=>$L[$IL]{'Mutesets'},
+			Mutings=>$L[$IL]{'Mutings'},
 		};
 		print F dump_text(@L);
 		close F;
 		$Message = "saved to file $MidiloopDir/$filename.dump";
 	} elsif ($cmd eq 'LoadLoopsets') {
 		load_loopset_interactive();
-		display_loopsets(); display_barlength(); display_mutesets();
+		display_loopsets(); display_barlength(); display_mutings();
 		display_channels(); display_keystrokes();
 	} elsif ($cmd eq 'Quit') {
 		if (confirm("OK to Quit")) { exit 0; }
@@ -1402,7 +1398,7 @@ but the bass could play a 3.6-second riff,
 and the organ could play a 7.2-second sequence.
 
 All changes in what's being played
-(I<Play/Pause, Mute, Unmute, GotoMuteset, GotoLoopset)>
+(I<Play/Pause, Mute, Unmute, GotoMuting, GotoLoopset)>
 take place not immediately but at the next barline.
 This means a I<midiloop> performance never loses the beat.
 
@@ -1431,7 +1427,7 @@ and two bass octaves, so that middle-C lies left-of-center.)
 If you have to use a 25-note keyboard, the numbers 0..13
 are mapped to white notes B<bass c to treble B> (midi 48 to 59);
 that's all you need to enter the commands,
-but it restricts you to 0..13 in channels, loopsets and mutesets.
+but it restricts you to 0..13 in channels, loopsets and mutings.
 
 Whenever you are asked for a number,
 I<midiloop> displays a list of the available responses.
@@ -1445,7 +1441,7 @@ A couple of screenshots of I<midiloop>'s side of the dialogue:
  Paused
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
- Mutesets :  no mutesets
+ Mutings :  no mutings
 
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
@@ -1462,7 +1458,7 @@ So then if we press c~~~ and enter command-mode, we get:
  Paused
  We are in Loopset 0  (we also have a Loopset 1)
  BarLength is 3.04 sec    We have Channels 0,1,2,3,9
- Mutesets :  no mutesets
+ Mutings :  no mutings
 
    channel 0,   muted, 1 bars, patch 27 = Electric Guitar(clean)
    channel 1,   muted, 1 bars, patch 26 = Electric Guitar(jazz)
@@ -1472,7 +1468,7 @@ So then if we press c~~~ and enter command-mode, we get:
 
   do what (0,1,2,3,5,6,9,10,11,12,13) ? 
 
- 0=Pause,  1=Mute,  2=Unmute,  3=Record,  5=EraseChannel,  6=SaveMuteset
+ 0=Pause,  1=Mute,  2=Unmute,  3=Record,  5=EraseChannel,  6=SaveMuting
  9=NewLoopset,  10=GotoLoopset,  11=SaveLoopsets,  12=LoadLoopsets,  13=Quit
  c~~~ to re-enter play-mode
 
@@ -1570,9 +1566,17 @@ If that channel already exists, your new recording will overdub onto it;
 if that channel does not yet exist, the channel will be created.
 
 If the current LoopSet still has no channels,
-you will be asked to choose a Barlength.
-In any case, you will be asked to choose how many bars this channel's
-loop will last.
+you will be asked to choose a Barlength (in seconds).
+All channels in the LoopSet share this same Barlength.
+The choices are:
+0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,
+8=1.38, 9=1.44, 10=1.52, 11=1.60, 12=1.68, 13=1.76, 14=1.84, 15=1.92 seconds.
+If you need a 2-second bar, you use two 1-second bars, and so on.
+(If you need finer graduations, you have to I<SaveLoopsets>
+ into a  I<dump> file, and edit it by hand.)
+
+In any case, you will then be asked to choose
+how many bars this channel's loop will last.
 (All channels in a LoopSet share a common BarLength,
 but their loops can last for different numbers of bars.)
 
@@ -1594,39 +1598,26 @@ Do this if, for example, you're not happy with what you just recorded.
 B<If> there is more that one channel, you will be asked which channel.
 You will then be asked for confirmation.
 
-=item B<Barlength>
 
-Invoked by the note (eg: B) corresponding to 5,
-this allows you to change the Barlength.
-That will change the tempo of the whole LoopSet (all channels).
-The choices (since version 3.2) are:
-0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,
-8=1.38, 9=1.44, 10=1.52, 11=1.60, 12=1.68, 13=1.76, 14=1.84, 15=1.92.
-
-So if you need a 2-second bar, you use two 1-second bars, and so on.
-
-If you need finer graduations, you have to I<SaveLoopsets>
-into a  I<dump> file, and edit it by hand.
-
-=item B<SaveMuteset>
+=item B<SaveMuting>
 
 Invoked by the note (eg: c) corresponding to 6,
 this creates a new MuteSet,
 and saves in it the current Muted/Unmuted state of all the channels.
 Each LoopSet can have up to 16 MuteSets (0..15).
 
-=item B<GotoMuteset>
+=item B<GotoMuting>
 
 Invoked by the note (eg: d) corresponding to 7,
 this allows you to invoke any of your MuteSets.
 The change takes place at the next Barline.
-B<If> there is more that one other Muteset, you will be asked which Muteset.
+B<If> there is more that one other Muting, you will be asked which Muting.
 
-=item B<EraseMuteset>
+=item B<EraseMuting>
 
 Invoked by the note (eg: e) corresponding to 8,
 this allows you to Erase any of the MuteSets (in in the current LoopSet).
-B<If> there is more that one Muteset, you will be asked which Muteset.
+B<If> there is more that one Muting, you will be asked which Muting.
 
 =item B<NewLoopset>
 
@@ -1733,6 +1724,7 @@ I<muscript> is available at
 
 =head1 CHANGES
 
+ 20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting
  20150624 3.2 much finer choice of Barlengths
  20150623 3.1 Message disappears after 3 displays; various bugfixes
  20150622 3.0 SaveMuteset, GotoMuteset and EraseMuteset working
