@@ -12,7 +12,7 @@ local VersionDate  = '28may2015';
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
 
---require 'DataDumper'
+-- require 'DataDumper'
 
 local ALSA   = nil
 pcall(function() ALSA = require 'midialsa' end)
@@ -541,6 +541,7 @@ end )
 
 while true do  -- the event loop
 	local alsaevent = ALSA.input()
+	if not alsaevent[1] then goto next end  -- defend SIGWINCH; still 1.5
 	if   alsaevent[1] == ALSA.SND_SEQ_EVENT_PORT_UNSUBSCRIBED
 	  or alsaevent[1] == ALSA.SND_SEQ_EVENT_PORT_SUBSCRIBED then
 		display_connectedfrom()
