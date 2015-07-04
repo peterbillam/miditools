@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 
-my $Version = '5.5  for Perl5';
-my $VersionDate = '20130507';
+my $Version = '5.6  for Perl5';
+my $VersionDate = '20150628';
 
+# 20150628 5.6 absent any set_tempo, default is 120bpm (see MIDI filespec 1.1)
 # 20130507 5.5 quantise effect gets channels too
 # 20130321 5.4 bug fixed in quantise effect
 # 20120211 5.3 score2stats returns also %num_notes_by_channel
@@ -1292,7 +1293,7 @@ sub to_millisecs {
     }
     my $old_tpq  = $_[$[];
     my @new_opus = (1000,);
-    my $millisec_per_old_tick = 1000.0 / $old_tpq;  # float: will round later
+    my $millisec_per_old_tick = 500.0 / $old_tpq;  # float: round later 6.3
     $itrack = $[+1;
     while ($itrack <= $#old_opus) {
         my $millisec_so_far = 0.0;

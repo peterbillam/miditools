@@ -5,6 +5,10 @@ require 'DataDumper'
 local Version = '5.5  for Lua5'
 local VersionDate = '20130507'
 
+-- todo: introduce loopset effect, for piping into aplaymidi -p midiloop -
+--   If it's in muscript, then we know where the barlines are :-)
+--   But if it's in muscript you can't convert an impro into a loop :-(
+--   perhaps it should be in muscript; impros can use midi2muscript ...
 -- todo: introduce phaser effect, with channels
 -- todo: pan effect should get channels too
 -- todo: should be able to quantise one channel to a master-channel
