@@ -646,6 +646,81 @@ SND_SEQ_EVENT_BOUNCE
 &nbsp; &nbsp; Version
 &nbsp; &nbsp; VersionDate
 </P><P>
+You should avoid hard-coding their numerical values into your programs;
+but you may sometimes want to inspect <I>ALSA</I> data eg. with <I>DataDumper</I>.
+&nbsp;So, sorted by number as gleaned from the source:
+</P><P>
+   0&nbsp;SND_SEQ_EVENT_SYSTEM &nbsp; &nbsp;
+   1&nbsp;SND_SEQ_EVENT_RESULT &nbsp; &nbsp;
+
+   5&nbsp;SND_SEQ_EVENT_NOTE &nbsp; &nbsp;
+   6&nbsp;SND_SEQ_EVENT_NOTEON &nbsp; &nbsp;
+   7&nbsp;SND_SEQ_EVENT_NOTEOFF &nbsp; &nbsp;
+   8&nbsp;SND_SEQ_EVENT_KEYPRESS &nbsp; &nbsp;
+
+  10&nbsp;SND_SEQ_EVENT_CONTROLLER &nbsp; &nbsp;
+  11&nbsp;SND_SEQ_EVENT_PGMCHANGE &nbsp; &nbsp;
+  12&nbsp;SND_SEQ_EVENT_CHANPRESS &nbsp; &nbsp;
+  13&nbsp;SND_SEQ_EVENT_PITCHBEND &nbsp; &nbsp;
+  14&nbsp;SND_SEQ_EVENT_CONTROL14 &nbsp; &nbsp;
+  15&nbsp;SND_SEQ_EVENT_NONREGPARAM &nbsp; &nbsp;
+  16&nbsp;SND_SEQ_EVENT_REGPARAM &nbsp; &nbsp;
+
+  20&nbsp;SND_SEQ_EVENT_SONGPOS &nbsp; &nbsp;
+  21&nbsp;SND_SEQ_EVENT_SONGSEL &nbsp; &nbsp;
+  22&nbsp;SND_SEQ_EVENT_QFRAME &nbsp; &nbsp;
+  23&nbsp;SND_SEQ_EVENT_TIMESIGN &nbsp; &nbsp;
+  24&nbsp;SND_SEQ_EVENT_KEYSIGN &nbsp; &nbsp;
+
+  30&nbsp;SND_SEQ_EVENT_START &nbsp; &nbsp;
+  31&nbsp;SND_SEQ_EVENT_CONTINUE &nbsp; &nbsp;
+  32&nbsp;SND_SEQ_EVENT_STOP &nbsp; &nbsp;
+  33&nbsp;SND_SEQ_EVENT_SETPOS_TICK &nbsp; &nbsp;
+  34&nbsp;SND_SEQ_EVENT_SETPOS_TIME &nbsp; &nbsp;
+  35&nbsp;SND_SEQ_EVENT_TEMPO &nbsp; &nbsp;
+  36&nbsp;SND_SEQ_EVENT_CLOCK &nbsp; &nbsp;
+  37&nbsp;SND_SEQ_EVENT_TICK &nbsp; &nbsp;
+  38&nbsp;SND_SEQ_EVENT_QUEUE_SKEW &nbsp; &nbsp;
+  39&nbsp;SND_SEQ_EVENT_SYNC_POS &nbsp; &nbsp;
+   
+  40&nbsp;SND_SEQ_EVENT_TUNE_REQUEST &nbsp; &nbsp;
+  41&nbsp;SND_SEQ_EVENT_RESET &nbsp; &nbsp;
+  42&nbsp;SND_SEQ_EVENT_SENSING &nbsp; &nbsp;
+   
+  50&nbsp;SND_SEQ_EVENT_ECHO &nbsp; &nbsp;
+  51&nbsp;SND_SEQ_EVENT_OSS &nbsp; &nbsp;
+  
+  60&nbsp;SND_SEQ_EVENT_CLIENT_START &nbsp; &nbsp;
+  61&nbsp;SND_SEQ_EVENT_CLIENT_EXIT &nbsp; &nbsp;
+  62&nbsp;SND_SEQ_EVENT_CLIENT_CHANGE &nbsp; &nbsp;
+  63&nbsp;SND_SEQ_EVENT_PORT_START &nbsp; &nbsp;
+  64&nbsp;SND_SEQ_EVENT_PORT_EXIT &nbsp; &nbsp;
+  65&nbsp;SND_SEQ_EVENT_PORT_CHANGE &nbsp; &nbsp;
+  66&nbsp;SND_SEQ_EVENT_PORT_SUBSCRIBED &nbsp; &nbsp;
+  67&nbsp;SND_SEQ_EVENT_PORT_UNSUBSCRIBED &nbsp; &nbsp;
+  
+  90&nbsp;SND_SEQ_EVENT_USR0 &nbsp; &nbsp;
+  91&nbsp;SND_SEQ_EVENT_USR1 &nbsp; &nbsp;
+  92&nbsp;SND_SEQ_EVENT_USR2 &nbsp; &nbsp;
+  93&nbsp;SND_SEQ_EVENT_USR3 &nbsp; &nbsp;
+  94&nbsp;SND_SEQ_EVENT_USR4 &nbsp; &nbsp;
+  95&nbsp;SND_SEQ_EVENT_USR5 &nbsp; &nbsp;
+  96&nbsp;SND_SEQ_EVENT_USR6 &nbsp; &nbsp;
+  97&nbsp;SND_SEQ_EVENT_USR7 &nbsp; &nbsp;
+  98&nbsp;SND_SEQ_EVENT_USR8 &nbsp; &nbsp;
+  99&nbsp;SND_SEQ_EVENT_USR9 &nbsp; &nbsp;
+
+ 130&nbsp;SND_SEQ_EVENT_SYSEX &nbsp; &nbsp;
+ 131&nbsp;SND_SEQ_EVENT_BOUNCE &nbsp; &nbsp;
+ 135&nbsp;SND_SEQ_EVENT_USR_VAR0 &nbsp; &nbsp;
+ 136&nbsp;SND_SEQ_EVENT_USR_VAR1 &nbsp; &nbsp;
+ 137&nbsp;SND_SEQ_EVENT_USR_VAR2 &nbsp; &nbsp;
+ 138&nbsp;SND_SEQ_EVENT_USR_VAR3 &nbsp; &nbsp;
+ 139&nbsp;SND_SEQ_EVENT_USR_VAR4 &nbsp; &nbsp;
+   
+ 255&nbsp;SND_SEQ_EVENT_NONE
+
+</P><P>
 The MIDI standard specifies that a NOTEON event with velocity=0
 means the same as a NOTEOFF event; so you may find a little function
 like this convenient:<PRE>
