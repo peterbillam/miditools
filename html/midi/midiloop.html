@@ -167,7 +167,7 @@ of the available responses. Numbers not in this list will be ignored by
    channel 3,   muted, 2 bars, patch 18 = Rock Organ
    channel 9, unmuted, 5 bars, percussion
 
-  do what (0,1,2,3,5,6,9,10,11,12,13) ? 
+  do what (0,1,2,3,4,6,9,10,11,12,13) ? 
 
  0=Pause,  1=Mute,  2=Unmute,  3=Record,  4=EraseChannel,  6=SaveMuting
  9=NewLoopset,  10=GotoLoopset,  11=SaveLoopsets,  12=LoadLoopsets,  13=Quit
@@ -216,9 +216,13 @@ or with the <b>-d</b> option.</p>
 <p>The Loopsets are saved in Perl <i>Data::Dumper</i> format,
 but with helpful added comments to tell you which Loopset, Channel
 and Bar you&#39;re in. The file can be edited with some care and a
-text-editor. The events are <i>MIDI::ALSA</i> events, as documented
-in <i>perldoc MIDI::ALSA</i> in the section on the function
-<i>input()</i></p>
+text-editor.
+As from version 3.5, the events are <I>MIDI::Event</I> events
+with times in milliseconds,
+as documented in <I>perldoc MIDI::Event</I> in the section on <I>EVENTS</I>.
+<BR>
+(previously they were saved as <i>MIDI::ALSA</i> events, as documented in
+<i>perldoc MIDI::ALSA</i> in the section on the function <i>input()</i>)</p>
 
 </dd>
 <dt><b><A NAME="o-m">-m muscriptfile.txt</A></b></dt>
@@ -282,27 +286,29 @@ if that channel does not yet exist, the channel will be created.</p>
 you will be asked to choose a Barlength  (in seconds).
 All channels in the LoopSet share this same Barlength.
 The choices are:<BR>
-0=1.00, 1=1.04, 2=1.08, 3=1.12, 4=1.16, 5=1.20, 6=1.26, 7=1.32,<BR>
-8=1.38, 9=1.44, 10=1.52, 11=1.60,
-12=1.68, 13=1.76, 14=1.84, 15=1.92 seconds.<BR>
+&nbsp; 0=1.00, &nbsp; 1=1.04, &nbsp; 2=1.08, &nbsp; 3=1.12,
+&nbsp; 4=1.16, &nbsp; 5=1.20, &nbsp; 6=1.26, &nbsp; 7=1.32,<BR>
+&nbsp; 8=1.38, &nbsp; 9=1.44, &nbsp; 10=1.52, &nbsp; 11=1.60,
+12=1.68, &nbsp; 13=1.76, &nbsp; 14=1.84, &nbsp; 15=1.92 seconds.<BR>
 If you need a 2-second bar, you use two 1-second bars, and so on.
 (If you need finer graduations, you have to <I>SaveLoopsets</I>
- into a  I<dump> file, and edit it by hand.)
+ into a  <I>dump</I> file, and edit it by hand.)
 </P><P>
 In any case, you will be asked to choose how
-many bars this channel&#39;s loop will last. (All channels in a LoopSet
-share a common BarLength, but their loops can last for different numbers
-of bars.)</p>
-
-<p>You will be asked whether you want a Metronome. If it&#39;s a
+many bars this channel&#39;s loop will last.
+(All channels in a LoopSet share a common BarLength,
+but their loops can last for different numbers of bars.)
+The choice <B>0</B> means a Free loop; the recording will terminate
+at the next barline after you press the ModeChangeKey.
+</p><p>
+You will be asked whether you want a Metronome. If it&#39;s a
 currently-empty LoopSet, you&#39;ll probably want to choose 1=Yes;
 but if there are already some recorded channels, you may want to choose
 0=No. The Metronome is a guide only; it is not recorded.</p>
 
 <p>Later, when you Mute or UnMute, or change LoopSets, the change will
-occur not instantly, but at the next start of the loop. The Metronome
-will help you to lay down a loop which has its end-of-loop in a musically
-sensible place.</p>
+occur not instantly, but at the next barline. The Metronome will help you
+to lay down a loop which has its end-of-loop in a musically sensible place.</p>
 
 </dd>
 <dt><b><A NAME="erasechannel">EraseChannel</A></b></dt>
@@ -310,7 +316,7 @@ sensible place.</p>
 <p>Invoked by the note (eg: A) corresponding to 4, this allows you
 to Erase any of the channels in the current LoopSet. Do this if, for
 example, you&#39;re not happy with what you just recorded. <b>If</b>
-there is more that one channel, you will be asked which channel. You
+there is more than one channel, you will be asked which channel. You
 will then be asked for confirmation.</p>
 
 </dd>
@@ -325,7 +331,7 @@ channels. Each LoopSet can have up to 16 Mutings (0..15).</p>
 <dd>
 <p>Invoked by the note (eg: d) corresponding to 7, this allows you
 to invoke any of your Mutings. The change takes place at the next
-Barline. <b>If</b> there is more that one other Muting, you will be
+Barline. <b>If</b> there is more than one other Muting, you will be
 asked which Muting.</p>
 
 </dd>
@@ -333,7 +339,7 @@ asked which Muting.</p>
 <dd>
 <p>Invoked by the note (eg: e) corresponding to 8, this allows you to
 Erase any of the Mutings (in in the current LoopSet). <b>If</b> there
-is more that one Muting, you will be asked which Muting.</p>
+is more than one Muting, you will be asked which Muting.</p>
 
 </dd>
 <dt><b><A NAME="newmuting">NewMuting</A></b></dt>
@@ -345,7 +351,7 @@ empty, LoopSet, then goes to it and enters <i>Pause</i> mode.</p>
 <dt><b><A NAME="gotoloopset">GotoLoopset</A></b></dt>
 <dd>
 <p>Invoked by the note (eg: g) corresponding to 10, this allows you to
-switch to any one of your LoopSets. <b>If</b> there is more that one
+switch to any one of your LoopSets. <b>If</b> there is more than one
 other Loopset, you will be asked which Loopset.</p>
 
 <p><i>GotoLoopset</i> allows you change (at the next Barline) from one
@@ -354,13 +360,17 @@ section of the piece (eg: the verse) to another (eg: the middle-8),</p>
 </dd>
 <dt><b><A NAME="saveloopsets">SaveLoopsets</A></b></dt>
 <dd>
-<p>Invoked by the note (eg: a) corresponding to 11, this allows you to
-save all the LoopSets to a <i>.dump</i> file in <i>~/midiloop/</i></p>
-
-<p>These files are in <i>perl</i>, and can be edited with your favourite
-text-editor and checked with <i>perl -c</i></p>
-
-<p>The data is in <i>AlsaMidi</i> format: see <i>perldoc&nbsp;MIDI::ALSA</i></p>
+<P>Invoked by the note (eg: a) corresponding to 11, this allows you to
+save all the LoopSets to a <i>.dump</i> file in <i>~/midiloop/</i>
+</P><P>
+These files are in <i>perl</i>, and can be edited with your favourite
+text-editor and checked with <i>perl -c</i>
+</P><P>
+As from version 3.5, the data is in <I>MIDI::Event</I> format
+with times in milliseconds:
+see <I>perldoc MIDI::Event</I> in the section on <I>EVENTS</I>.
+(previously they were in <i>MIDI::ALSA</i> format:
+see <i>perldoc MIDI::ALSA</i>)</p>
 
 </dd>
 <dt><b><A NAME="loadloopsets">LoadLoopsets</A></b></dt>
@@ -374,9 +384,9 @@ multiple Channels.</p>
 </dd>
 <dt><b><A NAME="quit">Quit</A></b></dt>
 <dd>
-<p>Invoked by the note (eg: c~) corresponding to 13, this allows you to
-Quit from <i>midiloop</i> You&#39;ll will be asked for confirmation with
-1=Yes or 0=No.</p>
+<p>Invoked by the note (eg: c~) corresponding to 13,
+this allows you to Quit from <i>midiloop</i><BR>
+You will be asked for confirmation with 1=Yes or 0=No.</p>
 
 </dd>
 </dl>
@@ -427,15 +437,20 @@ for examples of such a file.<BR>
 The author tends to keep these files in
 <I>~/midiloop/src/</I></p>
 
-<p>The commands <code>$CMD</code> are <code>$PAUSE</code> are
+<p>Remember the commands <code>$CMD</code> and <code>$PAUSE</code> are
 toggles. Unlike a real human, <i>muscript</i> can&#39;t see what the
 screen is saying, so when working in <i>muscript</i> don&#39;t lose
 track of which mode it&#39;s in ! Also other commands have a dialogue
 which changes with circumstances; for example <code>$GOTOLOOPS</code>
 will not ask &quot;<i>Go to which Loopset</i>&quot; if there&#39;s only
-one other Loopset. To diagnose these problems it helps to play your
-file at much-reduced speed so you have time to follow the dialogue,
-and see at what point it goes wrong.</p>
+one other Loopset.<BR>
+Remember also that only one channel can be Recorded at one time, so
+<I>muscript</I> resources such as <CODE>cha1+2</CODE> will not work
+as intended.
+<BR>
+To diagnose such problems it helps to play your file at much-reduced speed
+so you have time to follow the dialogue, and see at what point it goes wrong.
+</p>
 
 </ul>
 
@@ -462,7 +477,9 @@ www.pjb.com.au/muscript/muscript</A>
 <HR>
 <H3><A NAME="changes">CHANGES</A></H3>
 
-<pre><code> 20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting
+<pre><code> 20150707 3.5 Loopsets stored in scoreevent form, but loaded in either
+ 20150706 3.4 Recording with nbars = 0 means free-loop, terminates on CmdKey
+ 20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting
  20150624 3.2 much finer choice of Barlengths
  20150623 3.1 Message disappears after 3 displays; various bugfixes
  20150622 3.0 SaveMuteset, GotoMuteset and EraseMuteset working
