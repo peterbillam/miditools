@@ -17,8 +17,8 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1; # $Data::Dumper::Indent = 0;
 
 use Time::HiRes();
 select STDERR; $|=1; select STDOUT;
-my $Version = '3.5'; # Loopsets stored in scoreevent form, but loaded in either
-my $VersionDate  = '07jul2015';
+my $Version = '3.6'; # check for safe dumpfile syntax before executing
+my $VersionDate  = '11jul2015';
 
 my $RecordingChannel = undef;
 my $RecordingFree  = 0;
@@ -258,7 +258,7 @@ while ($ARGV[$[] =~ /^-([a-z]|X)/) {
 		} else { die "bad -k arg: $k, should be 88, 61, 49 or 25\n";
 		}
 	} elsif ($1 eq 'l') { shift; my $f = shift;
-		if (! load_loopset($f)) { exit; }
+		if (! load_loopset($f)) { die "$Message\n"; }
 	} elsif ($1 eq 'm') { shift;
 		$MuscriptHeader = 1;
 		if ($ARGV[$[] and $ARGV[$[] !~ /^-/) { $MuscriptFile = shift; }
@@ -948,6 +948,27 @@ sub saved_loopsets {
 	return glob "$MidiloopDir/*.dump";
 }
 
+sub dump_syntax_is_safe { my ($file, @txt) = @_;
+	# check for safe syntax before executing....
+	my @bad_linenums = ();
+	if ($txt[0] ne "\@L = (\n") { push @bad_linenums, 1; }
+	foreach my $i (1 .. ($#txt-1)) {
+		$txt[$i] =~ s/\(secs\)/seconds/;
+		if ($txt[$i] =~ /[)(\$`@;]/) { push @bad_linenums, $i+1; }
+	}
+	if ($txt[$#txt] ne ");\n") { push @bad_linenums, $#txt+1; }
+	if (@bad_linenums == 1) {
+		my $s = $bad_linenums[0];
+		$Message = "the syntax of $file is unsafe on line $s";
+		return 0;
+	} elsif (@bad_linenums) {
+		my $s = join(',',@bad_linenums);
+		$Message = "the syntax of $file is unsafe on lines $s";
+	} else {
+		return 1;
+	}
+}
+
 sub load_loopset { my $file = $_[$[];   # opDir
 	if ($file =~ /^\w/) { $file = "$MidiloopDir/$file"; }
 	if ($file !~ /\.dump$/) { $file = "$file.dump"; }
@@ -955,9 +976,7 @@ sub load_loopset { my $file = $_[$[];   # opDir
 	if (! open(F, '<', $file)) { die "can't open $file: $!\n"; }
 	my @txt = <F>;
 	close F;
-# XXX must check for safe syntax before executing....
-#	foreach my $line (@txt) {
-#	}
+	if (! dump_syntax_is_safe($file, @txt)) { return 0 ; }
 	eval join('', @txt);
 	if ($@) { die " can't eval $file:\n $@"; }
 	# force the MIDI::ALSA channel to conform to the array index
@@ -1783,6 +1802,7 @@ I<muscript> is available at
 
 =head1 CHANGES
 
+ 20150711 3.6 check for safe dumpfile syntax before executing
  20150707 3.5 Loopsets stored in scoreevent form, but loaded in either
  20150706 3.4 Recording with nbars = 0 means free-loop, terminates on CmdKey
  20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting
