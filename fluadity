@@ -257,6 +257,8 @@ function daemon_client()
 								Cha2sospedNotes[cha][note] = false
 							end
 						end
+						local tmpfile = FS.error_file_name()
+						if tmpfile then os.remove(tmpfile) end   -- 2.0
 					end
 				elseif alsaevent[1]==ALSA.SND_SEQ_EVENT_PORT_SUBSCRIBED then
 					local from = ALSA.listconnectedfrom()  -- 1.4

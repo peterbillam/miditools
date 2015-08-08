@@ -34,6 +34,12 @@
 # we need {} for e.g.   =3 8 $Br)1    =3 8 ${B}r)1
 # or do we just swallow all the [A-Z]+ after a $ ? even inside a string ?
 
+# 20150611 need a loopset effect, for piping into aplaymidi -p midiloop -
+#   If it's in midisox you can convert an impro into a loop,
+#   but if it's in muscript, then we know where the barlines are :-)
+#   I think it should be in muscript; impros can use midi2muscript ...
+#   A command-line option would allow -loopset 49 or -loopset 88
+
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 

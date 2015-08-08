@@ -64,7 +64,7 @@ CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
  midiloop -i Pro -l 201302_1452  # loads a previously saved loopset
  cd ~/midiloop ; ls -l           # inspect the saved loopsets
  perldoc MIDI::ALSA     # for the event format see the &quot;input&quot; function
- vi ~/midiloop/201302_1452.dump  # edit a loopset file (in Perl)
+ vi ~/midiloop/201502_1452.dump  # edit a loopset file (in Perl)
 
  # compose your loopsets in muscript:
  vi ~/mus/my_loop       # it&#39;s a muscript file
@@ -208,12 +208,12 @@ sets up for a 49-note keyboard. Otherwise, the default is 88.</p>
 <dt><b><A NAME="o-l">-l 20130214_1425</A></b></dt>
 <dd>
 
-<p><b>L</b>oads the previously saved Loopset <i>20130214_1425.dump</i>,
+<P><b>L</b>oads the previously saved Loopset <i>20130214_1425.dump</i>,
 probably from the user&#39;s <i>~/midiloop/</i> directory, though this
 can be over-ridden with the environment variable <i>$MIDILOOP_DIR</i>
-or with the <b>-d</b> option.</p>
-
-<p>The Loopsets are saved in Perl <i>Data::Dumper</i> format,
+or with the <b>-d</b> option.
+</P><P>
+The Loopsets are saved in Perl <i>Data::Dumper</i> format,
 but with helpful added comments to tell you which Loopset, Channel
 and Bar you&#39;re in. The file can be edited with some care and a
 text-editor.
@@ -223,6 +223,8 @@ as documented in <I>perldoc MIDI::Event</I> in the section on <I>EVENTS</I>.
 <BR>
 (previously they were saved as <i>MIDI::ALSA</i> events, as documented in
 <i>perldoc MIDI::ALSA</i> in the section on the function <i>input()</i>)</p>
+</P><P>
+An example dump-file is: <A HREF="free/hambone.dump">hambone.dump</A></P>
 
 </dd>
 <dt><b><A NAME="o-m">-m muscriptfile.txt</A></b></dt>
@@ -370,7 +372,9 @@ As from version 3.5, the data is in <I>MIDI::Event</I> format
 with times in milliseconds:
 see <I>perldoc MIDI::Event</I> in the section on <I>EVENTS</I>.
 (previously they were in <i>MIDI::ALSA</i> format:
-see <i>perldoc MIDI::ALSA</i>)</p>
+see <i>perldoc MIDI::ALSA</i>)
+</P><P>
+An example dump-file is: <A HREF="free/hambone.dump">hambone.dump</A></P>
 
 </dd>
 <dt><b><A NAME="loadloopsets">LoadLoopsets</A></b></dt>
@@ -379,7 +383,9 @@ see <i>perldoc MIDI::ALSA</i>)</p>
 choice of the most recent <i>.dump</i> files in <i>~/midiloop/</i></p>
 
 <p>One <i>.dump</i> file can contain multiple LoopSets, each containing
-multiple Channels.</p>
+multiple Channels.
+</P><P>
+An example dump-file is: <A HREF="free/hambone.dump">hambone.dump</A></P>
 
 </dd>
 <dt><b><A NAME="quit">Quit</A></b></dt>

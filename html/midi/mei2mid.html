@@ -19,12 +19,15 @@ CONTENT="MIDI, MIDI::Perl, MEI, XML::Parser">
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<li><a href="#options">OPTIONS</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
+	<li><a href="#options">OPTIONS</a></li>
 	<li><a href="#download">DOWNLOAD</a></li>
 	<li><a href="#changes">CHANGES</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#credits">CREDITS</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
@@ -49,17 +52,19 @@ CONTENT="MIDI, MIDI::Perl, MEI, XML::Parser">
 <hr />
 <h3><a name="description">DESCRIPTION</a></h3>
 <p>
-This script converts a musical score in MEI format into a MIDI
+This script was intended to convert a musical score in MEI format into a MIDI
 file.  It uses the XML::Parser module to read the xml input, and the
 MIDI-Perl module to put together the midi output.
 </p>
 <p>
 It was written to assist in debugging "muscript -mei".
 </p><p>
-It should be considered still an early alpha release,
-but seems to work correctly on the sample MEI files at
-<A HREF="http://www.lib.virginia.edu/digital/resndev/mei/">
-www.lib.virginia.edu/digital/resndev/mei/</A>
+It should be considered an early release,
+but is already out of date,
+as it no longer works correctly on the sample MEI files at
+<A HREF="http://music-encoding.org/downloads/encodings/">
+music-encoding.org/downloads/encodings/</A><BR>
+Some re-writing will be needed :-(
 </p><p>
 </p>
 <hr />
@@ -116,7 +121,8 @@ module.
 <hr />
 <h3><a name="credits">CREDITS</a></h3>
 <p>Based on Roland Perry's
-<A HREF="http://www.lib.virginia.edu/digital/resndev/mei/">MEI</A>
+<!-- <A HREF="http://www.lib.virginia.edu/digital/resndev/mei/">MEI</A> -->
+<A HREF="http://music-encoding.org/">MEI</A>
 and on Larry Wall's <I>XML::Parser</I> module
 and Sean Burke's <I>MIDI::Perl</I> module.</p>
 <p>
@@ -129,7 +135,8 @@ and Sean Burke's <I>MIDI::Perl</I> module.</p>
 <a href="mididump.html">www.pjb.com.au/midi/mididump.html</a><BR>
 <a href="midiecho.html">www.pjb.com.au/midi/midiecho.html</a><BR>
 <a href="midiedit.html">www.pjb.com.au/midi/midiedit.html</a><BR>
-<a href="index.html">www.pjb.com.au/midi</a>
+<a href="index.html">www.pjb.com.au/midi</a><BR>
+<A HREF="http://music-encoding.org/">music-encoding.org</A>
 </p>
 
 </body>
