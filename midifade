@@ -39,8 +39,8 @@
 #   or, instead of n=new, perhaps w=wahwah and p=pan ?  74 wants also 71
 #   should this be in our hypothetical midihub? Only really applies to 11,74
 
-my $Version      = '1.9';
-my $VersionDate  = '07sep2014';
+my $Version      = '2.0'; # a new fader with val=0 does not get given val=64
+my $VersionDate  = '09aug2015';
 my $OutputPort   = $ENV{'ALSA_OUTPUT_PORTS'};
 my $ColsPerFader = 6;
 my $AlsaName     = "midifade";
@@ -372,7 +372,7 @@ sub new_fader_dialogue {
 		} else { $n = getnstr($str,3);
 		}
 		noecho();
-		if ($str) { $newfader[$[+3-$iline] = 0 + $str; }
+		if (length $str) { $newfader[$[+3-$iline] = 0 + $str; }  # 2.0 length
 		$iline -= 1;
 	}
 	return @newfader;
@@ -509,6 +509,7 @@ The B<v> bit is optional; its default value is 64.
 
 =head1 CHANGES
 
+ 2.0, 20150809, a new fader with val=0 does not get given val=64
  1.9, 20140907, -N my_name  sets the AlsaClientName
  1.8, 20130323, D can now delete the only fader
  1.7, 20120831, -o "string" works
