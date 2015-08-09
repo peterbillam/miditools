@@ -306,6 +306,7 @@ bassline - Generates a random jazz-bassline, for improvisation practice.
  bassline -2 0.15        # proportion of Half-notes (default=0.0)
  bassline -a 58,56,46,44,34,32 # avoids Bb and Ab
  bassline -A A           # Accords with the note A by avoiding Bb and Ab
+ bassline -A D,G,A       # outputs only white notes (useful with midichord)
  bassline | aplaymidi -  # do your jazz piano practice :-)
  perldoc bassline        # read the manual :-)
 
