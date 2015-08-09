@@ -20,8 +20,8 @@ use bytes;
 no strict;
 no warnings;
 
-my $Version  = '1.6';  # bug with excessive note_offs in real-time mode fixed
-my $VersionDate  = '05aug2013';
+my $Version  = '1.7';  # initially empty reigning-chord handled more gracefully
+my $VersionDate  = '08aug2015';
 my @Synopsis     = ();
 my %AdjustChannel = ('1',1); # MIDI channels which will get adjusted
 my %FixedChannel = ('0',1);  # the channels to which they will be adjusted
@@ -177,7 +177,8 @@ if ($RealTimeMode) {
 		if ($alsaevent[0] == MIDI::ALSA::SND_SEQ_EVENT_NOTEOFF()) {
 			if (defined $AdjustChannel{$cha}) {   # NOTEOFF in adjust-channel
 				my $keynote = $alsaevent[$#alsaevent][1];
-				my $chord = shift(@{$key2chordnote{$cha}{$keynote}}) ;
+				my $chord = shift(@{$key2chordnote{$cha}{$keynote}});
+				if (! $chord) { $chord = []; }
 				if (ref($chord) ne 'ARRAY') { warn "off2: chord = $chord"; }
 				foreach my $chordnote (@{$chord}) {
 					$alsaevent[$#alsaevent][1] = $chordnote;
@@ -506,6 +507,7 @@ sub display_chord {
 			if ($ReigningChord[$n]) { push @reigning_notes, $n; }
 		}
 		my $s = join(',', map { $n2str[$_%12] } @reigning_notes);
+		if (! $s) { $s = 'still empty'; }  # 1.7
 		gotoxy(1,4);
 		puts("Reigning chord is $s");
 	}
@@ -1065,6 +1067,7 @@ keyboard on channel 0, using these commands:
 
 =head1 CHANGES
 
+ 1.7 20150809 an initially empty reigning-chord handled more gracefully
  1.6 20130805 bug with excessive note_offs in real-time mode fixed
  1.5 20130719 fixed-channel note-ons get output in real-time mode
  1.4 20130330 -i 0 forces realtime mode without connecting from anywhere
