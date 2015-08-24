@@ -43,8 +43,8 @@
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2e'; # play command introduced to play wav files
-$VersionDate           = '27may2015';
+$Version               = '3.2f'; # in-bar barlines introduced
+$VersionDate           = '24aug2015';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $isyst $ibar and $istave
@@ -1356,6 +1356,13 @@ sub newstave { $[=1;
 			}
 			$clef{$istave} = $symbol;
 		} elsif ($symbol eq 'clefspace') {
+		} elsif ($symbol eq '|') {  # 3.2f in-bar barline
+			if (!$Midi && !$Xml) {
+				my $x = ps_beat2x($CrosSoFar,$CrosPerPart);
+				$x -= 0.8*$SpaceRightOfClef*$staveheight;
+				printf "%g %g %g %g barline\n",
+				  $x, $ystave, $ystave-$staveheight, $staveheight;
+			}
 		} elsif ($symbol =~ /^=(\d+[,']?)$/) { &changestave($1);
 		} elsif (midi_in_stave($symbol)) {
 		} elsif ($CrosPerPart || $Midi || $Xml) { # is a note, blank or rest
@@ -1371,7 +1378,6 @@ sub newstave { $[=1;
 	}
 }
 sub substitute { my ($text, $infinite_depth) = @_;
-#warn "substitute: text='$text' infinite_depth=$infinite_depth\n";
 	# It takes a single line as arg, but returns a list of perhaps more than 1
 	if (ref $text eq 'ARRAY') {
 		die "substitute called with an arrayref\n";
