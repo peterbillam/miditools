@@ -154,7 +154,8 @@ with one of the currently <B>O</B>n notes in a fixed-channel.
 </p><p>
 With the <B>-ac</B> sub-option there is no difference between
 how the white keys and the black keys are treated;
-the note is chosen <B>C</B>losest to the adjust-channel note.
+the note is chosen <B>C</B>losest
+available pitch that is not discordant with a fixed-channel.
 This is usually used in conjunction with the <B>o</B> sub-option,
 i.e. <B>-aco</B>, with slow-moving fixed-channel notes
 and a faster-moving solo on the adjust-channel.
@@ -204,11 +205,19 @@ and the note's duration and velocity (or volume) are also conserved.</p>
 
 <dt><strong><a name="ac" class="item"><em>-ac</em></a></strong></dt>
 <dd>
-<p>This causes all adjust-channel keys to be translated differently into
+This causes all adjust-channel keys to be translated differently into
 the choice of adjusted-note: by taking the closest available pitch that
 is not discordant with a fixed-channel.
 It is incompatible with the
 <B><A HREF="#am">-am option</A></B>.
+</dd>
+
+<dt><strong><a name="aC" class="item"><em>-aC</em></a></strong></dt>
+<dd>
+This causes all adjust-channel keys to be translated
+by taking the closest available pitch that
+is part of the Reigning-Chord.
+This option was introduced in version 1.9
 </dd>
 
 <dt><strong><a name="am" class="item"><em>-am</em></a></strong></dt>
@@ -387,6 +396,7 @@ edit the first line to reflect where <I>perl</I> is installed on your system.
 
 <h3><a name="changes">CHANGES</a></h3>
 <pre>
+ 1.9 20150818 introduce -aC with $ClosestChord and key2closestchordnote()
  1.8 20150812 -aco unchanged, but -ac now adjusts to @ReigningChord
  1.7 20150809 an initially empty reigning-chord handled more gracefully
  1.6 20130805 bug with excessive note_offs in real-time mode fixed

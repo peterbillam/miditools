@@ -6,6 +6,8 @@
 #     This script is free software; you can redistribute it and/or      #
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
+# 20150813 an unfulfilled niche: white AND black keys to the nearest CHORD-note
+# ie: like $Closest, but not allowing non-dissonant non-chord notes ...
 #
 # Could have it detect muscript files (-t and !/\*\.mid$/), so it could
 # be used identically on realtime midi, midi files, and muscript source ?
@@ -20,8 +22,8 @@ use bytes;
 no strict;
 no warnings;
 
-my $Version  = '1.8'; # -aco unchanged, but -ac now adjusts to @ReigningChord
-my $VersionDate  = '12aug2015';
+my $Version  = '1.9'; # -aC with $ClosestChord and key2closestchordnote()
+my $VersionDate  = '18aug2015';
 my @Synopsis     = ();
 my %AdjustChannel = ('1',1); # MIDI channels which will get adjusted
 my %FixedChannel = ('0',1);  # the channels to which they will be adjusted
@@ -32,7 +34,8 @@ my @InputPorts   = ();
 my @OutputPorts  = ();
 my $Rests        = 0;    # tendancy to use rests on white adjusted-notes
 my $Modulus      = 0;    # use old modulus-rule on the white adjusted-notes
-my $Closest      = 0;    # use simply the closest available chord-note
+my $Closest      = 0;    # use the closest available non-dischordant note
+my $ClosestChord = 0;    # use simply the closest available chord-note
 my $Truncate     = 0;    # immediately terminate contradicted adjusted-notes
 my $OnNotes      = 0;    # all notes avoid dischords with currently-on-notes
 my %CurrentlyOnNote = ();
@@ -64,11 +67,12 @@ while (@ARGV and $ARGV[$[] =~ /^-(\w)/) {
 	} elsif ($1 =~ /^a/)      {
 		my @subargs = split(//, $ARGV[$[]); shift @subargs;
 		foreach my $subarg (@subargs) {
-			if      ($subarg eq 'c') {  $Closest  = 1; $Modulus  = 0;
-			} elsif ($subarg eq 'm') {  $Modulus  = 1; $Closest  = 0;
-			} elsif ($subarg eq 'o') {  $OnNotes=1; $Closest=1; $Modulus=0;
-			} elsif ($subarg eq 'r') {  $Rests    = 1;
-			} elsif ($subarg eq 't') {  $Truncate = 1;
+			if      ($subarg eq 'c') { $Closest  = 1;     $Modulus = 0;
+			} elsif ($subarg eq 'C') { $ClosestChord = 1; $OnNotes = 0; # 1.9
+			} elsif ($subarg eq 'm') { $Modulus  = 1;     $Closest = 0;
+			} elsif ($subarg eq 'o') { $OnNotes  = 1; $Closest=1; $Modulus=0;
+			} elsif ($subarg eq 'r') { $Rests    = 1;
+			} elsif ($subarg eq 't') { $Truncate = 1;
 			}
 		}
 		shift @ARGV;
@@ -204,9 +208,15 @@ if ($RealTimeMode) {
 			if (defined $AdjustChannel{$cha}) {
 				my $keynote = $alsaevent[$#alsaevent][1];
 				my $w = $keynote%12;
-				if ($Closest) {   # 1.3  output the closest
-					# XXX should do the adjustment...
+				if ($Closest) {   # 1.3  output the closest non-dischord
 					my $note = key2closestnote($keynote);
+					if (! defined $note) { next; }
+					$alsaevent[$#alsaevent][1] = $note;
+					push @{$key2chordnote{$cha}{$keynote}}, [$note];
+					MIDI::ALSA::output(@alsaevent);
+					$OnAdjustedNotes{$cha}{$note} += 1;
+				} elsif ($ClosestChord) {   # 1.9  closest chord-note
+					my $note = key2closestchordnote($keynote);
 					if (! defined $note) { next; }
 					$alsaevent[$#alsaevent][1] = $note;
 					push @{$key2chordnote{$cha}{$keynote}}, [$note];
@@ -304,8 +314,14 @@ if ($RealTimeMode) {
 			if (defined $AdjustChannel{$cha}) {
 				my $keynote = $event[4];
 				my $w = $keynote%12;
-				if ($Closest) {   # 1.3  output the closest
+				if ($Closest) {   # 1.3  output the closest non-dischord
 					my $note = key2closestnote($keynote);
+					if (! defined $note) { next; }
+					my @event_copy = @event;
+					$event_copy[4] = $note;
+					push @new_track, \@event_copy;
+				} elsif ($ClosestChord) {   # 1.9  closest chord-note
+					my $note = key2closestchordnote($keynote);
 					if (! defined $note) { next; }
 					my @event_copy = @event;
 					$event_copy[4] = $note;
@@ -393,24 +409,22 @@ sub whitekey2note { my $keynote = $_[$[];  # used by both real-time and .mid
 	# pitch_wheel could take a passing note, if one available,
 	#  otherwise either remain on the adjusted-note
 	#  or, again, take a rest, presumably also according to -r
-	my $w = $keynote%12;
-	my $i = round($w * 7 / 12);
+	my $w = $keynote%12;         # semitones above C
+	my $i = round($w * 7 / 12);  # seven white notes in an octave
 	my @reigning_notes =();
 	foreach my $n ($[ .. $#ReigningChord) {
 		if ($ReigningChord[$n]) { push @reigning_notes, $n; }
 	}
-	if (! @reigning_notes) { return undef; }
+	if (! @reigning_notes) { return $keynote; }   # 1.9 keynote not undef
 	my $note = $keynote-$w;  # start with the C no higher than the keynote
 	my $n_notes = scalar(@reigning_notes);
 	if ($Modulus or $n_notes == 2 or $n_notes == 1) {
 		$note += $reigning_notes[$i%$n_notes];
 	} else {
-		if ($n_notes == 6) {
-			if ($i == 6) { # B
-				if ($Rests) {
-					next; # must make up time in the .mid case
-				} else {
-					$note += $reigning_notes[6];
+		if ($n_notes == 6) {  # the ReigningChord is a whole-tone chord
+			if ($i == 6) {    # B
+				if ($Rests) { next; # must make up time in the .mid case
+				} else { $note += $reigning_notes[6];
 				}
 			} else {
 				$note += $reigning_notes[$i];
@@ -419,7 +433,8 @@ sub whitekey2note { my $keynote = $_[$[];  # used by both real-time and .mid
 			my @i2irn = (0,1,2,3,2,3,4);
 			$note += $reigning_notes[$i2irn[$i]];
 		} elsif ($n_notes == 4) {
-			my @i2irn = (0,1,2,3,1,2,3);
+			# my @i2irn = (0,1,2,3,1,2,3);
+			my @i2irn = (0,1,1,2,3,2,3);  # 1.9 experiment: more monotonic
 			$note += $reigning_notes[$i2irn[$i]];
 		} elsif ($n_notes == 3) {
 			my @i2irn = (0,1,0,1,2,1,2);
@@ -481,6 +496,25 @@ sub key2closestnote { local $keynote = $_[$[]; # used by real-time and .mid
 		}
 	}
 	die "key2closestnote: shouldn't reach here\n";
+}
+
+sub key2closestchordnote { my $keynote = $_[$[]; # 1.9 real-time and .mid
+	my $note =  $keynote  % 12;
+	if ($ReigningChord[$note]) { return $keynote; }
+	foreach my $interval (1..6) {
+		my $np = ($note + $interval)  %12;
+		my $nm = ($note+12-$interval) %12;
+		if (($ReigningChord[$nm]) and ($ReigningChord[$np])) {
+			if (0.5 < rand(1.0)) { return ($keynote+128-$interval) % 128;
+			} else { return ($keynote+$interval) % 128;
+			}
+		} elsif ($ReigningChord[$np]) {
+			return ($keynote+$interval) % 128;
+		} elsif ($ReigningChord[$nm]) {
+			return ($keynote+128-$interval) % 128;
+		}
+	}
+	return $keynote;  # only get here if the reigning-chord is empty
 }
 
 die "shouldn't reach here";
@@ -906,7 +940,8 @@ with one of the currently B<O>n notes in a fixed-channel.
 
 With the B<-ac> sub-option there is no difference between
 how the white keys and the black keys are treated;
-the note is chosen B<C>losest to the adjust-channel note.
+the note is chosen B<C>losest
+available pitch that is not discordant with a fixed-channel.
 This is usually used in conjunction with the B<o> sub-option,
 i.e. B<-aco>, with slow-moving fixed-channel notes
 and a faster-moving solo on the adjust-channel.
@@ -951,6 +986,13 @@ This causes all adjust-channel keys to be translated differently into
 the choice of adjusted-note: by taking the closest available pitch that
 is not discordant with a fixed-channel.
 It is incompatible with the B<-am> option.
+
+=item I<-aC>
+
+This causes all adjust-channel keys to be translated
+by taking the closest available pitch that
+is part of the Reigning-Chord.
+This option was introduced in version 1.9
 
 =item I<-am>
 
@@ -1090,6 +1132,7 @@ keyboard on channel 0, using these commands:
 
 =head1 CHANGES
 
+ 1.9 20150818 introduce -aC with $ClosestChord and key2closestchordnote()
  1.8 20150812 -aco unchanged, but -ac now adjusts to @ReigningChord
  1.7 20150809 an initially empty reigning-chord handled more gracefully
  1.6 20130805 bug with excessive note_offs in real-time mode fixed
