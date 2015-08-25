@@ -87,11 +87,12 @@ you what the current status is and what your options are.</p>
 
 <p>The top note of the keyboard switches you into and out of
 command-mode. All other data is entered using the numbers 0..15, which
-are mapped onto some of the white notes (see USER INTERFACE).</p>
+are mapped onto some of the white notes
+<A HREF="#userinterface">(see USER INTERFACE)</A>.</p>
 
 <p>This also allows a whole set-up, with several loops and many channels,
-to be performed by notes in a standard midi-file (see the <b>-m</b>
-option).</p>
+to be performed by notes in a standard midi-file
+<A HREF="#o-m">(see the <b>-m</b> option)</A>.</p>
 
 <p>Each loopset has a basic barlength in seconds, but each channel
 within that loopset can loop at an integer multiple (1..15) of that
@@ -241,8 +242,8 @@ are output. See the <a href="#usingmuscript">USING MUSCRIPT</a> section.</p>
 <dd>
 
 <p>Connect the <b>O</b>utput to ALSA-MIDI client <i>Syn</i>. The special
-value <i>-o 0</i> tells midiloop not to connect to any other client. If
-the <i>-o</i> option is not specified, the default is the environment
+value <i>-o 0</i> tells <I>midiloop</I> not to connect to any other client.
+If the <i>-o</i> option is not specified, the default is the environment
 variable <i>$ALSA_OUTPUT_PORTS</i></p>
 
 </dd>
@@ -483,7 +484,8 @@ www.pjb.com.au/muscript/muscript</A>
 <HR>
 <H3><A NAME="changes">CHANGES</A></H3>
 
-<pre><code> 20150711 3.6 check for safe dumpfile syntax before executing
+<pre><code> 20150825 3.7 -o 0 option is respected <A HREF="#o-o">as documented</A>
+ 20150711 3.6 check for safe dumpfile syntax before executing
  20150707 3.5 Loopsets stored in scoreevent form, but loaded in either
  20150706 3.4 Recording with nbars = 0 means free-loop, terminates on CmdKey
  20150626 3.3 notes-off when exiting from Record; Muteset renamed Muting

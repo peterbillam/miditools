@@ -17,8 +17,8 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1; # $Data::Dumper::Indent = 0;
 
 use Time::HiRes();
 select STDERR; $|=1; select STDOUT;
-my $Version = '3.6'; # check for safe dumpfile syntax before executing
-my $VersionDate  = '11jul2015';
+my $Version = '3.7'; # -o 0 option is respected as documented
+my $VersionDate  = '25aug2015';
 
 my $RecordingChannel = undef;
 my $RecordingFree  = 0;
@@ -301,8 +301,8 @@ suspend_screensaver();
 
 # code based on midiecho's RealTime mode....
 
-if (!$OutputPort) { $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'}; }
-if (!$OutputPort) {
+if ($OutputPort eq '') { $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'}; }
+if ($OutputPort eq '') {   # 3.7 use explicit ''
 	warn "OutputPort not specified and ALSA_OUTPUT_PORTS not set\n";
 }
 MIDI::ALSA::client( "midiloop pid=$$", 1, 1, 1 );
@@ -311,9 +311,11 @@ foreach my $cl_po (split /,/, $InputPort) {
 		die "can't connect from ALSA client $cl_po\n";
 	}
 }
-foreach my $cl_po (split /,/, $OutputPort) {  # 3.6
-	if (! MIDI::ALSA::connectto( 1, $cl_po )) {
-		die "can't connect to ALSA client $cl_po\n";
+if ($OutputPort ne '0') {   # 3.7
+	foreach my $cl_po (split /,/, $OutputPort) {  # 3.6
+		if (! MIDI::ALSA::connectto( 1, $cl_po )) {
+			die "can't connect to ALSA client $cl_po\n";
+		}
 	}
 }
 if (! MIDI::ALSA::start()) {
@@ -1802,6 +1804,7 @@ I<muscript> is available at
 
 =head1 CHANGES
 
+ 20150825 3.7 -o 0 option is respected as documented
  20150711 3.6 check for safe dumpfile syntax before executing
  20150707 3.5 Loopsets stored in scoreevent form, but loaded in either
  20150706 3.4 Recording with nbars = 0 means free-loop, terminates on CmdKey
