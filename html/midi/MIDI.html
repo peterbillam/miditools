@@ -17,6 +17,11 @@ where&nbsp;"midi"&nbsp;means&nbsp;the&nbsp;MIDI-file&nbsp;bytes&nbsp;(as&nbsp;ca
 or&nbsp;piped&nbsp;into&nbsp;aplaymidi),&nbsp;and&nbsp;"opus"&nbsp;and&nbsp;"score"&nbsp;are&nbsp;list-structures<br>
 as&nbsp;inspired&nbsp;by&nbsp;Sean&nbsp;Burke's&nbsp;MIDI-Perl&nbsp;CPAN&nbsp;module.<br>
 &nbsp;<br>
+Warning:&nbsp;Version&nbsp;6.4&nbsp;is&nbsp;not&nbsp;necessarily&nbsp;backward-compatible&nbsp;with<br>
+previous&nbsp;versions,&nbsp;in&nbsp;that&nbsp;text-data&nbsp;is&nbsp;now&nbsp;bytes&nbsp;(or&nbsp;bytearray),<br>
+not&nbsp;strings.&nbsp;&nbsp;This&nbsp;reflects&nbsp;the&nbsp;fact&nbsp;that&nbsp;many&nbsp;MIDI&nbsp;files&nbsp;have&nbsp;text<br>
+data&nbsp;in&nbsp;encodings&nbsp;other&nbsp;that&nbsp;ISO-8859-1,&nbsp;for&nbsp;example&nbsp;in&nbsp;Shift-JIS.<br>
+&nbsp;<br>
 Download&nbsp;MIDI.py&nbsp;from&nbsp;&nbsp;&nbsp;<a href="http://www.pjb.com.au/midi/free/MIDI.py">http://www.pjb.com.au/midi/free/MIDI.py</a><br>
 and&nbsp;put&nbsp;it&nbsp;in&nbsp;your&nbsp;PYTHONPATH.&nbsp;&nbsp;MIDI.py&nbsp;depends&nbsp;on&nbsp;Python3.<br>
 &nbsp;<br>
@@ -80,7 +85,7 @@ event,&nbsp;with&nbsp;a&nbsp;duration:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_pos&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;16,383&nbsp;(0x3FFF)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song_number&nbsp;=&nbsp;a&nbsp;value&nbsp;0&nbsp;to&nbsp;127<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempo&nbsp;=&nbsp;microseconds&nbsp;per&nbsp;crochet&nbsp;(quarter-note),&nbsp;0&nbsp;to&nbsp;16777215<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text&nbsp;=&nbsp;a&nbsp;string&nbsp;of&nbsp;0&nbsp;or&nbsp;more&nbsp;bytes&nbsp;of&nbsp;of&nbsp;ASCII&nbsp;text<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text&nbsp;=&nbsp;bytes,&nbsp;or&nbsp;bytearray,&nbsp;of&nbsp;length&nbsp;0&nbsp;or&nbsp;more<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ticks&nbsp;=&nbsp;the&nbsp;number&nbsp;of&nbsp;ticks&nbsp;per&nbsp;crochet&nbsp;(quarter-note)<br>
 &nbsp;<br>
 &nbsp;&nbsp;&nbsp;In&nbsp;sysex_f0&nbsp;events,&nbsp;the&nbsp;raw&nbsp;data&nbsp;must&nbsp;not&nbsp;start&nbsp;with&nbsp;a&nbsp;\xF0&nbsp;byte,<br>
@@ -91,6 +96,8 @@ event,&nbsp;with&nbsp;a&nbsp;duration:<br>
 &nbsp;&nbsp;&nbsp;last&nbsp;of&nbsp;those&nbsp;sysex_f7&nbsp;events&nbsp;must&nbsp;end&nbsp;with&nbsp;the&nbsp;explicit&nbsp;\xF7&nbsp;byte<br>
 &nbsp;&nbsp;&nbsp;(again,&nbsp;the&nbsp;raw&nbsp;data&nbsp;of&nbsp;individual&nbsp;sysex_f7&nbsp;events&nbsp;must&nbsp;not&nbsp;start<br>
 &nbsp;&nbsp;&nbsp;with&nbsp;any&nbsp;\xF7&nbsp;byte,&nbsp;since&nbsp;this&nbsp;gets&nbsp;added&nbsp;automatically).<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;Since&nbsp;version&nbsp;6.4,&nbsp;text&nbsp;data&nbsp;is&nbsp;bytes&nbsp;or&nbsp;bytearray,&nbsp;not&nbsp;ISO-8859-1<br>
 &nbsp;<br>
 &nbsp;<br>
 &nbsp;&nbsp;GOING&nbsp;THROUGH&nbsp;A&nbsp;SCORE&nbsp;WITHIN&nbsp;A&nbsp;PYTHON&nbsp;PROGRAM<br>
@@ -253,6 +260,6 @@ but&nbsp;it&nbsp;does&nbsp;make&nbsp;it&nbsp;easy&nbsp;to&nbsp;mix&nbsp;differen
 <strong>Notenum2percussion</strong> = {35: 'Acoustic Bass Drum', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare', 39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat', 43: 'High Floor Tom', 44: 'Pedal Hi-Hat', ...}<br>
 <strong>Number2patch</strong> = {0: 'Acoustic Grand', 1: 'Bright Acoustic', 2: 'Electric Grand', 3: 'Honky-Tonk', 4: 'Electric Piano 1', 5: 'Electric Piano 2', 6: 'Harpsichord', 7: 'Clav', 8: 'Celesta', 9: 'Glockenspiel', ...}<br>
 <strong>Text_events</strong> = ('text_event', 'copyright_text_event', 'track_name', 'instrument_name', 'lyric', 'marker', 'cue_point', 'text_event_08', 'text_event_09', 'text_event_0a', 'text_event_0b', 'text_event_0c', 'text_event_0d', 'text_event_0e', 'text_event_0f')<br>
-<strong>Version</strong> = '6.3'<br>
-<strong>VersionDate</strong> = '20150628'</td></tr></table>
+<strong>Version</strong> = '6.4'<br>
+<strong>VersionDate</strong> = '20150920'</td></tr></table>
 </body></html>
