@@ -121,8 +121,9 @@ event, with a duration:
 
 import sys, struct, os, copy
 # sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb')
-Version = '6.4'
-VersionDate = '20150920'
+Version = '6.5'
+VersionDate = '20150921'
+# 20150921 6.5 segment restores controllers as well as patch and tempo
 # 20150914 6.4 text data is bytes or bytearray, not ISO-8859-1 strings
 # 20150628 6.3 absent any set_tempo, default is 120bpm (see MIDI file spec 1.1)
 # 20150101 6.2 all text events can be 8-bit; let user get the right encoding
@@ -599,19 +600,28 @@ be returned.
             i += 1
             continue
         new_track = []
+        channel2cc_num  = {}     # most recent controller change before start
+        channel2cc_val  = {}
+        channel2cc_time = {}
         channel2patch_num  = {}  # keep most recent patch change before start
         channel2patch_time = {}
         set_tempo_num  = 500000 # most recent tempo change before start 6.3
         set_tempo_time = 0
         earliest_note_time = end_time
         for event in score[i]:
-            if event[0] == 'patch_change':
+            if event[0] == 'control_change':  # 6.5
+                cc_time = channel2cc_time.get(event[2]) or 0
+                if (event[1] <= start_time) and (event[1] >= cc_time):
+                    channel2cc_num[event[2]]  = event[3]
+                    channel2cc_val[event[2]]  = event[4]
+                    channel2cc_time[event[2]] = event[1]
+            elif event[0] == 'patch_change':
                 patch_time = channel2patch_time.get(event[2]) or 0
-                if (event[1] < start_time) and (event[1] >= patch_time):  # 2.0
+                if (event[1]<=start_time) and (event[1] >= patch_time):  # 2.0
                     channel2patch_num[event[2]]  = event[3]
                     channel2patch_time[event[2]] = event[1]
-            if event[0] == 'set_tempo':
-                if (event[1] < start_time) and (event[1] >= set_tempo_time):
+            elif event[0] == 'set_tempo':
+                if (event[1]<=start_time) and (event[1]>=set_tempo_time): #6.4
                     set_tempo_num  = event[2]
                     set_tempo_time = event[1]
             if (event[1] >= start_time) and (event[1] <= end_time):
@@ -619,9 +629,11 @@ be returned.
                 if (event[0] == 'note') and (event[1] < earliest_note_time):
                     earliest_note_time = event[1]
         if len(new_track) > 0:
-            for c in channel2patch_num:
-                new_track.append(['patch_change',start_time,c,channel2patch_num[c]])
             new_track.append(['set_tempo', start_time, set_tempo_num])
+            for c in channel2patch_num:
+                new_track.append(['patch_change',start_time,c,channel2patch_num[c]],)
+            for c in channel2cc_num:   # 6.5
+                new_track.append(['control_change',start_time,c,channel2cc_num[c],channel2cc_val[c]])
             new_score.append(new_track)
         i += 1
     _clean_up_warnings()

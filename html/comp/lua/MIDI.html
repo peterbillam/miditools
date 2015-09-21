@@ -331,7 +331,13 @@ as the argument, beginning at &quot;start_time&quot; ticks
 and ending at &quot;end_time&quot; ticks
 (or at the end if &quot;end_time&quot; is not supplied).
 If the array &quot;tracks&quot; is specified,
-only those tracks will be returned.</p>
+only those tracks will be returned.
+</p><p>
+The current state at the start of the segment,
+of the tempo, the patches and the controllers is noted,
+and these settings are added in at the beginning of the returned segment,
+so that it sounds the same.
+</p>
 </dd>
 
 <dt>
@@ -491,7 +497,7 @@ so you should be able to install it with the command:</p>
  # luarocks install midi</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.3-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.5-0.rockspec</pre>
 </p><p>
 The test script used during development is
 <a href="http://www.pjb.com.au/comp/lua/test_mi.lua">
