@@ -1468,6 +1468,9 @@ sub segment { my ($score_ref, $args_ref) = @_;
             next;
         }
         my @new_track = ();
+        my %channel2cc_num;    # most recent controller change before start
+        my %channel2cc_val;
+        my %channel2cc_time;
         my %channel2patch_num; # keep most recent patch change before start
         my %channel2patch_time;
         my $set_tempo_num = 1000000; # most recent tempo change before start
@@ -1475,9 +1478,16 @@ sub segment { my ($score_ref, $args_ref) = @_;
         my $earliest_note_time = $end;
         for my $event_ref (@{$score[$itrack]}) {
             my @event = @$event_ref;
-            if ($event[0] eq 'patch_change') {
+            if ($event[0] eq 'control_change') {   # 5.7
+                my $cc_time = $channel2cc_time{$event[2]} || 0;
+                if ($event[1] < $start and $event[1] >= $cc_time) {  # 2.0
+                    $channel2cc_num{$event[2]}  = $event[3];
+                    $channel2cc_val{$event[2]}  = $event[4];
+                    $channel2cc_time{$event[2]} = $event[1];
+                }
+            } elsif ($event[0] eq 'patch_change') {
                 my $patch_time = $channel2patch_time{$event[2]} || 0;
-                if ($event[1] < $start and $event[1] >= $atch_time) {  # 2.0
+                if ($event[1] < $start and $event[1] >= $patch_time) {  # 2.0
                     $channel2patch_num{$event[2]}  = $event[3];
                     $channel2patch_time{$event[2]} = $event[1];
                 }
@@ -1495,11 +1505,15 @@ sub segment { my ($score_ref, $args_ref) = @_;
             }
         }
         if (@new_track) {
+            push @new_track, ['set_tempo', $start, $set_tempo_num];
             foreach my $c (sort keys %channel2patch_num) {
                 push @new_track,
                  ['patch_change',$start,$c,$channel2patch_num{$c}];
             }
-            push @new_track, ['set_tempo', $start, $set_tempo_num];
+            foreach my $c (sort keys %channel2cc_num) {
+                push @new_track, ['control_change',$start,$c,
+				  $channel2cc_num{$c},$channel2cc_val{$c}];
+            }
             push @new_score, \@new_track;
         }
         $itrack += 1;
