@@ -37,8 +37,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.0'; # displays also Metronome Click and Metronome Bell
-my $VersionDate = '20150513';
+my $Version = '7.1'; # event2str handles unprintable chars in text events
+my $VersionDate = '20151002';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -896,7 +896,11 @@ sub event2str { my ($ie) = @_;
 		if ($ie > $[) { $event[$[+1] -= $Track[$ie-1][$[+1]; }
 		$event[$[+1] = "+".$event[$[+1];
 		if ($event[$[] =~ /marker|sysex|text/) {
-			$str = sprintf(' %14s %6s %s', @event);
+			my $s = $event[$[+2];
+			$s =~ tr/][A-Za-z _'".+:\/-//cd;   # 7.1
+			$s =~ s/\s+/ /g;   $s =~ s/^\s+//;
+			$str = sprintf(' %14s %6d %s', $event[$[], $event[$[+1], $s);
+			# $str = sprintf(' %14s %6s %s', @event);
 		} elsif (6 == scalar @event) {
 			$str = sprintf(' %14s %6s %5d %5d %5d %5d', @event);
 		} elsif (5 == scalar @event) {
@@ -913,7 +917,10 @@ sub event2str { my ($ie) = @_;
 		}
 	} else {
 		if ($event[$[] =~ /marker|sysex|text/) {
-			$str = sprintf(' %14s %6d %s', @event);
+			my $s = $event[$[+2];
+			$s =~ tr/][A-Za-z _'".+:\/-//cd;   # 7.1
+			$s =~ s/\s+/ /g;   $s =~ s/^\s+//;
+			$str = sprintf(' %14s %6d %s', $event[$[], $event[$[+1], $s);
 		} elsif (6 == scalar @event) {
 			$str = sprintf(' %14s %6d %5d %5d %5d %5d', @event);
 		} elsif (5 == scalar @event) {
@@ -2293,6 +2300,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.1 20151002, event2str defends against unprintable chars in text events
  7.0 20150513, displays also Metronome Click and Metronome Bell
  6.9 20150411, all_sounds_off also turns all notes off
  6.8 20150223, display channel_after_touch column-aligned as cha_aftertouch
