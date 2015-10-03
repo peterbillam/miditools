@@ -35,10 +35,12 @@
 # we should have either ri=range-insert,  or ir=insert-range,
 # or introduce a Buffer: ry=range-yank and rd=range-delete and p=paste
 
+use Data::Dumper; $Data::Dumper::Indent = 0; $Data::Dumper::Sortkeys = 1;
+
 use Time::HiRes;  # 5.3
 
-my $Version = '7.1'; # event2str handles unprintable chars in text events
-my $VersionDate = '20151002';
+my $Version = '7.2'; # fix bug which introduced undefined events
+my $VersionDate = '20151003';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -196,7 +198,11 @@ if (! $UseCurses) {
 # ----- the Curses app...
 my $File  = $ARGV[$[];
 my @score = file2ms_score($File);   # 1.7
-my @Track = sort {$$a[$[+1] <=> $$b[$[+1]} @{$score[1]};
+# foreach my $e (@Track) { if (! defined $e->[$[]) { debug("UNDEF 1"); } }
+my @buggyTrack = sort {$$a[$[+1] <=> $$b[$[+1]} @{$score[1]};  # 7.2
+my @Track = ();
+# 7.2 ARGGghhh... the sort introduces extra events with undefined types :-(
+foreach my $e (@buggyTrack) { if (defined $e->[$[]) { push @Track, $e; } }
 my $Now   = 0;   # ticks? secs?
 my $Ievent = $[; # perhaps $[-1 should mean before_the_first_event ?
 my $Paused = 1;
@@ -888,25 +894,30 @@ sub edit_event {  my $initial_ch = $_[$[];
 	}
 }
 
+sub sanitise_event_text { my @event = @_;  # 7.2
+	$event[$[+2] =~ tr/][A-Za-z0-9 _'"`.+:\/@&)(=*^%$#!?}{|\\~-//cd;   # 7.1
+	$event[$[+2] =~ s/\s+/ /g;
+	$event[$[+2] =~ s/^\s+//;
+	return @event;
+}
+
 sub event2str { my ($ie) = @_;
 	if ($ie > $#Track) { return ''; }   # 4.7 needed after a big range_delete
+	if ($ie < $[) { debug("event2str($ie)"); }
 	my @event = @{$Track[$ie]};
 	my $str = ' ';
 	if ($IncrementalTimes) {
 		if ($ie > $[) { $event[$[+1] -= $Track[$ie-1][$[+1]; }
 		$event[$[+1] = "+".$event[$[+1];
-		if ($event[$[] =~ /marker|sysex|text/) {
-			my $s = $event[$[+2];
-			$s =~ tr/][A-Za-z _'".+:\/-//cd;   # 7.1
-			$s =~ s/\s+/ /g;   $s =~ s/^\s+//;
-			$str = sprintf(' %14s %6d %s', $event[$[], $event[$[+1], $s);
-			# $str = sprintf(' %14s %6s %s', @event);
+		if ($event[$[] =~ /marker|sysex|text|track_name/) {  # 7.2 track_name
+			$str = sprintf(' %14s %6s %s', sanitise_event_text(@event));
 		} elsif (6 == scalar @event) {
 			$str = sprintf(' %14s %6s %5d %5d %5d %5d', @event);
 		} elsif (5 == scalar @event) {
 			$str = sprintf(' %14s %6s %5d %5d %5d', @event);
 		} elsif ($event[$[] eq 'pitch_wheel_change') {
 			$str = sprintf('%s %5s %4d %6d', @event);
+		} elsif (! defined $event[$[]) {
 		} elsif (4 == scalar @event) {
 			if ($event[$[] eq 'channel_after_touch') {  # 6.8
 				$event[$[] = 'cha_aftertouch';
@@ -916,15 +927,15 @@ sub event2str { my ($ie) = @_;
 			$str = sprintf(' %14s %6s %5d', @event);
 		}
 	} else {
-		if ($event[$[] =~ /marker|sysex|text/) {
-			my $s = $event[$[+2];
-			$s =~ tr/][A-Za-z _'".+:\/-//cd;   # 7.1
-			$s =~ s/\s+/ /g;   $s =~ s/^\s+//;
-			$str = sprintf(' %14s %6d %s', $event[$[], $event[$[+1], $s);
+		if ($event[$[] =~ /marker|sysex|text|track_name/) {  # 7.2 track_name
+			$str = sprintf(' %14s %6s %s', sanitise_event_text(@event));
 		} elsif (6 == scalar @event) {
 			$str = sprintf(' %14s %6d %5d %5d %5d %5d', @event);
 		} elsif (5 == scalar @event) {
 			$str = sprintf(' %14s %6d %5d %5d %5d', @event);
+		} elsif ($event[$[] eq 'pitch_wheel_change') {
+			$str = sprintf('%s %5s %4d %6d', @event);
+		} elsif (! defined $event[$[]) {
 		} elsif (4 == scalar @event) {
 			if ($event[$[] eq 'channel_after_touch') {  # 6.8
 				$event[$[] = 'cha_aftertouch';
@@ -1977,12 +1988,10 @@ sub score2opus {
 			   @{$time2events{$scoreevent[1]}} = (\@scoreevent,);
 			}
 		}
-
 		my @sorted_events = (); # list of event_refs sorted by time
 		for my $time (sort {$a <=> $b} keys %time2events) {
 			push @sorted_events, @{$time2events{$time}};
 		}
-
 		my $abs_time = 0;
 		for my $event_ref (@sorted_events) {  # convert abs times => delta times
 			my $delta_time = ${$event_ref}[1] - $abs_time;
@@ -2064,6 +2073,12 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 				 $cha, $pitch, $opus_event[4]];
 				my $key = $cha*128 + $pitch;
 				push @{$chapitch2note_on_events{$key}}, $new_event_ref;
+#			} elsif (! defined $opus_event[0]) {  # 7.2 ; a workaround :-(
+#debug('undefined: '.Dumper(\@opus_event));
+#				next;
+#			} elsif (length($opus_event[0]) == 0) {  # 7.2 ; a workaround :-(
+#debug('zero-length: '.Dumper(\@opus_event));
+#				next;
 			} else {
 				$opus_event[1] = $ticks_so_far;
 				push @score_track, \@opus_event;
@@ -2072,6 +2087,8 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 		# 4.7 check for unterminated notes, see: ~/lua/lib/MIDI.lua
 		while (my ($k1,$v1) = each %chapitch2note_on_events) {
 			foreach my $new_e_ref (@{$v1}) {
+#debug('unterminated: '.Dumper($new_e_ref));
+#				if (! defined ${$new_e_ref}[0]) { next; }  # 7.2
 				${$new_e_ref}[2] = $ticks_so_far - ${$new_e_ref}[1];
 				push @score_track, $new_e_ref;
 				warn("opus2score: note_on with no note_off cha="
@@ -2081,7 +2098,7 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 		}
 		push @score, \@score_track;
 	}
-	# print "opus2score: score is ", Dumper(@score);
+	# debug("opus2score: score is ".Dumper(\@score));
 	return @score;
 }
 
@@ -2090,8 +2107,6 @@ sub file2score {
 }
 
 sub file2ms_score {
-	#print "file2ms_score(@_)\n";
-	# return opus2score(to_millisecs(file2opus($_[$[])));
 	my @opus = file2opus($_[$[]);
 	my @ms = to_millisecs(@opus);
 	my @score = opus2score(@ms);
@@ -2300,6 +2315,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.2 20151003, fix bug which introduced undefined events
  7.1 20151002, event2str defends against unprintable chars in text events
  7.0 20150513, displays also Metronome Click and Metronome Bell
  6.9 20150411, all_sounds_off also turns all notes off
