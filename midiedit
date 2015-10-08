@@ -35,12 +35,12 @@
 # we should have either ri=range-insert,  or ir=insert-range,
 # or introduce a Buffer: ry=range-yank and rd=range-delete and p=paste
 
-use Data::Dumper; $Data::Dumper::Indent = 0; $Data::Dumper::Sortkeys = 1;
+# use Data::Dumper; $Data::Dumper::Indent = 0; $Data::Dumper::Sortkeys = 1;
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.2'; # fix bug which introduced undefined events
-my $VersionDate = '20151003';
+my $Version = '7.3'; # edit_again now works for markers and text events
+my $VersionDate = '20151008';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -820,6 +820,7 @@ sub edit_event {  my $initial_ch = $_[$[];
 					move($LINES-4,33); clrtoeol();
 					echo(); getnstr($s,52); noecho();
 					$changed=1;   $Track[$Ievent][$[+2] = $s;
+					$EditEvent[$[+2] = $s;  # 7.3
 				} elsif ($c eq '+' and !$IncrementalTimes) {
 					$IncrementalTimes = 1; display_events();
 					time_prompt_to($LINES-4,14,0); keystroke_prompt($k);
@@ -1374,6 +1375,8 @@ sub edit_again {
 				$event[$i] = 0+$EditEvent[$i];
 			} elsif ($EditEvent[$i] =~ /^[-+]\d+$/) {
 				$event[$i] += 0+$EditEvent[$i];
+			} elsif ($event[$[] =~ /^(marker|text)/) {  # 7.3
+				$event[$i] = $EditEvent[$i];
 			}
 		}
 	}
@@ -2073,12 +2076,6 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 				 $cha, $pitch, $opus_event[4]];
 				my $key = $cha*128 + $pitch;
 				push @{$chapitch2note_on_events{$key}}, $new_event_ref;
-#			} elsif (! defined $opus_event[0]) {  # 7.2 ; a workaround :-(
-#debug('undefined: '.Dumper(\@opus_event));
-#				next;
-#			} elsif (length($opus_event[0]) == 0) {  # 7.2 ; a workaround :-(
-#debug('zero-length: '.Dumper(\@opus_event));
-#				next;
 			} else {
 				$opus_event[1] = $ticks_so_far;
 				push @score_track, \@opus_event;
@@ -2087,8 +2084,6 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 		# 4.7 check for unterminated notes, see: ~/lua/lib/MIDI.lua
 		while (my ($k1,$v1) = each %chapitch2note_on_events) {
 			foreach my $new_e_ref (@{$v1}) {
-#debug('unterminated: '.Dumper($new_e_ref));
-#				if (! defined ${$new_e_ref}[0]) { next; }  # 7.2
 				${$new_e_ref}[2] = $ticks_so_far - ${$new_e_ref}[1];
 				push @score_track, $new_e_ref;
 				warn("opus2score: note_on with no note_off cha="
@@ -2098,7 +2093,6 @@ sub opus2score {  my ($ticks, @opus_tracks) = @_;
 		}
 		push @score, \@score_track;
 	}
-	# debug("opus2score: score is ".Dumper(\@score));
 	return @score;
 }
 
@@ -2315,6 +2309,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.3 20151008, edit_again now works for markers and text events
  7.2 20151003, fix bug which introduced undefined events
  7.1 20151002, event2str defends against unprintable chars in text events
  7.0 20150513, displays also Metronome Click and Metronome Bell
