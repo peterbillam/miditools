@@ -6,6 +6,15 @@
 #     This script is free software; you can redistribute it and/or      #
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
+# 20151018
+# 1) Undo should leave the cursor where it was JUST BEFORE THE MOST RECENT
+#    edit that's just been undone, and not JUST AFTER THE EDIT BEFORE THAT.
+# 2) Find Marker should do substring matching. Perhaps it should try
+#    whole-of-string matching first, failing that start-of-string
+#    matching, and failing that substring (very much like eo_en does)
+# 3) Immediately after a find, perhaps Left should have the special-case
+#    meaning of "Go Back" where you were before that Find ?
+#
 # Could do:
 # Option  -R = ReadOnly ?
 # If there are NEW SECTION markers, we should offer save-in-sections
@@ -84,7 +93,7 @@ my @note2letter=split / /,'C C D E E F F G G A B B c c d e e f f g g a b b';
 my @note2acc = ('','#','','b','','','#','','#','','b','');
 my %sysex2str = (   # 3.6
 	"\x7E\x7F\x09\x01\xF7" => 'gm 1',
-	"\x7E\x7F\x09\x01\xF7" => 'gm on',
+#	"\x7E\x7F\x09\x01\xF7" => 'gm on',
 	"\x7E\x7F\x09\x02\xF7" => 'gm off',
 	"\x7E\x7F\x09\x03\xF7" => 'gm 2',
 );
