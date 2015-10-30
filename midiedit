@@ -6,22 +6,22 @@
 #     This script is free software; you can redistribute it and/or      #
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
-# 20151018
-# 1) Undo should leave the cursor where it was JUST BEFORE THE MOST RECENT
-#    edit that's just been undone, and not JUST AFTER THE EDIT BEFORE THAT.
-# 2) Find Marker should do substring matching. Perhaps it should try
+# 20151030
+# 1) Find Marker should do substring matching. Perhaps it should try
 #    whole-of-string matching first, failing that start-of-string
 #    matching, and failing that substring (very much like eo_en does)
-# 3) Immediately after a find, perhaps Left should have the special-case
+# 2) Immediately after a find, perhaps Left should have the special-case
 #    meaning of "Go Back" where you were before that Find ?
+# 3) Sometimes after 'w' the w remains displayed at the end of the current line
+# 4) introduce a Buffer: ry=range-yank or rd=range-delete, then p=paste
+# 5) could display the patch of the current event, if there's room somewhere
+# 6) do we need to store Now? und_do,re_do $Now = $Track[$Ievent][$[+1] + 1;
 #
 # Could do:
 # Option  -R = ReadOnly ?
-# If there are NEW SECTION markers, we should offer save-in-sections
 # When editing a note-pitch, midi-keyboard input could be accepted, perhaps
 #  even without a  p=pitch  first.  Should it also edit the v=velocity ?
 # u=undo seems to mess up deltatimes ? :-(
-# eschew $Now= in favour of time_travel() !
 
 # Not so convincing:
 # It should be possible to choose, when moving times (arrows,page):
@@ -48,8 +48,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.3'; # edit_again now works for markers and text events
-my $VersionDate = '20151008';
+my $Version = '7.5'; # like 7.4, except also works for multiple un-do's
+my $VersionDate = '20151031';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -294,6 +294,7 @@ while (1) {  # the loop
 		if ($Paused) { quit(); }
 		$Paused = 1; timeout(-1); display_screen();
 	} elsif ($c eq 'D' or $c == KEY_DL() or $c == KEY_DC())    {
+		set_before_last_change($Ievent);  # 7.5
 		if ($IncrementalTimes) {
 			my $dt = delta_t($Ievent);
 			foreach my $ie ($Ievent+1..$#Track) { $Track[$ie][$[+1] -= $dt; }
@@ -305,8 +306,12 @@ while (1) {  # the loop
 		add_to_history(); display_screen();
 	} elsif ($c eq 'e')  {
 		$Paused = 1;  edit_event();  play_current_event();  display_screen();
-	} elsif ($c eq '.')  { edit_again();  display_screen();  # 2.9
-	} elsif ($c eq 'i')  { insert_event();  display_screen();
+	} elsif ($c eq '.')  {
+		set_before_last_change($Ievent);  # 7.5
+		edit_again();  display_screen();  # 2.9
+	} elsif ($c eq 'i')  {
+		set_before_last_change($Ievent);  # 7.5
+		insert_event();  display_screen();
 	} elsif ($c eq ']' or $c eq '}')  {
 		$ReplaySpeed *= 1.41421356; $RS = sprintf('%.1f',$ReplaySpeed);
 		display_screen(); #3.1
@@ -368,27 +373,27 @@ sub addl { my ($lin,$col,$str) = @_;
 	if ($col < 2) { $col = 2;  $str = substr($str, $[, $[+$COLS-4); }  # 4.8
 	move($lin,$col); addstr($str); clrtoeol();
 }
+sub set_before_last_change {  my $i_event = $_[$[];  # 7.5
+	$History[$Ihistory-1] = $i_event;
+	$History[$Ihistory]   = $Track[$i_event][$[+1] + 1;
+	# so should we really store Now ? why not just restore it from Ievent ?
+}
 sub add_to_history {
 	#debug("add_to_h1: Ihistory=$Ihistory #History=$#History History=@History");
 	my @copy_track = deepcopy(@Track);
-	# should check that 1+Ihistory is a multiple of 3
-	if ((1+$Ihistory) % 3) {
-	  _warn("add_to_history: Ihistory should be 3*n - 1, not $Ihistory");
-		#debug("add_to_history: Ihistory should be 3*n - 1, not $Ihistory");
+	if ((1+$Ihistory) % 3) { # check that 1+Ihistory is a multiple of 3
+		_warn("add_to_history: Ihistory should be 3*n - 1, not $Ihistory");
 		$Ihistory -= ((1+$Ihistory)%3);
 		if ($Ihistory < 0) { $Ihistory = -1; }
 	}
 	if ((scalar @History) % 3) {
 		_warn("add_to_history: History should be multiple of 3, not "
 		  .scalar @History);
-		#debug("add_to_history: History should be multiple of 3, not ".scalar @History);
-		# $#History -= ($#History%3);
-		# if ($Ihistory < 0) { $Ihistory = 0; }
+		# if ($Ihistory < $[) { $Ihistory = $[; }
 	}
-	if ($#History > $Ihistory) {
-		$#History = $Ihistory;  # truncate History here
-	}
-	push @History, \@copy_track, $Ievent, $Now;  # hardly space-efficient :-(
+	if ($#History > $Ihistory) { $#History = $Ihistory; }  # truncate here
+	push @History, \@copy_track, $Ievent, $Now;
+	# hardly space-efficient :-(
 	$Ihistory = $#History;
 	$FileIsChanged = 1;
 	#debug("add_to_h2: Ihistory=$Ihistory History=$#History History=@History");
@@ -694,6 +699,7 @@ sub edit_event {  my $initial_ch = $_[$[];
 	@EditEvent = ($event[$[]);   # 2.9 remember the event_type
 	my $changed = 0;
 	timeout(-1);
+	my $i_before_edit = $Ievent;
 	while (1) {
 		display_this_event(@event);
 		if ($event[$[] eq 'note') {
@@ -727,9 +733,14 @@ sub edit_event {  my $initial_ch = $_[$[];
 						last;  # 1.5
 					}
 				} elsif ($c eq 'e') { next;  # 1.4
-				} elsif ($c eq '.') { edit_again(); # 3.8 display_screen();
+				} elsif ($c eq '.') {
+					set_before_last_change($i_before_edit); # 7.5
+					edit_again(); # 3.8 display_screen();
 				} else {
-					if ($changed) { add_to_history(); }
+					if ($changed) {
+						set_before_last_change($i_before_edit); # 7.5
+						add_to_history();
+					}
 					$Editing = 0;
 # press / ? n N during Editing should Pause, call find_event and exit
 					return;
@@ -770,7 +781,11 @@ sub edit_event {  my $initial_ch = $_[$[];
 				} elsif ($c eq 'e') { next;  # 1.4
 				} elsif ($c eq '.') { edit_again(); # 3.8 display_screen();
 				} else {
-					if ($changed) { add_to_history(); } $Editing = 0; return;
+					if ($changed) {
+						set_before_last_change($i_before_edit); # 7.5
+						add_to_history();
+					}
+					$Editing = 0; return;
 				}
 				# display_events(); move($prompt_y,$prompt_x); refresh();
 				@event = @{$Track[$Ievent]};   # 1.6
@@ -812,7 +827,11 @@ sub edit_event {  my $initial_ch = $_[$[];
 				} elsif ($c eq 'e') { next;  # 1.4
 				} elsif ($c eq '.') { edit_again(); # 3.8 display_screen();
 				} else {
-					if ($changed) { add_to_history(); } $Editing = 0; return;
+					if ($changed) {
+						set_before_last_change($i_before_edit); # 7.5
+						add_to_history();
+					}
+					$Editing = 0; return;
 				}
 				@event = @{$Track[$Ievent]};   # 2.7
 				display_this_event(@event);
@@ -853,7 +872,11 @@ sub edit_event {  my $initial_ch = $_[$[];
 				} elsif ($c eq 'e') { next;  # 1.4
 				} elsif ($c eq '.') { edit_again(); # 3.8 display_screen();
 				} else {
-					if ($changed) { add_to_history(); } $Editing = 0; return;
+					if ($changed) {
+						set_before_last_change($i_before_edit); # 7.5
+						add_to_history();
+					}
+					$Editing = 0; return;
 				}
 				# display_events(); move($prompt_y,$prompt_x); refresh();
 				@event = @{$Track[$Ievent]};   # 2.7
@@ -891,6 +914,7 @@ sub edit_event {  my $initial_ch = $_[$[];
 				} else {
 					if ($changed or $called_from_insert_event) {   # 4.3
 						play_current_event();   # 4.4
+						set_before_last_change($i_before_edit); # 7.5
 						add_to_history();
 					}
 					$Editing = 0; return;
@@ -1028,6 +1052,7 @@ sub file_menu {   # 4.8
 		$RangeStart = $Ievent;
 		$RangeEnd   = $Ievent - 1 + scalar @new_track;
 		$Message = sprintf("%d new events", scalar @new_track);
+		set_before_last_change($Ievent); # 7.5
 		add_to_history();
 
 	} elsif ($c eq 'n') {
@@ -1390,6 +1415,7 @@ sub edit_again {
 		}
 	}
 	$Track[$Ievent] = \@event;
+	set_before_last_change($Ievent); # 7.5
 	add_to_history();
 }
 
@@ -1548,6 +1574,7 @@ sub ask_filename {  my ($y, $prompt) = @_;  # 6.3
 # after Inserting, the field labels at the top should get updated
 
 sub range_delete {   # 4.5  should defend against $RangeEnd == $#Track
+	set_before_last_change($Ievent); # 7.5
 	my $delta = $Track[$RangeEnd+1][$[+1] - $Track[$RangeStart][$[+1];
 	my $n_deleted = $RangeEnd-$RangeStart+1;
 	splice @Track, $RangeStart, $n_deleted;
@@ -1564,6 +1591,7 @@ sub range_delete {   # 4.5  should defend against $RangeEnd == $#Track
 }
 
 sub range_pitch { my @params = @_;  # 4.5; borrowed from midisox_pl
+	set_before_last_change($Ievent); # 7.5
 	my $h = ', see midisox --help-effect=pitch';
 	if (! @params) { return; }
 	my $default_incr;
@@ -1595,10 +1623,12 @@ sub range_pitch { my @params = @_;  # 4.5; borrowed from midisox_pl
 		}
 		$k += 1;
 	}
+	set_before_last_change($Ievent); # 7.5
 	add_to_history();
 }
 
 sub range_compand { my @params = @_;  # 4.5; borrowed from midisox_pl
+	set_before_last_change($Ievent); # 7.5
 	if (@params < 1) { $params[$[] = '0.5' }
 	my $default_gradient;
 	my %channel_gradient = ();
@@ -1642,6 +1672,7 @@ sub range_compand { my @params = @_;  # 4.5; borrowed from midisox_pl
 }
 
 sub range_quantise { my $quantum = $_[$[];  # 4.5; borrowed from midisox_pl
+	set_before_last_change($Ievent); # 7.5
 	if ($quantum <= 0) {
 		$Message = "the quantise interval must be positive"; return;
 	}
@@ -1683,6 +1714,7 @@ sub range_quantise { my $quantum = $_[$[];  # 4.5; borrowed from midisox_pl
 }
 
 sub range_repeat {  my $times = round($_[$[]);
+	set_before_last_change($Ievent); # 7.5
 	if ($times == 0) {
 		$Message = "to repeat zero times, just use delete"; return;
 	}
@@ -1717,6 +1749,7 @@ sub range_repeat {  my $times = round($_[$[]);
 }
 
 sub range_tempo { my $tempo = $_[$[];  # 4.5
+	set_before_last_change($Ievent); # 7.5
 	if ($tempo == 1.0) { return; }
 	if ($tempo <= 0) { $tempo = 0.1; }  # following midisox_pl usage
 	my $range_start_time   = $Track[$RangeStart][$[+1];
@@ -1737,6 +1770,7 @@ sub range_tempo { my $tempo = $_[$[];  # 4.5
 }
 
 sub range_volume { my @params = @_;  # 4.5
+	set_before_last_change($Ievent); # 7.5
 	my $h = ', see midisox --help-effect=vol';
 	if (! @params) { return; }
 	my $default_incr;
@@ -1796,6 +1830,7 @@ sub range_write {   my $filename = $_[$[];   # 4.6, 6.1
 }
 
 sub re_do {
+	set_before_last_change($Ievent); # 7.5
 	#debug("re_do1: Ihistory=$Ihistory #History=$#History History=@History");
 	if ($Ihistory > ($#History-3)) {
 		$Message="Already at newest change"; return;
@@ -1900,19 +1935,16 @@ sub event_travel { my $di = $_[$[];   # 5.2
 }
 
 sub un_do {
-	#debug("un_do1: Ihistory=$Ihistory #History=$#History History=@History");
 	if ($Ihistory < $[+3) { $Message = "Already at oldest change"; return; }
 	$Ihistory -= 3;
 	$Now    = $History[$Ihistory];
-	$Ievent = $History[$Ihistory-1];
+	$Ievent = $History[$Ihistory-1];  # 7.5 re-instated
 	my $r   = $History[$Ihistory-2];
 	@Track = deepcopy(@$r);
-	#debug("un_do2: Now=$Now Ieven=$Ievent Ihistory=$Ihistory #History=$#History History=@History");
 }
 
 #------------ MIDI infrastructure from midisox_pl ------------
 
-# ----------------------- infrastructure --------------------
 sub _print  { print ($_[$[]."\n"); }
 sub _warn   { $Message = $_[$[]; } # wiped by display_keystrokes()
 sub warning { _warn('warning: '.$_[$[]); }
@@ -2318,6 +2350,8 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.5 20151031, like 7.4, except it also works for multiple un-do's
+ 7.4 20151030, 'u' leaves Ievent as before last edit, not after the previous
  7.3 20151008, edit_again now works for markers and text events
  7.2 20151003, fix bug which introduced undefined events
  7.1 20151002, event2str defends against unprintable chars in text events
