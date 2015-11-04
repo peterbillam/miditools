@@ -161,7 +161,7 @@ so you should be able to install it with the command:</p>
  # luarocks install readline</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/readline-1.7-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/readline-1.8-0.rockspec</pre>
 <p>It depends on the <em>readline</em> library and its header-files;
 for example on Debian you may need:<BR>
 <CODE> &nbsp; # aptitude install libreadline6 libreadline6-dev</CODE>
@@ -173,6 +173,7 @@ or on Centos you may need:<BR>
 <hr />
 <h2><a name="changes">CHANGES</a></h2>
 <pre>
+ 20151020 1.8 readline() returns nil correctly on EOF
  20150421 1.7 include lua5.3, and move pod and doc back to luarocks.org
  20150416 1.6 readline specified as an external dependency
  20140608 1.5 switch pod and doc over to using moonrocks

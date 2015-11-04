@@ -555,23 +555,16 @@ sub set_var { my ($stackref, $infinite_depth) = @_;
 		$Vars{$var} = \@lines_of_var;
 
 	} elsif ($val =~
-		 /^(cycle|morse_thue|leibnitz|rabbit|random|aaba)\?\s*(.*\S)\s*\?/) {
-		my @rhs = $2;
+		 /^(cycle|morse_thue|thue_morse|leibnitz|rabbit|fibonacci|random|aaba)
+		  \?\s*(.*\S)\s*\?/x) {
+		my $f = $1;   my @rhs = $2;
 		if ($substitute_now or $infinite_depth) {   # 3.1i
 			@rhs = substitute($2, $infinite_depth);  # 3.1i
 		}
-		# Allow :
-		#   $N = morse_thue? $C1 : $C2 : $C3 : $C4 : $C5 : $C6 ?
-		#   $C1 = G, ; $C2 = c#, ; $C3 = d, ; $C4 = e' ; $C5 = g' ; $C6 = bb'
-		# much nicer than burning 6 lines every chord change,
-		#   but not much more readable...
-		# Perhaps then a syntactic-sugar version of the above :
-		#   $N = morse_thue? $C1 : $C2 : $C3 : $C4 : $C5 : $C6 ?
-		#   @C = G, : c#, : d, : e' : g' : bb'
-		#   $C1-6 = G, c#, d, e' g' bb'         <= the most readable
-		#   $C1-6 = G, : c#, : d, : e' : g' : bb'  <= handles spaces
-		# the last two are nice because you can then also do e.g. $C4-6 = 
-		my $f = $1; my @a = split(/\s*:\s*/,$rhs[$[]);
+		if ($f eq 'thue_morse') { $f = 'morse_thue';   # 3.2g synonyms...
+		} elsif ($f eq 'fibonacci') { $f = 'rabbit';
+		}
+		my @a = split(/\s*:\s*/,$rhs[$[]);
 		if (! @a) {warn "line $LineNum: empty argument list in $val\n"; last;}
 		my $e = '$Vars{$var} = '.$f.'(@a);';
 		eval $e; if ($@) { warn "line $LineNum: can't eval $e: $@\n"; }
@@ -2824,7 +2817,7 @@ sub ps_event {
 		} elsif (&is_a_note($symbol)) {
 			my $note_ref = &parse_note($symbol);
 			$symbol = $note_ref;  # 2.5m handle note as hashref
-			my $notebit .= $note_ref->{notebit};
+			my $notebit .= $note_ref->{notebit};  # XXX why .= ?
 			$total_chord_options
 			 = append_options($total_chord_options,$note_ref->{options});
 			$Y = &ps_ypitch($note_ref->{pitch});

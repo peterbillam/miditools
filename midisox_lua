@@ -502,7 +502,6 @@ local function fade(score, params)
 	if (fade_in_ticks+fade_out_ticks) > stop_time_ticks then
 		warning('the fade-in overlaps the fade-out; see midisox --help-effect=fade')
 	end
-
 	score = MIDI.segment{score, start_time=0, end_time=stop_time_ticks}
 	itrack = 1
 	for itrack = 2,#score do
