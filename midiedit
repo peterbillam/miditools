@@ -48,8 +48,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.5'; # like 7.4, except also works for multiple un-do's
-my $VersionDate = '20151031';
+my $Version = '7.6'; # finding a marker matches on a substring
+my $VersionDate = '20151105';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -219,9 +219,10 @@ my $Editing = 0;  # 1.4
 my $I_LastRefreshed = 0;  # 6.7 stores when the display was last refreshed
 my @EditEvent = ();  # 2.9 if event-type matches then '.' imposes the rest
 my @FindEvent = ();
-my $FindForwards = 1;
+my $FindForwards  = 1;
+my $FindSubstring = 1;  # 7.6 currently not changed by anything; could be later
 my $Message = '';
-my @History = ();  # (\@score,$ievent,$now, \@score,$ievent,$now, ...);
+my @History  = ();  # (\@score,$ievent,$now, \@score,$ievent,$now, ...);
 my $Ihistory = -1;
 my $IncrementalTimes = 1;
 my $RangeSettingState = 0;     # 4.5
@@ -394,6 +395,9 @@ sub add_to_history {
 	if ($#History > $Ihistory) { $#History = $Ihistory; }  # truncate here
 	push @History, \@copy_track, $Ievent, $Now;
 	# hardly space-efficient :-(
+	# could dump into text-format and use diff, or use a direct diff module:
+	# Diff::LibXDiff  Algorithm::Diff  in Lua: Diff  ltdiff
+	# http://search.cpan.org/~tyemq/Algorithm-Diff-1.1903/lib/Algorithm/Diff.pm
 	$Ihistory = $#History;
 	$FileIsChanged = 1;
 	#debug("add_to_h2: Ihistory=$Ihistory History=$#History History=@History");
@@ -742,7 +746,7 @@ sub edit_event {  my $initial_ch = $_[$[];
 						add_to_history();
 					}
 					$Editing = 0;
-# press / ? n N during Editing should Pause, call find_event and exit
+# press / ? n N during Editing should Pause, call ind_event and exit
 					return;
 				}
 				# display_events(); move($prompt_y,$prompt_x); refresh();
@@ -1087,14 +1091,18 @@ sub find_type { # used by find();  since 3.7 different from event_type
 	  = 'n=note, c=control_change, p=patch_change, m=marker, b=bank_change ';
 	addl($LINES-2, round(0.4*($COLS - length $s)) ,$s);
 	$s = 'l=long_gap,  s=short_gap,  t=time';
-	if ($RangeStart < $RangeEnd) { $s .= ',  r=range_start  R=range_end'; }
+	my %c2event_type = qw{
+	 b bank_change n note c control_change p patch_change m marker
+	 l long_gap s short_gap t time
+	};
+	if ($RangeStart < $RangeEnd) {
+		$s .= ',  r=range_start  R=range_end';
+		$c2event_type{'r'} = 'range_start'; # 7.6 only if a range is defined!
+		$c2event_type{'R'} = 'range_end';   # 7.6
+	}
 	addl($LINES-1, round(0.4*($COLS - length $s)) ,$s);
 	move($LINES-4,20);
 	refresh();
-	my %c2event_type = qw{
-	 b bank_change n note c control_change p patch_change m marker
-	 l long_gap s short_gap t time r range_start R range_end
-	};
 	return $c2event_type{getch()};
 }
 
@@ -1201,6 +1209,18 @@ sub find_match { my ($search_str, $num) = @_;  # 3.0
 	return 1;
 }
 
+sub event_matches { my ($f, $e) = @_; my @fe = @$f; my @ev = @$e;
+	# factored out as a subroutine, 7.6
+	if ($FindSubstring and $fe[$[] eq 'marker') {  # 7.6
+		if (! defined $fe[$[+2]) { return 1; }  # blank text finds all markers
+		if (index($ev[$[+2], $fe[$[+2]) < $[) { return 0; }
+	} else {
+		foreach my $i ($[+1 .. $#fe) {
+			if (defined $fe[$i] and !find_match($fe[$i],$ev[$i])) { return 0; }
+		}
+	}
+	return 1;
+}
 sub find_next { my $find_forwards = $_[$[];
 	#warn "FindEvent=@FindEvent\n"; sleep 3;
 	my $iev = $Ievent;
@@ -1208,16 +1228,8 @@ sub find_next { my $find_forwards = $_[$[];
 	if ($find_forwards) {
 		while ($iev < $#Track) {
 			$iev += 1;
-			my @event = @{$Track[$iev]};
-			if ($FindEvent[$[] eq $event[$[]) {
-				my $this_event = 1;
-				foreach my $i ($[+1 .. $#FindEvent) {
-					if (defined $FindEvent[$i]
-					  and ! find_match($FindEvent[$i], $event[$i])) {  # 3.0
-						$this_event = 0; last;
-					}
-				}
-				if ($this_event) { $found = 1; last; }
+			if ($FindEvent[$[] eq $Track[$iev]->[$[]) {
+				if (event_matches(\@FindEvent,$Track[$iev])) {$found=1; last;}
 			} elsif ($FindEvent[$[] eq 'long_gap') {
 				if (delta_t($iev) > $FindEvent[$[+1]) { $found = 1; last; }
 			} elsif ($FindEvent[$[] eq 'short_gap') {
@@ -1227,16 +1239,8 @@ sub find_next { my $find_forwards = $_[$[];
 	} else {
 		while ($iev > $[) {
 			$iev -= 1;
-			my @event = @{$Track[$iev]};
-			if ($FindEvent[$[] eq $event[$[]) {
-				my $this_event = 1;
-				foreach my $i ($[+1 .. $#FindEvent) {
-					if (defined $FindEvent[$i]
-					  and ! find_match($FindEvent[$i], $event[$i])) {  # 3.0
-						$this_event = 0; last;
-					}
-				}
-				if ($this_event) { $found = 1; last; }
+			if ($FindEvent[$[] eq $Track[$iev]->[$[]) {
+				if (event_matches(\@FindEvent,$Track[$iev])) {$found=1; last;}
 			} elsif ($FindEvent[$[] eq 'long_gap') {
 				if (delta_t($iev) > $FindEvent[$[+1]) { $found = 1; last; }
 			} elsif ($FindEvent[$[] eq 'short_gap') {
@@ -2350,6 +2354,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.6 20151105, finding a marker matches on a substring
  7.5 20151031, like 7.4, except it also works for multiple un-do's
  7.4 20151030, 'u' leaves Ievent as before last edit, not after the previous
  7.3 20151008, edit_again now works for markers and text events
