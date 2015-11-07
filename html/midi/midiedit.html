@@ -19,15 +19,17 @@ CONTENT="MIDI, MIDI::Perl, tape-loop, echo, Term::Clui">
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<li><a href="#curses_mode">CURSES MODE</a></li>
-	<li><a href="#dump_mode">DUMP MODE</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
+	<li><a href="#curses_mode">CURSES MODE</a></li>
+	<li><a href="#dump_mode">DUMP MODE</a></li>
 	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
 	<li><a href="#changes">CHANGES</a></li>
 	<li><a href="#author">AUTHOR</a></li>
-	<li><a href="#credits">CREDITS</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
 </ul>
 </TD></TR>
@@ -134,7 +136,7 @@ For details of what the <I>compand</I> effect does, see :<BR><CODE>
  &nbsp; <A HREF="midisox.html#compand">midisox --help-effect=compand</A></CODE>
 </p><p>
 Since <A HREF="#changes">version 7.7</A>,
-after a <I>Find</I> (<B>f</B>, <B>F</B>, <B>n</B> or <B>N</B>),
+after a <I>Find</I> (<B>/</B>, <B>?</B>, <B>n</B> or <B>N</B>),
 <B>ctrl-H</B> or <B>Backspace</B> returns you to where
 you were before the <I>Find</I>.
 </p><p>
@@ -177,6 +179,7 @@ If you've changed the text, and then decide you want to quit without
 overwriting the MIDI file, then you have to deliberately mess up
 the Perl syntax (e.g. make sure the brackets are unbalanced).
 </p>
+
 <a name="download"><HR></a>
 <h3>DOWNLOAD</h3><p>
 The current version of <i>midiedit</i> is available by http at
@@ -185,7 +188,19 @@ www.pjb.com.au/midi/free/midiedit</A><BR>
 To install <i>midiedit</i>, save it to disc,
 move it into your $PATH, make it executable, and if necessary
 edit the first line to reflect where <I>perl</I> is installed on your system.
+<p>
+<I>midiedit</I> uses the
+<B><A HREF="http://search.cpan.org/perldoc?MIDI">MIDI::Perl</A></B>
+and
+<B><A HREF="http://search.cpan.org/perldoc?Curses">Curses</A></B>
+and 
+<B><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></B>
+CPAN modules.<BR>
+The non-Curses mode also uses Peter Billam's
+<B><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></B>
+CPAN module.
 </p>
+
 <a name="changes"><hr></a>
 <h3>CHANGES</h3>
 <p>
@@ -292,21 +307,8 @@ as they are made
 www.pjb.com.au/comp/contact.html</a></p>
 <p>
 </p>
-<hr />
-<h3><a name="credits">CREDITS</a></h3>
-<p>
-Based on the
-<B><A HREF="http://search.cpan.org/perldoc?MIDI">MIDI::Perl</A></B>
-and
-<B><A HREF="http://search.cpan.org/perldoc?Curses">Curses</A></B>
-and 
-<B><A HREF="http://search.cpan.org/perldoc?MIDI::ALSA">MIDI::ALSA</A></B>
-CPAN modules.<BR>
-The non-Curses mode also uses Peter Billam's
-<B><A HREF="http://search.cpan.org/perldoc?Term::Clui">Term::Clui</A></B>
-CPAN module.
-<p>
-</p>
+
+
 <hr />
 <h3><a name="see_also">SEE ALSO</a></h3>
 <p>
@@ -326,7 +328,8 @@ search.cpan.org/perldoc?Term::Clui</A><BR>
 <a href="midisox.html">www.pjb.com.au/midi/midisox.html</a><BR>
 <a href="musicxml2mid.html">www.pjb.com.au/midi/musicxml2mid.html</a><BR>
 <a href="../muscript/index.html">www.pjb.com.au/muscript</a><BR>
-<a href="index.html">www.pjb.com.au/midi</a>
+<a href="index.html">www.pjb.com.au/midi</a><BR>
+<a href="osdc/index.html">www.pjb.com.au/midi/osdc</a><BR>
 </p>
 </DIV>
 </body>

@@ -2322,7 +2322,7 @@ largely modelled on the corresponding I<midisox> effects.
 For details of what the I<compand> effect does, see:
  midisox --help-effect=compand
 
-Since version 7.7, after a I<Find> (B<f>, B<F>, B<n> or B<N>),
+Since version 7.7, after a I<Find> (B</>, B<?>, B<n> or B<N>),
 B<ctrl-H> or B<Backspace> returns you to where you were before the I<Find>.
 
 You can specify your choice of synth
