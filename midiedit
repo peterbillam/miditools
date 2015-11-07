@@ -6,16 +6,12 @@
 #     This script is free software; you can redistribute it and/or      #
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
-# 20151030
-# 1) Find Marker should do substring matching. Perhaps it should try
-#    whole-of-string matching first, failing that start-of-string
-#    matching, and failing that substring (very much like eo_en does)
-# 2) Immediately after a find, perhaps Left should have the special-case
-#    meaning of "Go Back" where you were before that Find ?
-# 3) Sometimes after 'w' the w remains displayed at the end of the current line
-# 4) introduce a Buffer: ry=range-yank or rd=range-delete, then p=paste
-# 5) could display the patch of the current event, if there's room somewhere
-# 6) do we need to store Now? und_do,re_do $Now = $Track[$Ievent][$[+1] + 1;
+# 20151106
+# 1) Sometimes after 'w' the w remains displayed at the end of the current line
+# 2) introduce a Buffer: ry=range-yank or rd=range-delete, then p=paste
+# 3) could display the patch of the current event, if there's room somewhere;
+#    perhaps lower right, at the end of the hline()
+# 4) do we _need_ to store Now? und_do,re_do $Now=$Track[$Ievent][$[+1]+1;
 #
 # Could do:
 # Option  -R = ReadOnly ?
@@ -23,14 +19,14 @@
 #  even without a  p=pitch  first.  Should it also edit the v=velocity ?
 # u=undo seems to mess up deltatimes ? :-(
 
-# Not so convincing:
+# Not convincing, because of 'z' = all sounds off ...
 # It should be possible to choose, when moving times (arrows,page):
 #  terminate on-notes, or not terminate on-notes.
 #  Perhaps HJKL could mean do-not-terminate,
 #  and the Page keys could follow the previous u/l case of the hjkl keys ?
 
 # 20140303
-# midiedit should display pitches mapped left-to-right like a miniature piano
+# midiedit could display pitches mapped left-to-right like a miniature piano
 #   C ab | Eb
 #   C    | Eb f~
 #        | Eb b f~
@@ -48,8 +44,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.6'; # finding a marker matches on a substring
-my $VersionDate = '20151105';
+my $Version = '7.7'; # after Find, \cH or Backspace returns to where you were
+my $VersionDate = '20151106';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -221,6 +217,7 @@ my @EditEvent = ();  # 2.9 if event-type matches then '.' imposes the rest
 my @FindEvent = ();
 my $FindForwards  = 1;
 my $FindSubstring = 1;  # 7.6 currently not changed by anything; could be later
+my $NowBeforeFind = undef;
 my $Message = '';
 my @History  = ();  # (\@score,$ievent,$now, \@score,$ievent,$now, ...);
 my $Ihistory = -1;
@@ -268,7 +265,11 @@ if (! MIDI::ALSA::start()) {
 eval 'sub END {all_sounds_off(); endwin();}';
 while (1) {  # the loop
 	my $c = getch();
+	# debug("\$c = $c = decimal ".unpack('C*',$c));
+	# could use  my $c = getchar(); returns either $c or (undef, $keyc)
+	# debug('$c = '.join(" ",unpack('C*',$c)));
 	if ($c == ERR())   {
+		# debug("\$c = ERR()");
 		if ($Paused) {
 			# see man ncurses ==> man inopts
 			timeout(-1);  # Shouldn't happen. Anyway, block next read
@@ -283,6 +284,7 @@ while (1) {  # the loop
 				  > (10.0/$ReplaySpeed)) {
 					display_screen();
 				}
+				# 7.7: could loop through _all_ such events within 10mS ?
 				play_current_event();
 			}
 			set_timeout_for_next_note();
@@ -340,6 +342,10 @@ while (1) {  # the loop
 	} elsif ($c eq 'N')    {
 		if (! $Paused) { $Paused = 1; timeout(-1); display_screen(); }
 		find_next(! $FindForwards); display_screen();
+	} elsif ($c eq "\x08" or $c eq KEY_BACKSPACE()) {  # 7.7 back to before find
+		if (defined $NowBeforeFind) {
+			time_travel($NowBeforeFind - $Now); display_screen();
+		}
 	} elsif ($c eq ' ')         {
 		if ($Paused) { $Paused = 0; set_timeout_for_next_note();
 		} else       { $Paused = 1; timeout(-1);
@@ -400,6 +406,7 @@ sub add_to_history {
 	# http://search.cpan.org/~tyemq/Algorithm-Diff-1.1903/lib/Algorithm/Diff.pm
 	$Ihistory = $#History;
 	$FileIsChanged = 1;
+	$NowBeforeFind = undef;  # 7.7
 	#debug("add_to_h2: Ihistory=$Ihistory History=$#History History=@History");
 }
 sub all_sounds_off {   # 2.2
@@ -1249,6 +1256,7 @@ sub find_next { my $find_forwards = $_[$[];
 		}
 	}
 	if ($found) {
+		$NowBeforeFind = $Now;   # 7.7
 		time_travel($Track[$iev][$[+1] - $Now);   # 4.3
 		$Ievent = $iev;  # in case there are following events with zero dt
 		display_screen();
@@ -2271,7 +2279,8 @@ B<.>=last_edit_again,
 plus a few others, e.g.:
 B<e>=edit_event, B<D>=delete_event,
 B<R>=define_a_range, B<r>=operate_on_that_range,
-B<f>=file_operations, and B<z>=all_sounds_off
+B<f>=file_operations, B<z>=all_sounds_off, and
+B<^H/Backspace>=return_where_you_were_before_the_I<Find>
 
 As in I<mplayer>, the spacebar toggles between Play and Pause,
 the Left and Right arrow keys move by 1 second,
@@ -2307,16 +2316,14 @@ Since version 4.5, a I<Range> can be defined by pressing upper-case B<R>
 once at each end of the desired range.
 Once defined, the I<Range> can be operated on, using a lower-case B<r>,
 in various ways
-( B<c>=compand B<d>=delete B<f>=fade B<m>=mixer B<p>=pitch
+( B<c>=compand B<d>=delete B<m>=mixer B<p>=pitch
 B<q>=quantise B<r>=repeat B<t>=tempo B<v>=vol B<w>=write_to_file )
 largely modelled on the corresponding I<midisox> effects.
 For details of what the I<compand> effect does, see:
  midisox --help-effect=compand
 
-B<f>=fade is currently unimplemented.
-
-This user-interface is likely to evolve over the next months,
-as I use it more.
+Since version 7.7, after a I<Find> (B<f>, B<F>, B<n> or B<N>),
+B<ctrl-H> or B<Backspace> returns you to where you were before the I<Find>.
 
 You can specify your choice of synth
 at the command line with a B<-o 128:0> option,
@@ -2354,6 +2361,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.7 20151106, after a Find, ctrl-H or Backspace returns to where you were
  7.6 20151105, finding a marker matches on a substring
  7.5 20151031, like 7.4, except it also works for multiple un-do's
  7.4 20151030, 'u' leaves Ievent as before last edit, not after the previous

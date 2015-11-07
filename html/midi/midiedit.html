@@ -78,8 +78,9 @@ e.g.: &nbsp; <B>i</B>=insert &nbsp; <B>m</B>=mark &nbsp; <B>g</B>=goto &nbsp;
 plus a few others, e.g.: &nbsp;
 <B>e</B>=edit_event &nbsp; <B>D</B>=delete_event &nbsp;
 <B>R</B>=define_a_range &nbsp; <B>r</B>=operate_on_that_range &nbsp;
-<B>f</B>=file_operations &nbsp; and
-<B>z</B>=all_sounds_off.
+<B>f</B>=file_operations &nbsp;
+<B>z</B>=all_sounds_off &nbsp; and
+<B>^H/Backspace</B>=return_where_you_were_before_the_<I>Find</I>
 </p><p>
 Inspired by <I>mplayer</I>, the <B>spacebar</B> toggles between Play and Pause,
 the <B>Left</B> and <B>Right</B> arrow keys move by 1 second,
@@ -119,7 +120,7 @@ Once defined, the <I>Range</I> can be operated on,
 using a lower-case <B>r</B>, in various ways<BR>
 ( <B>c</B>=<A HREF="midisox.html#compand">compand</A>
  <B>d</B>=delete
- <B>f</B>=<A HREF="midisox.html#fade">fade</A>
+<!-- <B>f</B>=<A HREF="midisox.html#fade">fade</A> -->
  <B>m</B>=<A HREF="midisox.html#mixer">mixer</A>
  <B>p</B>=<A HREF="midisox.html#pitch">pitch</A>
  <B>q</B>=<A HREF="midisox.html#quantise">quantise</A>
@@ -130,11 +131,12 @@ using a lower-case <B>r</B>, in various ways<BR>
 largely modelled on the corresponding
 <I><A HREF="midisox.html#effects">midisox</A></I> effects.
 For details of what the <I>compand</I> effect does, see :<BR><CODE>
- &nbsp; <A HREF="midisox.html#compand">midisox --help-effect=compand</A></CODE><BR>
-<B>f</B>=fade is currently unimplemented.
+ &nbsp; <A HREF="midisox.html#compand">midisox --help-effect=compand</A></CODE>
 </p><p>
-This user-interface is likely to evolve over the next months,
-as I use it more.
+Since <A HREF="#changes">version 7.7</A>,
+after a <I>Find</I> (<B>f</B>, <B>F</B>, <B>n</B> or <B>N</B>),
+<B>ctrl-H</B> or <B>Backspace</B> returns you to where
+you were before the <I>Find</I>.
 </p><p>
 You can specify your choice of synth
 at the command line with a <B>-o&nbsp;128:0</B> option,
@@ -187,6 +189,8 @@ edit the first line to reflect where <I>perl</I> is installed on your system.
 <a name="changes"><hr></a>
 <h3>CHANGES</h3>
 <p>
+<BR><B>7.7</B>, 20151106, after a Find,
+ctrl-H or Backspace returns to where you were
 <BR><B>7.6</B>, 20151105, finding a marker matches on a substring;
 also a bug fix, ignore /r or /R if no range is set
 <BR><B>7.5</B>, 20151031, like 7.4, except it also works for multiple un-do's
