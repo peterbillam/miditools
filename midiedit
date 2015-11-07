@@ -587,8 +587,13 @@ sub display_keystrokes {
 		  . 'Right/Left=+-1sec  PageDown/PageUp=+-10sec');  # 4.3
 	}
 	# p=paste y=yank ? dd ? 4dd ? 4j etc ?
-	addl($LINES-2,2,
-	'D=Delete u=undo ^R=redo  /=find ?=reversefind n=findnext N=findprevious ');
+	my $s = 'D=Delete u=undo ^R=redo  /=find ';
+	if (defined $NowBeforeFind) {  # 7.7
+		$s = $s . '?=reverse  n=next N=previous  Backspace ';
+	} else {
+		$s = $s . '?=reversefind n=findnext N=findprevious ';
+	}
+	addl($LINES-2,2, $s);
 	if ($Paused) { # if event is editable, then t,d,c,n,v  and Space=play
 		addl($LINES-1,2,
 'Space=play  ]/[=speed Home=start End=end  z=allsoundsoff w=write q=quit');
