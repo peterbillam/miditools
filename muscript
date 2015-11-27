@@ -134,7 +134,6 @@ my $MidiBarlines = 0;
 while (1) {
 	my $arg = $ARGV[$[];
 	if ($arg eq '-v') {	# version
-		my $shortversion = $Version; $shortversion =~ s{[a-z]$}{};
 		print <<EOT;
 Muscript version $Version $VersionDate  http://www.pjb.com.au/muscript
 For home page     see http://www.pjb.com.au/muscript/index.html
@@ -204,7 +203,7 @@ my $TicksPerCro;
 my $CrosSoFar;
 my $CrosPerPart;
 my %nbeats;
-my $ticksatbarstart;
+my $TicksAtBarStart;
 my $ticksthisbar;
 my %MidiExpression;
 my %intl2en;
@@ -225,10 +224,11 @@ my $OldMidiTempo;
 my $defaultstem;    # for this stave
 my %ystave;
 my $ystave;         # timesaver
-my %maxstaveheight;
+my %MaxStaveHeight;
 my %staveheight;
 my $staveheight;    # timesaver
 my %yblinebot; my %yblinetop; my %nblines;  # barlines on this system
+my $RememberSystemsSizes; my $RememberNsystems; my %RememberHeader=();
 my %x_start; my %y_start;  # $x_start{'tie',$isyst,$istave,$itie}; (or 'slur')
 my $JustDidNewsystem = 0;
 my %xml;
@@ -240,7 +240,7 @@ my @xml_cache;       # cache for music-data in a measure, to count staves
 my %midline; my %line2step;  # for shifting rests in xml
 my %SlurOrTie;
 my %SlurOrTieShift;
-my $PS_Prolog_Already = 0;
+my $PSprologAlready = 0;
 my $Midi_off   = 0;
 my %MidiPedal  = ();   # 3.0b
 my %MidiSosPed = ();   # 3.0g
@@ -254,8 +254,8 @@ my $VariableGetRE     = '\$([A-Z][A-Z0-9]*)';
 my $VarArraySetRE     = '^\$([A-Z][A-Z0-9]*)(\d)-(\d)\s*(==?)\s*(.+)$';
 
 # "boundingbox" can override these ...
-$lmar=40; $rmar=565; $botmar=60; $topmar=781;  # for systems
-$footmar=30; $headmar=811;  # for header and footer text
+$lmar=40; $rmar=565; $BotMar=60; $TopMar=781;  # for systems
+$FootMar=30; $HeadMar=811;  # for header and footer text
 
 initialise();
 
@@ -307,47 +307,47 @@ sub interpret_syntax { my $line = $_[$[];
 	if ($PrePro) { print $line,"\n"; return; }
 	if ($line =~ s/^=\s*//)  {
 		if (!$Midi or !$Midi_off) { newstave($line); }
-		next;    # 3.2c whaddya mean, "next" ? is this in the calling context?
+		return;    # 3.2g
 	}
-	if ($line =~ /^boundingbox\s+(\d+)\s+(\d+)$/) {boundingbox($1,$2); next;}
-	if (!$Midi && !$Xml && !$PS_Prolog_Already)   { ps_prolog(); }
-	if ($line =~ /^([1-9][0-9]*)\s+systems?\s+(.*)$/) {systems($1,$2); next;}
+	if ($line =~ /^boundingbox\s+(\d+)\s+(\d+)$/) {boundingbox($1,$2); return;}
+	if (!$Midi && !$Xml && !$PSprologAlready)   { ps_prolog(); }
+	if ($line =~ /^([1-9][0-9]*)\s+systems?\s+(.*)$/) {systems($1,$2); return;}
 	if ($line =~ /^midi\s*(.*)$/) {   # 3.1f
 		if      ($1 eq 'on')  { $Midi_off = 0;
 		} elsif ($1 eq 'off') { $Midi_off = 1;
 		} elsif (! $Midi_off) { midi_global($1);   # 2.9l
 		}
-		next;    # 3.2c whaddya mean, "next" ?
+		return;    # 3.2g
 	}
-	if ($Midi && $Midi_off) { next; }
+	if ($Midi && $Midi_off) { return; }
 	if ($Xml && !$xml{'header finished'}) {
 		# for xml, the header lines must be consecutive ...
 		if (!&xml_header($line)) { $xml{'header finished'} = 1; redo; }
 	}
 	my $ps = !$Midi && !$Xml;   # either PS or EPS
-	if ($line =~ /^rightfoot\s(.*)$/) { if ($ps) {ps_rightfoot($1);} next; }
-	if ($line =~ /^leftfoot\s(.*)$/)  { if ($ps) {ps_leftfoot($1);}  next; }
-	if ($line =~ /^innerhead\s(.*)$/) { if ($ps) {ps_innerhead($1);} next; }
-	if ($line =~ /^lefthead\s(.*)$/)  { if ($ps) {ps_lefthead($1);}  next; }
-	if ($line =~ /^righthead\s(.*)$/) { if ($ps) {ps_righthead($1);} next; }
-	if ($line =~ /^pagenum\s?(.*)$/)  { if ($ps) {ps_pagenum($1);}   next; }
-	if ($line =~ /^title.*$/)         { title($line);    next; }
-	if ($line =~ /^%\s*(.*)/)         { comment($1);     next; }
-	if ($line =~ /^#|^muscript\s|^EOT$/)     { next; }  # 3.0g
-	if ($line =~ m{^/\s*$})           { newsystem($line); next; }
+	if ($line =~ /^rightfoot\s(.*)$/) { if ($ps) {ps_rightfoot($1);} return; }
+	if ($line =~ /^leftfoot\s(.*)$/)  { if ($ps) {ps_leftfoot($1);}  return; }
+	if ($line =~ /^innerhead\s(.*)$/) { if ($ps) {ps_innerhead($1);} return; }
+	if ($line =~ /^lefthead\s(.*)$/)  { if ($ps) {ps_lefthead($1);}  return; }
+	if ($line =~ /^righthead\s(.*)$/) { if ($ps) {ps_righthead($1);} return; }
+	if ($line =~ /^pagenum\s?(.*)$/)  { if ($ps) {ps_pagenum($1);}   return; }
+	if ($line =~ /^title.*$/)         { title($line);    return; }
+	if ($line =~ /^%\s*(.*)/)         { comment($1);     return; }
+	if ($line =~ /^#|^muscript\s|^EOT$/)     { return; }  # 3.0g
+	if ($line =~ m{^/\s*$})           { newsystem($line); return; }
 	if ($line =~ m{^/\s*([1-9][0-9]*)\s*bars?\s*(.*)$}) {  # both on same line
-		newsystem('/'); bars($1,$2); $ibar=0; next;
+		newsystem('/'); bars($1,$2); $ibar=0; return;
 	}
-	if ($line =~ /^([1-9][0-9]*)\s*bars?\s*(.*)$/) {bars($1,$2);$ibar=0;next;}
+	if ($line =~ /^([1-9][0-9]*)\s*bars?\s*(.*)$/) {bars($1,$2);$ibar=0;return;}
 	if ($line =~ /^\|\s*([^=]*)(\s*=(\d.*)$)?/) {   # 2.9j
-		newbar($1);   if ($3) { newstave($3); }   next;  # 3.2c "next" what ?
+		newbar($1);   if ($3) { newstave($3); }   return;  # 3.2g
 	}
 	if ($line =~ /^([rbiI])([ls]?)(\d?\.?\d*)\s(.*)$/) {
-		if ($Xml)   { xml_text($1,$2,$3,$4); next; }
-		if ($Midi)  { next; }
-		ps_text($1,$2,$3,$4);  next;
+		if ($Xml)   { xml_text($1,$2,$3,$4); return; }
+		if ($Midi)  { return; }
+		ps_text($1,$2,$3,$4);  return;
 	}
-	if ($line =~ /^play\s+(.*)$/) { if ($Midi) {midi_play_wav($1);} next; }
+	if ($line =~ /^play\s+(.*)$/) { if ($Midi) {midi_play_wav($1);} return; }
 	warn "line $LineNum not recognised: $line\n";   # 2.9j
 }
 
@@ -473,7 +473,7 @@ sub initialise {
 		@MidiScore        = ();     # a LoL
 		$MidiTimesig     = q{};
 		$TicksPerMidiBeat = $TPC;
-		$ticksatbarstart  = 0;
+		$TicksAtBarStart  = 0;
 		$ticksthisbar     = 0;      # so as not to delay the start
 		$midibarparts     = '2.4';  # default guesses 4/4 at 100 cro/min
 		%stave2channels   = ();
@@ -620,8 +620,8 @@ sub boundingbox { my ($w, $h) = @_;
 	my $a4w = 210 * 72/25.4;
 	my $a4h = 297 * 72/25.4;
 	$lmar   =40*$w/$a4w; $rmar   =565*$w/$a4w;
-	$botmar =60*$h/$a4h; $topmar =781*$h/$a4h;
-	$footmar=30*$h/$a4h; $headmar=811*$h/$a4h;  # for header and footer text
+	$BotMar =60*$h/$a4h; $TopMar =781*$h/$a4h;
+	$FootMar=30*$h/$a4h; $HeadMar=811*$h/$a4h;  # for header and footer text
 	$Box_H = $h;
 	$Box_W = $w;
 }
@@ -638,13 +638,13 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 		} else { $sizes = '/19 30 19 30 19 30 19 30 19 30 19/';
 		}
 	} elsif (!$nsystems && !$sizes &&
-		$remember_nsystems && $remember_systems_sizes) {
-		$sizes    = $remember_systems_sizes;
-		$nsystems = $remember_nsystems;
+		$RememberNsystems && $RememberSystemsSizes) {
+		$sizes    = $RememberSystemsSizes;
+		$nsystems = $RememberNsystems;
 	} else {
-		$remember_systems_sizes = $sizes;    # global
-		$remember_nsystems      = $nsystems; # global
-		%remember_header        = ();        # global
+		$RememberSystemsSizes = $sizes;    # global
+		$RememberNsystems     = $nsystems; # global
+		%RememberHeader        = ();        # global
 	}
 
 	my @systems = split(m{\s*/\s*}, $sizes, 9999);
@@ -707,14 +707,14 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 		while ($shortfall > 0) { push (@systems, $last_syst); $shortfall--; }
 	}
 
-	$totsyswidth = 0.0;	# initialise counter for all systems on page
+	my $totsyswidth = 0.0;  # initialise counter for all systems on page
 	my @barlinesandgaps;
 	for ($isyst = $[; $isyst <= $nsystems-1+$[; $isyst++) { # for each system
-		$syswidth = 0.0;	# this system width (includes all gaps)
+		my $syswidth = 0.0;   # this system width (includes all gaps)
 		$lmargin{$isyst} = $lmar;
 		$rmargin{$isyst} = $rmar;
 		@barlinesandgaps = split('\s+', $systems[$isyst], 9999);
-		$istave = 0;
+		my $istave = 0;
 		my $igap = 1;
 		my $ibline = 0;
 		my $isastave = 1;	# the first number will be a stave height
@@ -730,11 +730,11 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 				if ($isastave) {
 					$istave++;
 					$staveheight{$isyst, $istave} = $staveorgap;
-					if (! defined $maxstaveheight{$isyst}) { # defeat -w
-						$maxstaveheight{$isyst} = 0; # makes me puke to do this
+					if (! defined $MaxStaveHeight{$isyst}) { # defeat -w
+						$MaxStaveHeight{$isyst} = 0; # makes me puke to do this
 					}
-					if ($staveheight{$isyst,$istave}>$maxstaveheight{$isyst}) {
-						$maxstaveheight{$isyst} = $staveheight{$isyst,$istave};
+					if ($staveheight{$isyst,$istave}>$MaxStaveHeight{$isyst}) {
+						$MaxStaveHeight{$isyst} = $staveheight{$isyst,$istave};
 					}
 					$isastave = 0;	# the next will be a gap
 				} else {  # its a gap
@@ -752,9 +752,9 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 		$ngaps{$isyst}	  = $igap-1;
 	}
 
-	# adjust according to the average maxstaveheight
+	# adjust according to the average MaxStaveHeight
 	my $total = 0; my $num = 0;   # 3.1r
-	while (my ($k, $v) = each %maxstaveheight) { $total += $v;  $num += 1; }
+	while (my ($k, $v) = each %MaxStaveHeight) { $total += $v;  $num += 1; }
 	if ($num) {
 		my $av = $total / $num;
 		$HeaderFontSize = $av * 9 / 19;     # 3.1r
@@ -763,24 +763,24 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 
 	# so do the systems fit on the page ?
 	if ($nsystems == 1) {
-		$systemgap = ($topmar-$botmar-$totsyswidth-$topgap);
+		$systemgap = ($TopMar-$BotMar-$totsyswidth-$topgap);
 	} else {
-		$systemgap = ($topmar-$botmar-$totsyswidth-$topgap) / ($nsystems-1);
+		$systemgap = ($TopMar-$BotMar-$totsyswidth-$topgap) / ($nsystems-1);
 	}
 	if ($systemgap < 0) {
 		printf STDERR "\nSorry, won't fit: systemgap=%g\n", $systemgap; exit 1;
 	}
 	# if systemgap is large, space is left also above top sys & below bot.
 	my $Y;
-	my $excess = $systemgap - $AmpleSysGap*($topmar-$botmar);
+	my $excess = $systemgap - $AmpleSysGap*($TopMar-$BotMar);
 	if ($nsystems == 1) {
-		$Y = 0.5 * ($topmar+$botmar+$totsyswidth) - $topgap;  # 2.9m
+		$Y = 0.5 * ($TopMar+$BotMar+$totsyswidth) - $topgap;  # 2.9m
 	} elsif ($excess > 0) {
 		$adjustment = $excess * ($nsystems-1) / ($nsystems+1);
 		$systemgap = $systemgap - $excess + $adjustment;
-		$Y = $topmar - $adjustment - $topgap;
+		$Y = $TopMar - $adjustment - $topgap;
 	} else {
-		$Y = $topmar - $topgap;
+		$Y = $TopMar - $topgap;
 	}
 
 	# for each system ...
@@ -841,7 +841,7 @@ sub newsystem {
 	if ($isyst >= $nsystems-1+$[) {
 		systems();
 		# regurgitate remembered header lines (except for title) ...
-		if ($remember_header{'pagenum'}) {
+		if ($RememberHeader{'pagenum'}) {
 			ps_pagenum();
 			ps_innerhead('');
 		} else {
@@ -885,7 +885,7 @@ sub bars { my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
 	} else { $bartype{$isyst,0} = 0; $last_terminator = '|'
 	}
 
-	my $maxstaveheight = $maxstaveheight{$isyst};
+	my $maxstaveheight = $MaxStaveHeight{$isyst};
 	$ibar = 0;   # its a global, but we use it initially for a local loop...
 	my %spaceatstart = ();
 	my $sumofproportions    = 0.0;  # sum of proportions of all bars in line
@@ -998,7 +998,7 @@ sub bars { my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
 
 sub newbar {
 	if ($Midi) {
-		$ticksatbarstart += $ticksthisbar;
+		$TicksAtBarStart += $ticksthisbar;
 		$ibar++; $istave = 0;   # globals.
 		midi_timesig($_[$[]);
 	} elsif ($Xml) {
@@ -1140,7 +1140,7 @@ sub newstave { $[=1;
 		# NB xpart[n] is the left end of part n, but xbar{s,m} is right end
 		# of bar m !  So xbar{isyst,0} = LeftHandMargin.
 
-		$maxstaveheight = $maxstaveheight{$isyst}; # for speed ...
+		$maxstaveheight = $MaxStaveHeight{$isyst}; # for speed ...
 		# place the beginning of the bar
 		$xpart{1}=$xbar{$isyst,$ibar-1}+$SpaceAtBeginningOfBar*$maxstaveheight;
 		# there's always a clef at BOL ...
@@ -1437,7 +1437,7 @@ sub changestave { my ($stave, $stem) = $_[$[] =~ /^(\d+)([,']?)$/;
 	return 1;
 }
 sub comment { my $s = $_[$[];
-	if ($Midi) { push @MidiScore, ['marker', $ticksatbarstart, $s];
+	if ($Midi) { push @MidiScore, ['marker', $TicksAtBarStart, $s];
 	} elsif ($Xml) { return 1;
 	} else { print "% $s\n";
 	}
@@ -1448,9 +1448,9 @@ sub title { return if $Midi; my ($cmd,$string) = split(' ',$_[$[],2);
 		# print "\t<work>\n\t\t<work-title>$string</work-title>\n\t</work>\n";
 		return;
 	} else {
-		$remember_header{title} = escape_and_utf2iso($string);
+		$RememberHeader{title} = escape_and_utf2iso($string);
 		printf "%g %g /$BoldFont $TitleFontSize (%s) centreshow\n",
-		0.5 * ($lmar+$rmar), $headmar-5, $remember_header{title};
+		0.5 * ($lmar+$rmar), $HeadMar-5, $RememberHeader{title};
 	}
 }
 
@@ -2243,7 +2243,7 @@ sub midi_event {
 		} elsif ($symbol =~ /^(rest|blank)[,']*(-(\S+))?/) {  # 3.1i 3.1n 3.1q
 			if ($3) {
 				my $options = $3;
-				my $starttime    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+				my $starttime    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 				foreach my $cha (@{ $stave2channels{$istave} }) {   # 3.1v
 					$options =~ s{'}{\\'}g;
 					foreach $option (&parse_line('-', 0, $options)) {
@@ -2259,7 +2259,7 @@ sub midi_event {
 			my $accidental   = $note_ref->{accidental};
 			my $options      = $note_ref->{options};
 			# 3.1s:
-			my $starttime = round($ticksatbarstart + $CrosSoFar*$TicksPerCro);
+			my $starttime = round($TicksAtBarStart + $CrosSoFar*$TicksPerCro);
 			my $fullduration = round($currentpulse * $TicksPerCro);
 			my $duration     = $fullduration;
 			my $legato = $stave2legato{$currentstavenum} || $DefaultLegato;
@@ -2450,7 +2450,7 @@ sub midi_timesig { return unless $Midi; my $str = $_[$[];
 		} else { $cc = $TPC * 4.0 / $bottom;
 		}
 		# tweak the following globals ...
-		push @MidiScore, ['time_signature',$ticksatbarstart, $nn,$dd,$cc,8];
+		push @MidiScore, ['time_signature',$TicksAtBarStart, $nn,$dd,$cc,8];
 		$MidiTimesig = $timesig;
 		$TicksPerMidiBeat = $cc;
 		$ticksthisbar = round(384 * $nn / $bottom);
@@ -2465,7 +2465,7 @@ sub midi_timesig { return unless $Midi; my $str = $_[$[];
 	my @parts = split ' ',$parts;
 	my $i = 0; my $n = scalar @parts; my $ticksperpart = $ticksthisbar/$n;
 	while (1) {
-		my $starttime = round($ticksatbarstart + $ticksperpart*$i);
+		my $starttime = round($TicksAtBarStart + $ticksperpart*$i);
 		my $part = shift @parts;
 		if ($part < 10) { # secs per part -> uSec per cro
 			$MidiTempo = round($TPC * 1000000 * $part / $ticksperpart);
@@ -2515,8 +2515,8 @@ sub midi_global { my $str = $_[$[];
 				'2'  => "\x7E\x7F\x09\x03\xF7",
 			);
 			if (defined $sysex{$str{'gm'}}) {
-				push @MidiScore,['sysex_f0',$ticksatbarstart,$sysex{$str{gm}}];
-				$ticksatbarstart += 100;
+				push @MidiScore,['sysex_f0',$TicksAtBarStart,$sysex{$str{gm}}];
+				$TicksAtBarStart += 100;
 			} else {
 				my $s = join(q{, }, sort keys %sysex);
 				warn " line $LineNum: gm should be one of $s in '$str'\n";
@@ -2531,9 +2531,9 @@ sub midi_global { my $str = $_[$[];
 			kirnberger => "\x44\x3C\x40\x44\x3C\x46\x38\x42\x40\x3E\x48\x3A",
 			);
 			if (defined $tuning{$str{'temperament'}}) {
-				push @MidiScore, ['sysex_f0', $ticksatbarstart,
+				push @MidiScore, ['sysex_f0', $TicksAtBarStart,
 				 $sysex.$tuning{$str{'temperament'}}."\xF7"];
-				$ticksatbarstart += 50;
+				$TicksAtBarStart += 50;
 			} else {
 				warn " line $LineNum: strange temperament in '$str'\n";
 				warn " should be one of: ".join(q{ }, sort keys %tuning)."\n";
@@ -2544,7 +2544,7 @@ sub midi_global { my $str = $_[$[];
 			if ($str{'bank'} =~ /^(\d+)(,(\d+))?$/) {
 				my $msb = $1; my $lsb = $3;
 				midi_cc_127($cha, 0,0+$msb);  midi_cc_127($cha,32,0+$lsb);
-				# $ticksatbarstart += 5;
+				# $TicksAtBarStart += 5;
 			} else {
 				warn " line $LineNum: strange bank msb or msb,lsb in '$str'\n";
 			}
@@ -2560,21 +2560,21 @@ sub midi_global { my $str = $_[$[];
 			if ($st>24) { $st=24; } elsif ($st<-24) { $st=-24; }
 			my $msb = chr(64 + $st);
 			my $sysex = "\x7F\x7F\x04\x04\x00$msb\xF7";  # 3.1u
-			push @MidiScore, ['sysex_f0', $ticksatbarstart, $sysex];
-			$ticksatbarstart += 50;
+			push @MidiScore, ['sysex_f0', $TicksAtBarStart, $sysex];
+			$TicksAtBarStart += 50;
 			# emit the  Master Fine Tuning  sysex  p.141
 			$msb = chr(64 + round($cents*64/100));
 			$sysex = "\x7F\x7F\x04\x03\x00$msb\xF7";  # 3.1u
-			push @MidiScore, ['sysex_f0', $ticksatbarstart, $sysex];
-			$ticksatbarstart += 50;
+			push @MidiScore, ['sysex_f0', $TicksAtBarStart, $sysex];
+			$TicksAtBarStart += 50;
 		}
 		if (defined $cha) {
 			if (defined $str{patch}) {
 				push @MidiScore,
-				 ['patch_change', $ticksatbarstart, $cha, $str{patch}];
-				$ticksatbarstart += 5;
+				 ['patch_change', $TicksAtBarStart, $cha, $str{patch}];
+				$TicksAtBarStart += 5;
 				# enforce default expression, for subsequent cre and dim
-				midi_expression($ticksatbarstart,$cha,100);
+				midi_expression($TicksAtBarStart,$cha,100);
 			}
 			if (defined $str{pan})    {
 				my $pan = 0+$str{pan};
@@ -2594,7 +2594,7 @@ sub midi_global { my $str = $_[$[];
 			}
 		} elsif (defined $str{pause}) {
 			return unless $MidiTempo;  # uSec per crochet 
-			$ticksatbarstart += round($str{pause}*$TPC*1000000/$MidiTempo);
+			$TicksAtBarStart += round($str{pause}*$TPC*1000000/$MidiTempo);
 		} elsif (!defined $str{'gm'} && !defined $str{'bank'}
 		 && !defined{'temperament'}) {
 			warn " line $LineNum: strange midi_global $str\n";
@@ -2615,7 +2615,7 @@ sub midi_cc_100 { my ($cha, $num, $percent) = @_;
 
 sub midi_cc_127 { my ($cha, $num, $val) = @_;  # 2.9r
 	if ($val>127) { $val=127; } elsif ($val<0) { $val=0; }
-	my $ticks = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+	my $ticks = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 	push @MidiScore, ['control_change', $ticks, $cha, $num, $val];
 }
 
@@ -2667,7 +2667,7 @@ sub midi_in_stave { my $str = $_[$[];
 		$stave2transpose{$currentstavenum} = 0+$1; return 1;
 	} elsif ($str =~ /^vib(\d+)$/)    {  # 3.2 remove r?a?t?o?
 		if ($Xml) { return 1; }
-		my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+		my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 		my $val = round($1*1.27);  # 0..100 to 1..127
 		if ($val>127) { $val=127; } elsif ($val<0) { $val=0; }
 		foreach my $cha (@{ $stave2channels{$istave} }) {   # 3.1v
@@ -2679,7 +2679,7 @@ sub midi_in_stave { my $str = $_[$[];
 		my $controller = $1; my $val = $2;
 		if ($controller>127) { $controller=127; }
 		if ($val>127) { $val=127; }
-		my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+		my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 		foreach my $cha (@{ $stave2channels{$istave} }) {   # 3.1v
 			push @MidiScore, ['control_change',$ticks,$cha,$controller,$val];
 		}
@@ -2707,7 +2707,7 @@ sub midi_in_stave { my $str = $_[$[];
 			warn " line $LineNum: strange bend command '$str'\n"; return 1;
 		}
 		$stave2bend{$currentstavenum} = $bend;
-		my $ticks = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+		my $ticks = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 		foreach my $cha (@{ $stave2channels{$istave} }) {   # 3.1v
 			push @MidiScore, ['pitch_wheel_change', $ticks, $cha, $bend];
 		}
@@ -2718,9 +2718,9 @@ sub midi_in_stave { my $str = $_[$[];
 }
 
 sub midi_play_wav { my $cmd = $_[$[];  # 3.2e
-	my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
-	push @MidiScore, ['sysex_f0', $ticksatbarstart, '}!play '.$cmd."\xF7"];
-	$ticksatbarstart += 1;
+	my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
+	push @MidiScore, ['sysex_f0', $TicksAtBarStart, '}!play '.$cmd."\xF7"];
+	$TicksAtBarStart += 1;
 	return 1;
 }
 
@@ -2731,7 +2731,7 @@ sub midi_expression { my ($ticks, $cha, $val) = @_;
 }
 
 sub midi_write { return unless $Midi;
-	my $ticks    = $ticksatbarstart + $CrosSoFar*$TicksPerCro;
+	my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 	foreach my $cha (keys%MidiPedal)  {   # 3.0b
 		push @MidiScore, ['control_change', $ticks, $cha, 0x40, 0x00];
 		$ticks += 1;
@@ -2756,7 +2756,7 @@ sub midi_write { return unless $Midi;
 
 # -------------------------- PostScript stuff --------------------------
 sub ps_prolog {
-	if ($PS_Prolog_Already || $Midi || $Xml) { return; }
+	if ($PSprologAlready || $Midi || $Xml) { return; }
 	if (!$Strip) {   # prepend the ps header ...
 		if ($Box_W && $Box_H) {
 			print "%!PS-Adobe.3.0 EPSF-3.0\n%%BoundingBox 0 0 $Box_W $Box_H\n";
@@ -2766,7 +2766,7 @@ sub ps_prolog {
 		# do we _really_ have to quote the whole thing ?
 		while (<DATA>) { s{"}{\\"}g; print eval qq/"$_"/; }
 	}
-	$PS_Prolog_Already = 1;
+	$PSprologAlready = 1;
 }
 #sub ps_events() {
 #	warn <<'EOT';
@@ -3423,7 +3423,7 @@ sub ps_note_options { my ($X,$ybot,$ytop,$stem,$options) = @_;
 }
 sub ps_barline { my ($X, $isyst, $ibar) = @_;
 	my $type = $bartype{$isyst,$ibar};
-	my $maxstaveheight = $maxstaveheight{$isyst};
+	my $maxstaveheight = $MaxStaveHeight{$isyst};
 	# draws a barline of type $type at $X. Types: 0 = simple, 1 = double,
 	# add 2 for end-repeat, 4 for start-repeat, 8 for Segno, 16 for missing
 	if ($type > 15) { return; }  # 2.7g
@@ -3850,7 +3850,7 @@ sub ps_beam { # usage: &ps_beam(@beamup)
 sub ps_keysig { my ($num, $sign, $x) = @_;
 	die if $Midi||$Xml;
 	my ($y, $dx, @pitches, $ikey, $pitch, $accidental);
-	$dx = $AccidentalDxInKeysig * $maxstaveheight{$isyst};
+	$dx = $AccidentalDxInKeysig * $MaxStaveHeight{$isyst};
 	$x += 0.5 * $dx;
 	if ($num < 0)          {
 		$accidental = 'natural';
@@ -3894,44 +3894,44 @@ sub ps_rightfoot {
 	my $str;
 	if ($_[$[]) {
 		$str = escape_and_utf2iso($_[$[]);
-		$remember_header{rightfoot} = $str;
+		$RememberHeader{rightfoot} = $str;
 	} else {
-		$str = $remember_header{rightfoot};
+		$str = $RememberHeader{rightfoot};
 		return unless $str;
 	}
-	printf "$rmar $footmar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
+	printf "$rmar $FootMar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
 }
 sub ps_leftfoot {
 	die if $Midi||$Xml;
 	my $str;
 	if ($_[$[]) {
 		$str = escape_and_utf2iso($_[$[]);
-		$remember_header{leftfoot} = $str;
+		$RememberHeader{leftfoot} = $str;
 	} else {
-		$str = $remember_header{leftfoot};
+		$str = $RememberHeader{leftfoot};
 		return unless $str;
 	}
-	printf "$lmar $footmar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
+	printf "$lmar $FootMar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
 }
 sub ps_innerhead {
 	die if $Midi||$Xml;
 	my $str;
 	if ($_[$[]) {
 		$str = escape_and_utf2iso($_[$[]);
-		$remember_header{innerhead} = $str;
+		$RememberHeader{innerhead} = $str;
 	} else {
-		if ($remember_header{title}) {   # 2.9g
-			$str = $remember_header{title}.',  '.$remember_header{innerhead};
-			$remember_header{title} = q{};
+		if ($RememberHeader{title}) {   # 2.9g
+			$str = $RememberHeader{title}.',  '.$RememberHeader{innerhead};
+			$RememberHeader{title} = q{};
 		} else {
-			$str = $remember_header{innerhead};
+			$str = $RememberHeader{innerhead};
 		}
 		return unless $str;
 	}
 	if ($pagenum % 2) { printf
-		"$lmar $headmar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
+		"$lmar $HeadMar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
 	} else { printf
-		"$rmar $headmar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
+		"$rmar $HeadMar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
 	}
 }
 sub ps_lefthead {
@@ -3939,24 +3939,24 @@ sub ps_lefthead {
 	my $str;
 	if ($_[$[]) {
 		$str = escape_and_utf2iso($_[$[]);
-		$remember_header{lefthead} = $str;
+		$RememberHeader{lefthead} = $str;
 	} else {
-		$str = $remember_header{lefthead};
+		$str = $RememberHeader{lefthead};
 		return unless $str;
 	}
-	printf "$lmar $headmar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
+	printf "$lmar $HeadMar /$ItalicFont $HeaderFontSize ($str) leftshow\n";
 }
 sub ps_righthead {
 	die if $Midi||$Xml;
 	my $str;
 	if ($_[$[]) {
 		$str = escape_and_utf2iso($_[$[]);
-		$remember_header{righthead} = $str;
+		$RememberHeader{righthead} = $str;
 	} else {
-		$str = $remember_header{righthead};
+		$str = $RememberHeader{righthead};
 		return unless $str;
 	}
-	printf "$rmar $headmar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
+	printf "$rmar $HeadMar /$ItalicFont $HeaderFontSize ($str) rightshow\n";
 }
 sub ps_pagenum { my $str = shift;
 	die if $Midi||$Xml;
@@ -3967,12 +3967,12 @@ sub ps_pagenum { my $str = shift;
 	} elsif ($str =~ /^\d+$/)	{ $pagenum = $str + 0;
 	} else { warn " line $LineNum: pagenum $str is not numeric\n"; return 0;
 	}
-	$remember_header{'pagenum'} = $pagenum;
+	$RememberHeader{'pagenum'} = $pagenum;
 	if ($pagenum % 2) {	# odd page number
-		printf "$rmar $headmar /$BoldFont %g ($pagenum) rightshow\n",
+		printf "$rmar $HeadMar /$BoldFont %g ($pagenum) rightshow\n",
 		$HeaderFontSize * 1.2;
 	} else {	 # even page number
-		printf "$lmar $headmar /$BoldFont %g ($pagenum) leftshow\n",
+		printf "$lmar $HeadMar /$BoldFont %g ($pagenum) leftshow\n",
 		$HeaderFontSize * 1.2;
 	}
 }
