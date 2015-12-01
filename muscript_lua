@@ -102,7 +102,7 @@ local Epsilon         = 0.005 -- less than .001 for good word spacing
 local TTY             = nil -- filehandle for /dev/tty
 local PageNum         = 0
 local Ibar            = 0
-local Istave          = 0
+local Istave          = 1
 local BarType         = {}
 local CurrentStaveNum = ""   -- a string
 local stave2channels  = {}   -- 3.1v now a hash of lists
@@ -123,13 +123,18 @@ local CrosSoFar       = 0
 local CrosPerPart
 local nbeats          = {}  -- dict
 Nstaves = {}
-Nblines = {}
+local Nblines = {}  -- barlines on this system
+Nparts  = {}    -- needed by newsystem() and newstave()
+Nbars   = {}    -- needed by bars() and newbar()
+Syst2nbars   = {}
 local TicksAtBarStart = 0
 local ticksthisbar
 local MidiExpression  = {}  -- dict
 local intl2en         = {}  -- dict
 local xml_tempo
 local xml_timesig
+Proportion = {} -- shared by PS and XML
+Partshare  = {} -- shared by newsystem() and newstave()
 local StartBeamUp     = false  -- &ps_event and &ps_note
 local StartBeamDown   = false  -- &ps_event and &ps_note
 local StartedSlurs = {}
@@ -150,15 +155,17 @@ local Ystave         = {}  -- dict
 local ystave         -- timesaver
 local MaxStaveHeight = {}
 local StaveHeight = {}
+local Xbar      = {}
 local GapHeight = {}
 local YblineBot = {{},}
 local YblineTop = {{},}
-local Nblines = {}  -- barlines on this system
 Isyst    = 0
 Nsystems = 0    -- couldn't I just use RememberNsystems ?
 RememberSystemsSizes = nil
 RememberNsystems     = nil
 RememberHeader       = {}
+RememberBarsString   = nil
+RememberNbars        = nil
 local x_start = {}
 local y_start = {}  -- $x_start{'tie',$Isyst,$Istave,$itie}; (or 'slur')
 local JustDidNewsystem = false
@@ -1078,8 +1085,7 @@ local function ps_rightfoot (s)
 		str = RememberHeader['rightfoot']
 		if not str then return end
 	end
--- frontier
-	print_sp(rmar,FootMar,'/'..ItalicFont,HeaderFontSize,'('..str..') rightshow')
+  print_sp(rmar,FootMar,'/'..ItalicFont,HeaderFontSize,'('..str..') rightshow')
 end
 local function ps_leftfoot (s)
 	if MIDI or Xml then die("ps_leftfoot called with MIDI or Xml set ") end
@@ -1091,7 +1097,7 @@ local function ps_leftfoot (s)
 		str = RememberHeader['leftfoot']
 		if not str then return end
 	end
-	print_sp(lmar,FootMar,'/'..ItalicFont,HeaderFontSize,'('..str..') leftshow')
+   print_sp(lmar,FootMar,'/'..ItalicFont,HeaderFontSize,'('..str..') leftshow')
 end
 local function ps_innerhead (s)
 	if MIDI or Xml then die("ps_innerhead called with MIDI or Xml set ") end
@@ -1176,10 +1182,210 @@ local function comment (s)
 	end
 end
 
+-- frontier
+
+local function ps_repeatmark (isyst, istave, x)
+	if MIDI or  Xml then die('BUG: ps_repeatmark called with MIDI or Xml') end
+	print(string.format("%g %g %g repeatmark",
+		x, Ystave[isyst][istave], StaveHeight[isyst][istave]))
+end
+
+local function ps_barline (x, isyst, ibar)
+	local bartype = BarType[isyst][ibar]
+	local maxstaveheight = MaxStaveHeight[isyst]
+	-- draws a barline of type $type at $x. Types: 0 = simple, 1 = double,
+	-- add 2 for end-repeat, 4 for start-repeat, 8 for Segno, 16 for missing
+	if bartype > 15 then return end  -- 2.7g
+	if bartype > 7 then   -- Segno ...
+		print(string.format("%g %g %g segno", x + .22*StaveHeight[isyst][1],
+			Ystave[isyst][1] + StaveHeight[isyst][1]*SegnoHeight,
+			maxstaveheight))
+		bartype = bartype - 8
+	end
+	if bartype > 3 then   -- begin repeated section ...
+		for i = 1,Nstaves[isyst] do
+			local staveheight = StaveHeight[isyst][i]  -- 2.8b
+			ps_repeatmark(isyst, i, x+.6*SpaceForStartRepeat*staveheight)
+		end
+		bartype = bartype - 4
+	end
+	if bartype > 1 then   -- end repeated section ...
+		for i = 1,Nstaves[isyst] do
+			local staveheight = StaveHeight[isyst][i]  -- 2.8b
+			ps_repeatmark(isyst, i, x-0.6*SpaceForStartRepeat*staveheight)
+		end
+		bartype = bartype - 2;
+	end
+	if bartype == 0 then
+		for i = 1,Nblines[isyst] do
+			print(string.format("%g %g %g %g barline", x, YblineTop[isyst][i],
+			 YblineBot[isyst][i], maxstaveheight))
+		end
+		return;
+	end
+	if bartype == 1 then
+		for i = 1,Nblines[isyst] do
+			local staveheight = StaveHeight[isyst][i]
+			print(string.format("%g %g %g %g barline", x + 0.03*staveheight,
+			 YblineTop[isyst][i], YblineBot[isyst][i], 2.0*maxstaveheight))
+			print(string.format("%g %g %g %g barline", x - 0.07*staveheight,
+			 YblineTop[isyst][i], YblineBot[isyst][i], maxstaveheight))
+		end
+		return
+	end
+	print(string.format("%% ERROR: barline called with type = %d", type))
+	return
+end
+
+local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
+	nbars = tonumber(nbars)
+	if MIDI then return end
+	-- prints the barlines, and set the following global variables :
+	-- $BarType{$Isyst,$Ibar}, $spaceatstart{$Ibar}, $Nparts{$Isyst,$Ibar},
+	-- $Proportion{$Ibar}, $Partshare{$Ibar,$ipart}, $Syst2nbars{$Isyst}
+	-- and $Ibar
+	-- BarType bits mean: missing,segno,start-repeat,end-repeat,double
+	-- could extract strings for a leftgap from this ...
+	if nbars and not str then
+		str = '|1|'
+		RememberBarsString = str
+		RememberNbars      = nbars
+	elseif not nbars and not str and RememberNbars and RememberBarsString then
+		str   = RememberBarsString
+		nbars = RememberNbars
+	else
+		RememberBarsString = str
+		RememberNbars      = nbars
+	end
+	-- could extract strings for a leftgap from this ...
+	str = string.gsub(str, '^[^|]*', '')   -- delete up to first barline
+	str = string.gsub(str, '%s*$', '')
+	local last_terminator = ''; local n
+	BarType[Isyst] = {}
+	Nparts[Isyst]  = {}
+	if string.find(str, '^|?|?:') then
+		BarType[Isyst][0] = 4; last_terminator='|:'
+	else
+		BarType[Isyst][0] = 0; last_terminator = '|'
+	end
+	str = string.gsub(str, '^|?|?:%s*', '')
+	local maxstaveheight = MaxStaveHeight[Isyst]
+	local spaceatstart = {}
+	local sumofproportions   = 0.0  -- sum of  proportions  of all bars in line
+	local sumofspaceatstarts = 0.0  -- sum of spaceatstarts of all bars in line
+	local bars = split(str, '%s*:?||?:?%s*')  -- 2.7g
+	if bars[1]     == '' then table.remove(bars,1) end
+	if bars[#bars] == '' then table.remove(bars,#bars) end
+	local terminators = {} ; for w in string.gmatch(str, ':?||?:?') do
+		-- here we have omitted the mandatory space before and after :-(
+		table.insert(terminators, w)
+	end
+	while true do
+		if #bars >= nbars then break end
+		table.insert(bars, bars[#bars])
+		table.insert(terminators, terminators[#terminators])
+	end
+	-- in Perl (see perldoc -f split) if the PATTERN contains capturing
+	-- groups, then for each separator, an additional field is produced
+	-- for each substring captured.   But this doesn't work with my split() !
+	-- if (#bars%2)>0.5 and bars[#bars] == '' then table.remove(bars) end
+	local ibar = 0   -- we use it in this function for a local loop...
+	while ibar < #bars do
+		ibar = ibar + 1
+		local tokens = split( bars[ibar],'%s+');
+		local terminator = terminators[ibar]
+		BarType[Isyst][ibar] = 0
+		spaceatstart[ibar] = SpaceAtBeginningOfBar*maxstaveheight; -- 2.4c
+		if not terminator          then
+			BarType[Isyst][ibar] = 16
+			terminator = ''
+		end
+-- bloody bitops :-(
+		if string.find(terminator,'||') then
+			BarType[Isyst][ibar] = BarType[Isyst][ibar] + 1 end
+		if string.find(terminator,'^:') then
+			BarType[Isyst][ibar] = bit32.bor(BarType[Isyst][ibar], 3)
+		end
+		if string.find(terminator,':$') then
+			BarType[Isyst][ibar] = bit32.bor(BarType[Isyst][ibar], 5)
+		end
+		if string.find(last_terminator, ':$') then
+			spaceatstart[ibar] = spaceatstart[ibar] +
+			  SpaceForStartRepeat*maxstaveheight
+		end
+		last_terminator = terminator   -- ready for next bar
+		if string.find(tokens[1], 'Segno') then	-- skip segno ?
+			BarType[Isyst][ibar-1] = BarType[Isyst][ibar-1] + 8
+			table.remove(tokens, 1)
+		end
+		local ipart = 1;   local itoken = 1
+		if Xml then goto nextbar end
+		s1 = string.match(tokens[1], '(%d+)[b#n]') ; if s1 then -- keysig
+			spaceatstart[ibar] = spaceatstart[ibar] + maxstaveheight *
+				(tonumber(s1)*AccidentalDxInKeysig + SpaceAfterKeySig)
+			table.remove(tokens, 1)
+		end
+		if string.find(tokens[1], '%d+/%d+') then	-- timesig
+			local topnum, botnum = split (tokens[1], '/', 2);
+			if topnum>9 or botnum>9 then  -- 2.0z
+				spaceatstart[ibar] = spaceatstart[ibar] +
+				  SpaceForFatTimeSig * maxstaveheight;
+			else
+				spaceatstart[ibar] = spaceatstart[ibar] +
+				  SpaceForTimeSig * maxstaveheight
+			end
+			table.remove(tokens, 1)
+		end
+		-- this will be wrong if one of the tokens is a non-numeric syntax err
+		Nparts[Isyst][ibar] = #tokens -- relative spacing
+		-- tot up the given proportions of the bars ...
+		Proportion[ibar] = 0.0
+		Partshare[ibar]  = {}
+		ipart = 1
+		while ipart <= Nparts[Isyst][ibar] do
+			local tok = tonumber(tokens[itoken])
+			if not tok or tok == 0 then
+				warn_ln("bars: '"..tokens[itoken]
+				  .."' should be numeric and nonzero")
+				Nparts[Isyst][ibar] = Nparts[Isyst][ibar] - 1
+				itoken = itoken + 1
+			end
+			Partshare[ibar][ipart] = tok
+			Proportion[ibar] = Proportion[ibar] + tok
+			itoken = itoken + 1;  ipart = ipart + 1
+		end
+		sumofproportions   = sumofproportions   + Proportion[ibar]
+		sumofspaceatstarts = sumofspaceatstarts + spaceatstart[ibar]
+		::nextbar::
+	end
+	Nbars[Isyst] = nbars
+	if Xml then Ibar = 0; Istave = 1 return end
+	-- 3.1f avoid division by zero
+	if sumofproportions == 0 then sumofproportions = 1 end
+	-- divide up the line between the bars according to these proportions ...
+	local lmargin = Lmargin[Isyst] + SpaceForClef*maxstaveheight
+	local xperproportion = (Rmargin[Isyst]-Lmargin[Isyst]-sumofspaceatstarts
+		- SpaceForClef*maxstaveheight) / sumofproportions
+	local x = lmargin
+	Xbar[Isyst] = {}
+	Xbar[Isyst][0] = Lmargin[Isyst]   -- YYY bug? why not = $lmargin;
+	if bit32.band(BarType[Isyst][0], 8) > 0.5 then   -- Segno at first bar ?
+		print(string.format("%g %g %g segno", lmargin,
+		  Ystave[Isyst][1] + StaveHeight[Isyst][Istave]*SegnoHeight,
+		  StaveHeight[Isyst][Istave]))
+	end
+	for ib = 1,Nbars[Isyst] do
+		x = x + xperproportion * Proportion[ib] + spaceatstart[ib]
+		Xbar[Isyst][ib] = x
+		ps_barline(x, Isyst, ib)
+	end
+	Ibar = 0; Istave = 1   -- these are globals.
+end
+
 local function ps_finish_ties() end
 local function newstave (line) warn('newstave: line = '..line) end -- hard...
 
--- ------------------------ MIDI stuff -------------------------------
+-------------------------- MIDI stuff -------------------------------
 
 local function midi_cc_127 (cha, num, val)
 	if val>127 then val=127 elseif val<0 then val=0 end
@@ -1204,9 +1410,9 @@ local function midi_global (s)
 	cha = str['channel'] or str['cha']
 	if Xml then  -- the Parts mean MIDI-Tracks - we only use one track.
 --[[
-		my $t3 = "\t\t\t"; my $t4 = "\t\t\t\t";
+		local t3 = "\t\t\t"; local t4 = "\t\t\t\t";
 		if (defined $cha) {
-			my $pan = q{};
+			local pan = q{};
 			if (defined $str{pan}) {
 				$pan = sprintf " pan=\"%d\"", int (($str{pan}-50)*1.8);
 			}
@@ -1214,7 +1420,7 @@ local function midi_global (s)
 			push @xml_cache,
 			 "$t3<sound$pan><midi-instrument id=\"cha$cha\">\n";
 			if (defined $str{patch}) {
-				my $program = $str{patch} + 1;
+				local program = $str{patch} + 1;
 				push @xml_cache,"$t4<midi-program>$program</midi-program>\n";
 			}
 			push @xml_cache,"$t3</midi-instrument></sound>\n";
@@ -1432,12 +1638,12 @@ local function interpret_syntax (line)
 		newsystem(line)
 		return
 	end
+	s1,s2 =  string.match(line, '^/%s*([1-9][0-9]*)%s*bars?%s*(.*)$')
+	if s2 then newsystem('/'); bars(s1,s2); Ibar=0; return end -- on same line
+	s1,s2 =  string.match(line, '^([1-9][0-9]*)%s*bars?%s*(.*)$')
+	if s2 then bars(s1,s2); Ibar=0 return end
 -- frontier
 --[[
-	if ($line =~ m{^/\s*([1-9][0-9]*)\s*bars?\s*(.*)$}) {  -- both on same line
-		newsystem('/'); bars($1,$2); $Ibar=0; next;
-	}
-	if ($line =~ /^([1-9][0-9]*)\s*bars?\s*(.*)$/) {bars($1,$2);$Ibar=0;next;}
 	if ($line =~ /^\|\s*([^=]*)(\s*=(\d.*)$)?/) {   -- 2.9j
 		newbar($1);   if ($3) { newstave($3); }   next;  -- 3.2c "next" what ?
 	}
@@ -1852,145 +2058,6 @@ local function set_array { my ($base, $digit1, $digit2, $equals, $values) = @_; 
 }
 
 
-local function bars { my $nbars = shift; my $str = shift; -- eg. $str='| 4.5 | 2 3 | 4 ||'
-	return if $Midi;
-	-- prints the barlines, and set the following global variables :
-	-- $BarType{$Isyst,$Ibar}, $spaceatstart{$Ibar}, $nparts{$Isyst,$Ibar},
-	-- $proportion{$Ibar}, $partshare{$Ibar,$ipart}, $nbars{$Isyst} and $Ibar
-	-- BarType bits mean: missing,segno,start-repeat,end-repeat,double
-
-	if ($nbars && ! $str) {
-		$str = '|1|';
-		$remember_bars_string = $str;   -- global
-		$remember_nbars       = $nbars; -- global
-	elseif (!$nbars && !$str && $remember_nbars && $remember_bars_string) {
-		$str   = $remember_bars_string;
-		$nbars = $remember_nbars;
-	else {
-		$remember_bars_string = $str;   -- global
-		$remember_nbars       = $nbars; -- global
-	}
-
-	-- could extract strings for a leftgap from this ...
-	$str =~ s/^[^|]*\|+\s*//;   -- throw away stuff up to first barline
-	$str =~ s/\s*$//;
-
-	my $last_terminator;
-	if ($str =~ s/^:\s*//) { $BarType{$Isyst,0}=4; $last_terminator='|:';
-	else { $BarType{$Isyst,0} = 0; $last_terminator = '|'
-	}
-
-	my $maxstaveheight = $MaxStaveHeight{$Isyst};
-	$Ibar = 0;   -- its a global, but we use it initially for a local loop...
-	my %spaceatstart = ();
-	my $sumofproportions    = 0.0;  -- sum of proportions of all bars in line
-	my $sumofspaceatstarts  = 0.0;  -- sum of spaceatstarts of all bars in line
-	my @bars = split /\s*(:?\|\|?:?)\s*/, $str;  -- 2.7g
-	if (@bars % 2 && $bars[$--bars] == q{}) { pop @bars; }
-	while (1) {
-		last unless @bars;
-		my @tokens = split(/\s+/, shift @bars);
-		my $terminator = shift @bars;  $Ibar++;
-		$BarType{$Isyst,$Ibar} = 0;
-		$spaceatstart{$Ibar} = $SpaceAtBeginningOfBar*$maxstaveheight; -- 2.4c
-		if (! $terminator)         { $BarType{$Isyst,$Ibar} = 16; }   -- 2.7g
-		if ($terminator =~ /\|\|/) { $BarType{$Isyst,$Ibar} |= 1; }
-		if ($terminator =~ /^:/)   { $BarType{$Isyst,$Ibar} |= 3; }
-		if ($terminator =~ /:$/)   { $BarType{$Isyst,$Ibar} |= 5; }
-		if ($last_terminator =~ /:$/) {
-			$spaceatstart{$Ibar} += $SpaceForStartRepeat*$maxstaveheight;
-		}
-		$last_terminator = $terminator;   -- ready for next bar
-
-		if ($tokens[$[] =~ /Segno/i) {	-- skip segno ?
-			$BarType{$Isyst,$Ibar-1} |= 8;
-			shift @tokens;
-		}
-		next if $Xml;
-		if ($tokens[$[] =~ /(\d+)[b#n]/) {	-- leave space for keysig ?
-			$spaceatstart{$Ibar} +=
-				$1 * $AccidentalDxInKeysig * $maxstaveheight;
-			$spaceatstart{$Ibar} += $SpaceAfterKeySig * $maxstaveheight;
-			shift @tokens;
-		}
-		if ($tokens[$[] =~ m{\d+/\d+}) {	-- leave space for timesig ?
-			my ($topnum, $botnum) = split ('/', $tokens[$[], 2);
-			if ($topnum>9 or $botnum>9) {  -- 2.0z
-				$spaceatstart{$Ibar} += $SpaceForFatTimeSig * $maxstaveheight;
-			else {
-				$spaceatstart{$Ibar} += $SpaceForTimeSig * $maxstaveheight;
-			}
-			shift @tokens;
-		}
-		-- this will be wrong if one of the tokens is a non-numeric syntax err
-		$nparts{$Isyst, $Ibar} = scalar @tokens; -- relative spacing
-
-		-- tot up the given proportions of the bars ...
-		my $itoken = $[;
-		$proportion{$Ibar} = 0.0;
-		my $ipart = 1;
-		while (1) {
-			last if $ipart > $nparts{$Isyst,$Ibar};
-			if ($tokens[$itoken] == 0) {
-				warn " line $LineNum: bars: '$tokens[$itoken]' "
-				. "should be numeric and nonzero\n";
-				$nparts{$Isyst,$Ibar} --;
-				$itoken++;
-			}
-			$partshare{$Ibar, $ipart} = $tokens[$itoken];
-			$proportion{$Ibar} += $tokens[$itoken];
-			$itoken++;  $ipart++;
-		}
-		$sumofproportions += $proportion{$Ibar};
-		$sumofspaceatstarts += $spaceatstart{$Ibar};
-	}
-
-	if ($nbars > $Ibar) {   -- 2.0g ; expand "5 bars | 8 |"
-		my $ib = $Ibar;  -- Remember the last specified bar
-		while (1) {
-			$Ibar++;
-			$BarType{$Isyst,$Ibar} = $BarType{$Isyst,$ib};
-			if (!$Xml) {
-				$spaceatstart{$Ibar} = $spaceatstart{$ib};
-				$nparts{$Isyst,$Ibar} = $nparts{$Isyst,$ib};
-				my $ipart;
-				$proportion{$Ibar} = 0.0;
-				for ($ipart=1; $ipart <= $nparts{$Isyst,$ib}; $ipart++) {
-					$partshare{$Ibar,$ipart} = $partshare{$ib,$ipart};
-					$proportion{$Ibar} += $partshare{$ib,$ipart};
-				}
-				$sumofproportions += $proportion{$ib};
-				$sumofspaceatstarts += $spaceatstart{$Ibar};
-			}
-			last if $Ibar >= $nbars;
-		}
-	}
-	$nbars{$Isyst} = $Ibar;
-	if ($Xml) { $Ibar = 0; $istave = 0; return; }
-	-- 3.1f avoid division by zero
-	if ($sumofproportions == 0) { $sumofproportions = 1; }
-
-	-- divide up the line between the bars according to these proportions ...
-	my $lmargin = $Lmargin{$Isyst}+$SpaceForClef*$maxstaveheight;
-	$xperproportion = ($rmargin{$Isyst}-$Lmargin{$Isyst}-$sumofspaceatstarts
-		- $SpaceForClef*$maxstaveheight) / $sumofproportions;
-	my $X = $lmargin;
-	$xbar{$Isyst, 0} = $Lmargin{$Isyst};   -- YYY bug? why not = $lmargin;
-	if (8 & $BarType{$Isyst,0}) {   -- Segno at first bar ?
-		printf "%g %g %g segno\n", $lmargin,
-			$Ystave{$Isyst,1} + $StaveHeight{$Isyst,$istave}*$SegnoHeight,
-			$StaveHeight{$Isyst, $istave};
-	}
-	for ($ib=1; $ib<=$nbars{$Isyst}; $ib++) {
-		$deltaxbar{$Isyst,$ib} = $xperproportion * $proportion{$ib}
-			+ $spaceatstart{$ib};
-		$X += $deltaxbar{$Isyst,$ib};
-		$xbar{$Isyst,$ib} = $X;
-		&ps_barline($X, $Isyst, $ib);
-	}
-	$Ibar = 0; $istave = 0;   -- these are globals.
-}
-
 local function newbar {
 	if ($Midi) {
 		$TicksAtBarStart += $ticksthisbar;
@@ -2003,7 +2070,7 @@ local function newbar {
 		}
 		$xml{measure_number}++;
 		$Ibar++; $istave = 0;   -- globals.
-		if ($Ibar > $nbars{$Isyst}) { &newsystem('/'); &bars(); $Ibar=1; }
+		if ($Ibar > Syst2nbars{$Isyst}) { &newsystem('/'); &bars(); $Ibar=1; }
 		print "\t\t<measure number=\"$xml{measure_number}\">\n";
 		$xml{backup} = 0;
 		$xml{voice}  = 0;
@@ -2011,10 +2078,10 @@ local function newbar {
 		&xml_timesig($_[$[]);
 	else {
 		if ($BarType{$Isyst,$Ibar} & 2) {   -- if BarType is :|| or :||:
-			&ps_finish_ties($xbar{$Isyst,$Ibar});
+			&ps_finish_ties($Xbar{$Isyst,$Ibar});
 		}
 		$Ibar++; $istave = 0;   -- globals.
-		if ($Ibar > $nbars{$Isyst}) {
+		if ($Ibar > Syst2nbars{$Isyst}) {
 			if (! $JustDidNewsystem) { &newsystem('/'); }
 			&bars(); $Ibar=1;  #XXXX
 		}
@@ -2125,20 +2192,20 @@ local function newstave { $[=1;
 	else {
 		-- The spacing of the bar was specified in nparts parts
 		-- BUG ! if the "|" line after a "N bars " is omitted, nparts = 0 !!
-		if ($nparts{$Isyst, $Ibar}) {
-			$CrosPerPart = $CrosSoFar / $nparts{$Isyst, $Ibar};
+		if ($Nparts{$Isyst, $Ibar}) {
+			$CrosPerPart = $CrosSoFar / $Nparts{$Isyst, $Ibar};
 		else { print
 			"% ERROR: no | before stave line, page $pagenum, sys $Isyst\n";
 			$CrosPerPart = 10; -- ugly but legal
 		}
 	
 		-- so what are the corresponding x positions ?
-		-- NB xpart[n] is the left end of part n, but xbar{s,m} is right end
-		-- of bar m !  So xbar{isyst,0} = LeftHandMargin.
+		-- NB xpart[n] is the left end of part n, but Xbar{s,m} is right end
+		-- of bar m !  So Xbar{isyst,0} = LeftHandMargin.
 
 		$maxstaveheight = $MaxStaveHeight{$Isyst}; -- for speed ...
 		-- place the beginning of the bar
-		$xpart{1}=$xbar{$Isyst,$Ibar-1}+$SpaceAtBeginningOfBar*$maxstaveheight;
+		$xpart{1}=$Xbar{$Isyst,$Ibar-1}+$SpaceAtBeginningOfBar*$maxstaveheight;
 		-- there's always a clef at BOL ...
 		if ($Ibar == 1) { $xpart{1} += $SpaceForClef*$maxstaveheight; }
 
@@ -2150,8 +2217,8 @@ local function newstave { $[=1;
 		}
 
 		-- place the end of the bar
-		$ilastpart = 1 + $nparts{$Isyst, $Ibar};
-		$xpart{$ilastpart}=$xbar{$Isyst,$Ibar}-$SpaceAtEndOfBar*$maxstaveheight;
+		$ilastpart = 1 + $Nparts{$Isyst, $Ibar};
+		$xpart{$ilastpart}=$Xbar{$Isyst,$Ibar}-$SpaceAtEndOfBar*$maxstaveheight;
 		-- leave a bit of room for end-of-repeat signs
 		if ($BarType{$Isyst, $Ibar} & 2) {
 			$xpart{$ilastpart} -= $SpaceForEndRepeat * $maxstaveheight;
@@ -2184,7 +2251,7 @@ local function newstave { $[=1;
 				$xml{"clef $istave"} = $cleftype;
 			}
 		else {
-			my $x = $xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight;
+			my $x = $Xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight;
 			if ($Ibar>1 && $BarType{$Isyst,$Ibar-1} & 4) {  -- start-of-repeat
 				$x += $SpaceForStartRepeat * $maxstaveheight;
 			elseif ($Ibar>1 && $BarType{$Isyst,$Ibar-1} & 1) {  -- double-bar
@@ -2204,7 +2271,7 @@ local function newstave { $[=1;
 		$i++;
 	elseif ($Ibar == 1 && $clef{$istave}) {
 		if (!$Midi && !$Xml) { printf "%g %g %g %sclef\n",
-			 $xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight,
+			 $Xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight,
 			 $ystave, $staveheight, $clef{$istave};
 		}
 		$theresaclef = 1;
@@ -2224,7 +2291,7 @@ local function newstave { $[=1;
 				$xml{"keysig $istave"} = $array[$i];
 			}
 		else {
-			my $x = $xbar{$Isyst,$Ibar-1};
+			my $x = $Xbar{$Isyst,$Ibar-1};
 			if ($Ibar == 1 || $theresaclef) {
 				$x += $SpaceForClef*$maxstaveheight;
 			else {
@@ -2253,7 +2320,7 @@ local function newstave { $[=1;
 	elseif($Ibar==1 && $retain_clef && $keysig{$istave}=~/^([1-7])([#bn])$/){
 		$must_null_the_keysig = 0;   -- 2.8o
 		if (!$Midi && !$Xml) { &ps_keysig
-			($1, $2, $xbar{$Isyst,$Ibar-1}+$SpaceForClef*$maxstaveheight);
+			($1, $2, $Xbar{$Isyst,$Ibar-1}+$SpaceForClef*$maxstaveheight);
 		}
 	}
 	if ($must_null_the_keysig) { $keysig{$istave} = q{}; }   -- 2.8o
@@ -2289,11 +2356,11 @@ local function newstave { $[=1;
 			$xpart{1} += $SpaceForStartRepeat * $maxstaveheight;
 		}
 		-- calculate the length of bar available for music, = end - beginning
-		$dxbar = $xpart{1 + $nparts{$Isyst, $Ibar}} - $xpart{1};
+		$dxbar = $xpart{1 + $Nparts{$Isyst, $Ibar}} - $xpart{1};
 		-- and thus place the various parts within the bar
-		for ($ipart = 2; $ipart <= $nparts{$Isyst, $Ibar}; $ipart++) {
+		for ($ipart = 2; $ipart <= $Nparts{$Isyst, $Ibar}; $ipart++) {
 			$xpart{$ipart} = $xpart{$ipart-1} +
-				$dxbar * $partshare{$Ibar, $ipart-1} / $proportion{$Ibar};
+				$dxbar * $partshare{$Ibar, $ipart-1} / $Proportion{$Ibar};
 		}
 	elseif ($Xml) {
 		if ($xml_keysig) {
@@ -2943,17 +3010,17 @@ local function xml_event {
 		}
 	}
 }
-local function xml_barline { return unless $Xml;  my ($type) = @_;
-	-- draws a barline of type $type. Types: 0 = simple, 1 = double,
+local function xml_barline { return unless $Xml;  my (bartype) = @_;
+	-- draws a barline of type bartype. Types: 0 = simple, 1 = double,
 	-- add 2 for end-of-repeat, 4 for start-of-repeat, 8 for Segno
 	my @elements;
-	if ($type & 1) {
+	if (bartype & 1) {
 		push @elements, '<bar-style>light-heavy</bar-style>';
 	}
-	if ($type & 8) {   -- Segno ...
+	if (bartype & 8) {   -- Segno ...
 		push @elements, '<segno/>';
 	}
-	if ($type & 2) {   -- end repeated section ...
+	if (bartype & 2) {   -- end repeated section ...
 		push @elements, '<repeat direction="backward"/>';
 	}
 	if (@elements) { return "\t\t\t<barline>",@elements,"</barline>\n";
@@ -3995,7 +4062,7 @@ local function ps_note { local ($note_ref, $X, $height2cross_ref) = @_; -- $X ne
 			while (1) {
 				$ib--;
 				if (2&$BarType{$Isyst,$ib}) {
-					$x_left = $xbar{$Isyst,$ib}; last;
+					$x_left = $Xbar{$Isyst,$ib}; last;
 				}
 				if ($ib < 1) {
 					$x_left = $Lmargin{$Isyst} + $SpaceForClef*$staveheight;
@@ -4218,52 +4285,8 @@ local function ps_note_options { my ($X,$ybot,$ytop,$stem,$options) = @_;
 		}
 	}
 }
-local function ps_barline { my ($X, $isyst, $ibar) = @_;
-	my $type = $BarType{$isyst,$ibar};
-	my $maxstaveheight = $MaxStaveHeight{$isyst};
-	-- draws a barline of type $type at $X. Types: 0 = simple, 1 = double,
-	-- add 2 for end-repeat, 4 for start-repeat, 8 for Segno, 16 for missing
-	if ($type > 15) { return; }  -- 2.7g
-	if ($type > 7) {   -- Segno ...
-		printf "%g %g %g segno\n", $X + .22*$staveheight,
-			$Ystave{$isyst,1} + $StaveHeight{$isyst,1}*$SegnoHeight,
-			$maxstaveheight;
-		$type -= 8;
-	}
-	if ($type > 3) {   -- begin repeated section ...
-		for ($i = 1; $i <= $Nstaves{$isyst}; $i++) {
-			my $staveheight = $StaveHeight{$isyst,$i};  -- 2.8b
-			&ps_repeatmark($isyst,$i,$X+.6*$SpaceForStartRepeat*$staveheight);
-		}
-		$type -= 4;
-	}
-	if ($type > 1) {   -- end repeated section ...
-		for ($i = 1; $i <= $Nstaves{$isyst}; $i++) {
-			my $staveheight = $StaveHeight{$isyst,$i};  -- 2.8b
-			&ps_repeatmark($isyst,$i,$X-0.6*$SpaceForStartRepeat*$staveheight);
-		}
-		$type -= 2;
-	}
-	if ($type == 0) {
-		for ($i = 1; $i <= $Nblines{$isyst}; $i++) {
-			printf "%g %g %g %g barline\n", $X, $YblineTop{$isyst,$i},
-			 $YblineBot{$isyst,$i}, $maxstaveheight;
-		}
-		return;
-	}
-	if ($type == 1) {
-		for ($i = 1; $i <= $Nblines{$isyst}; $i++) {
-			my $staveheight = $StaveHeight{$isyst,$i};
-			printf "%g %g %g %g barline\n", $X + 0.03*$staveheight,  -- 2.8b
-			 $YblineTop{$isyst,$i}, $YblineBot{$isyst,$i}, 2.0*$maxstaveheight;
-			printf "%g %g %g %g barline\n", $X - 0.07*$staveheight,  -- 2.8b
-			 $YblineTop{$isyst,$i}, $YblineBot{$isyst,$i}, $maxstaveheight;
-		}
-		return;
-	}
-	printf "%% ERROR: barline called with type = %d\n", $type;
-	return;
-}
+
+
 local function ps_text {  my ($fonttype, $fontsize, $vertpos, $text) = @_;
 	if ($Midi) { warn "bug: ps_text called with \$Midi set\n"; return; }
 	if ($Xml)  { warn "bug: ps_text called with \$Xml set\n";  return; }
@@ -4307,12 +4330,12 @@ local function ps_text {  my ($fonttype, $fontsize, $vertpos, $text) = @_;
 		-- $SpaceAfterKeySig, $SpaceForStartRepeat, $SpaceForEndRepeat,
 		-- $SpaceAtEndOfBar ?
 		if ($pos > $Epsilon && $Ibar == 1) {
-			$left = $xbar{$Isyst,0} +
+			$left = $Xbar{$Isyst,0} +
 			($SpaceForClef+$WhiteBlobHalfWidth)*$staveheight;
 		else {
-			$left = $xbar{$Isyst,$Ibar-1} + $WhiteBlobHalfWidth*$staveheight;
+			$left = $Xbar{$Isyst,$Ibar-1} + $WhiteBlobHalfWidth*$staveheight;
 		}
-		$right = $xbar{$Isyst,$Ibar} - $WhiteBlobHalfWidth*$staveheight;
+		$right = $Xbar{$Isyst,$Ibar} - $WhiteBlobHalfWidth*$staveheight;
 		$text = $str_by_pos{$pos};
 		next unless $text =~ /\S/;
 		printf("%g %g /$font %g (%s) leftshow\n",
@@ -4687,11 +4710,7 @@ local function ps_keysig { my ($num, $sign, $x) = @_;
 	$xpart{1} += $SpaceAfterKeySig * $staveheight;
 }
 
-local function ps_repeatmark { my ($isyst, $istave, $X) = @_;
-	die if $Midi||$Xml;
-	printf "%g %g %g repeatmark\n",
-		$X, $Ystave{$isyst, $istave}, $StaveHeight{$isyst, $istave};
-}
+
 local function ps_finish_ties { my $right = $_[$[];
 	if (! $right) { $right = $rmar + $TieOverhang*$staveheight; }  -- 2.8s
 	return unless defined $nstaves{$Isyst}; -- defeat -w warning
