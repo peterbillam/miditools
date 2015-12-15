@@ -14,6 +14,7 @@ VersionDate  = '23nov2015';
 debug = false
 -- if debug then $|=1;  -- so you can 'tail -f' on the output file
 require 'DataDumper'
+concat = table.concat
 
 -- Beginning of Configuration Stuff: mostly relative to stave height ...
 SpaceAtBeginningOfBar = 0.60
@@ -54,7 +55,7 @@ TextSize              = 0.55
 SmallFontRatio        = 0.707
 StemLength            = 0.85
 OptionClearance       = 0.19   -- 0.38
-OptionDy              = 0.35
+OptionDyDflt          = 0.35
 OptionDy              = { dot=0.25, tenuto=0.26, upbow=0.43, gs=0.55,
 	blank=0.25, Is=0.35, is=0.33, bs=0.35, rs=0.33, I=0.47, i=0.45,
 	b=0.47, r=0.45, dim=0.0, cre=0.0, ['*']=0.35 }
@@ -112,6 +113,7 @@ BarType         = {}
 CurrentStaveNum = 0    -- it's a number ! in perl it was a string...
 CurrentPulse     = 1
 CurrentPulseText = 'cro'
+Stave2clef      = {}
 Stave2channels  = {}   -- 3.1v now a hash of lists
 Stave2volume    = {}
 Stave2pan       = {}
@@ -119,35 +121,36 @@ Stave2bend      = {}   -- 3.2
 Stave2transpose = {}
 Stave2legato    = {}
 Stave2nullkeysigDx = {}  -- 2.9y
-Cha2transpose   = {} -- 3.1u see midi_global
+Cha2transpose   = {[0]=0,0,0,0,0,0,0,0,0,0,0,0,0,0,0} -- 3.1u see midi_global
 MidiScore       = {}   -- list
 MidiTempo       = 5208 -- needed by "midi pause" and &midi_timesig
 OldMidiTempo    = nil
-MidiTimesig     = nil
+MidiBarParts    = '2.4'
+MidiTimesig     = ''
 TicksPerMidiBeat = 0
-TicksPerCro     = 0
+TicksPerCro     = 96 -- for debugging
 CrosSoFar       = 0
 CrosPerPart     = 0
 Nstaves = {}
-Nblines = {}  -- number of barlines on this system
-Nparts  = {}    -- needed by newsystem() and newstave()
+Nblines = {}    -- number of barlines on this system
+Nparts  = {}    -- used by newsystem(), newstave(), ps_event(), ps_beat2x()
 Xpart   = {}    -- Xpart[ipart] within the current bar
 Nbars   = {}    -- needed by bars() and newbar()
-Keysig  = {}    -- indexed by Istave
+Keysig  = {}    -- [Istave] ; it's local within newstave() but persistent
 TicksAtBarStart = 0
 TicksThisBar    = 0
 MidiExpression  = {}  -- dict
 xml_tempo       = nil
 xml_timesig     = nil
 Proportion      = {} -- shared by PS and XML
-Partshare       = {} -- shared by newsystem() and newstave()
-StartBeamUp     = false  -- &ps_event and &ps_note
-StartBeamDown   = false  -- &ps_event and &ps_note
+PartShare       = {} -- shared by newsystem(), newstave(), bars()
+StartBeamUp     = false  -- used by ps_event() and ps_note()
+StartBeamDown   = false  -- used by ps_event() and ps_note()
 StartedSlurs    = {}
-StartedTies     = {}  -- 3.2b cha3+4, $StartedTies{"$Istave $starttie $cha"}
+StartedTies     = {}  -- StartedTies[table.concat({Istave,starttie,cha},' ')]
+                      -- ={'note',begin,fullduration,cha,note,velocity,pitch}
 BeamUp          = {}  -- list
 BeamDown        = {}  -- list
-Startcrossbeam  = nil
 LineNum         = 0
 Accidentalled   = {}
 Options         = {}
@@ -173,8 +176,8 @@ RememberNsystems     = nil
 RememberHeader       = {}
 RememberBarsString   = nil
 RememberNbars        = nil
-x_start = {}
-y_start = {}  -- $x_start{'tie',$Isyst,$Istave,$itie}; (or 'slur')
+Xstart = {}  -- Xstart[concat({'tie',Isyst,Istave,itie},' ')] (or 'slur')
+Ystart = {}
 JustDidNewsystem = false
 Xml = {}
 XmlDuration     = {}
@@ -188,8 +191,8 @@ XmlDynamics = { p=true, pp=true, ppp=true, pppp=true, ppppp=true,
 xml_cache      = {}  -- cache for music-data in a measure, to count staves
 Midline        = {}  -- dict
 Line2step      = {}  -- dict  -- for shifting rests in xml
-SlurOrTie      = {}  -- dict
-SlurOrTieShitf = {}  -- dict
+-- SlurOrTie      = {}  -- dict
+SlurOrTieShift = {}  -- dict
 PS_Prolog        = nil -- will be set later if MIDI is not defined
 PS_prologAlready = false
 Midi_off         = false
@@ -203,6 +206,10 @@ AabaSequence      = {0,0,1,0, 0,0,1,0, 1,1,0,1, 0,0,1,0}
 VariableSetRE     = "^\\$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
 VariableGetRE     = "\\$([A-Z][A-Z0-9]*)"
 VarArraySetRE     = "^\\$([A-Z][A-Z0-9]*)(%d)-(%d)%s*(==?)%s*(.+)$"
+-- used by ps_event() and ps_y_above_note() :
+HighestStemUp   = 0 ;  HighestStemDown = 0 ;  HighestNoStem   = 0 
+-- used by ps_event() and ps_y_below_note() :
+LowestStemUp   = 1000; LowestStemDown = 1000; LowestNoStem   = 1000
 
 -- "boundingbox" can override these ...
 lmar    =  40  -- these four for system-layout
@@ -775,9 +782,9 @@ function warn(...)
 	for k,v in pairs{...} do table.insert(a, tostring(v)) end
 	io.stderr:write(table.concat(a),'\n') ; io.stderr:flush()
 end
-function warn_ln(str) warn(' line ',LineNum,': ',str) end
-function warning(s) warn('warning: ',s) end
-function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
+function warn_ln(...) warn(' line ',LineNum,': ', ...) end
+function warning(...) warn('warning: ', ...) end
+function die(...) warn(...) ;  os.exit(1) end
 function round(x) return math.floor(x+0.5) end
 function abs(x) if x<0 then return 0-x else return x end end
 function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
@@ -798,10 +805,11 @@ function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
 	table.insert( result, string.sub(s,theStart,-1) )
 	return result
 end
+function printf (...) print(string.format(...)) end
 function print_sp (...)  -- like print() but uses spaces not tabs
     local a2 = {}
     for i,v in ipairs({...}) do table.insert(a2, tostring(v)) end
-    print(table.concat(a2, ' '))
+    print(concat(a2, ' '))
 end
 function sorted_keys(t, f)
 	local a = {}
@@ -809,6 +817,70 @@ function sorted_keys(t, f)
 	table.sort(a, f)
 	return  a
 end
+
+function parse_options(line, keep)  -- delimits by '-' respects quoting by "
+	local words = {}
+	if not line or line == '' then return {} end
+	for w in string.gmatch(line, '[^"]+') do words[#words+1] = w end -- p.203
+	local a = {}
+	for i,w in ipairs(words) do
+		if i%2 > 0.5 then  
+			a[#a+1] = w
+			if i < #words then a[#a+1] = '"' end
+		else
+			a[#a+1] = string.gsub(w, '-', '\a')
+			if i < #words then a[#a+1] = '"' end
+		end
+	end
+	local quotedline = table.concat(a, '')
+	words = {}
+	for w in string.gmatch(quotedline, '([^%-]*)-') do words[#words+1] = w end
+	words[#words+1] = string.gsub(quotedline,'^.*-', '')
+	local a = {}
+	if keep then 
+		local delims = {}
+		for d in string.gmatch(quotedline, '-') do delims[#delims+1] = d end
+		for i = 1,#words do
+			a[#a+1] = string.gsub(words[i], '\v', '-')
+			if delims[i] then a[#a+1] = delims[i] end
+		end
+	else
+        for i = 1,#words do a[#a+1] = string.gsub(words[i], '\a', ' ') end
+	end
+	return a
+end
+
+function parse_line(line, keep)   -- only respects quoting by "
+	local words = {}
+	for w in string.gmatch(line, '[^"]+') do words[#words+1] = w end -- p.203
+	local a = {}
+	for i,w in ipairs(words) do
+		if i%2 > 0.5 then
+			a[#a+1] = w
+			if i < #words then a[#a+1] = ' ' end
+		else
+			a[#a+1] = string.gsub(w, '%s', '\a')
+			if i < #words then a[#a+1] = ' ' end
+		end
+	end
+	local quotedline = table.concat(a, '')
+	words = {}
+	for w in string.gmatch(quotedline, '(%S+)%s') do words[#words+1] = w end
+	words[#words+1] = string.gsub(quotedline,'^.*%s', '')
+	local a = {}
+	if keep then
+		local delims = {}
+		for d in string.gmatch(quotedline, '%s+') do delims[#delims+1] = d end
+		for i = 1,#words do
+			a[#a+1] =  string.gsub(words[i], 'X', ' ')
+			if delims[i] then a[#a+1] = delims[i] end
+		end
+	else
+		for i = 1,#words do a[#a+1] = string.gsub(words[i], '\a', ' ') end
+	end
+	return a
+end
+
 
 
 
@@ -902,12 +974,12 @@ function initialise ()
 		tr='trill', ['tr#']='trsharp', trb='trflat', trn='trnat',
 		turn='turn', up='upbow',
 	}
-	SlurOrTie = {
-		['(']='starttie',
-		['{']='startslur',
-		[')']='endtie',
-		['}']='endslur',
-	}
+--	SlurOrTie = {
+--		['(']='starttie',
+--		['{']='startslur',
+--		[')']='endtie',
+--		['}']='endslur',
+--	}
 	SlurOrTieShift = {
 		[""]=0, ["'"]=1, ["''"]=2, ["'''"]=3, ["''''"]=4,
 		[","]=-1, [",,"]=-2, [",,,"]=-3, [",,,,"]=-4,
@@ -918,7 +990,7 @@ function initialise ()
 		TicksPerMidiBeat = TPC
 		TicksAtBarStart  = 0
 		TicksThisBar     = 0      -- so as not to delay the start
-		midibarparts     = '2.4'  -- default guesses 4/4 at 100 cro/min
+		MidiBarParts     = '2.4'  -- default guesses 4/4 at 100 cro/min
 		Stave2channels   = {}
 		Istave  = '1'
 	elseif XmlOpt then
@@ -1109,15 +1181,14 @@ local function systems (nsystems, sizes)
 	Ipage = Ipage + 1
 	print("%%Page: "..tostring(Ipage).." "..tostring(Ipage))
 	print("%%BeginPageSetup\n/pgsave save def\n%%EndPageSetup")
-	if PageSize == 'letter' then print(string.format(
-		"%g 0 translate 1.0 %g scale",LetterMargin,LetterFactor))
+	if PageSize == 'letter' then
+		printf("%g 0 translate 1.0 %g scale",LetterMargin,LetterFactor)
 	elseif PageSize == 'compromise' then  -- a4 width, letter height
 		print "4 0 translate 1.0 0.95 scale";
 	elseif PageSize == 'auto' then  -- autodetect
 		print "/pageheight currentpagedevice (PageSize) get 1 get def"
 		print "pageheight 800 lt pageheight 785 gt and {"
-		print(string.format(
-		  "\t%g 0 translate 1.0 %g scale\n} if",LetterMargin,LetterFactor))
+		printf("\t%g 0 translate 1.0 %g scale\n} if",LetterMargin,LetterFactor)
 	end
 	print_tty("page "..tostring(Ipage)..", system")
 
@@ -1218,12 +1289,12 @@ local function systems (nsystems, sizes)
 			if StaveHeight[isyst][istave] > max_staveheight then
 				max_staveheight = StaveHeight[isyst][istave]
 			end
-			print(string.format("%g %g %g %g stave", Lmargin[isyst],
-			  Rmargin[isyst], Y, StaveHeight[isyst][istave]))
+			printf("%g %g %g %g stave", Lmargin[isyst],
+			  Rmargin[isyst], Y, StaveHeight[isyst][istave])
 			Y = Y - StaveHeight[isyst][istave]
 			if istave >= Nstaves[isyst] then
-				print(string.format("%g %g %g %g barline", Lmargin[isyst],
-				 Ystave[isyst][1], Y, StaveHeight[isyst][istave]))
+				printf("%g %g %g %g barline", Lmargin[isyst],
+				 Ystave[isyst][1], Y, StaveHeight[isyst][istave])
 				if igap<=ngaps[isyst] then Y=Y-GapHeight[isyst][igap] end
 				break
 			end
@@ -1240,9 +1311,9 @@ local function systems (nsystems, sizes)
 		-- and print the brackets
 		-- should use average (or max) StaveHeight
 		for i = 1,Nblines[isyst] do
-			print(string.format("%g %g %g %g bracket",
+			printf("%g %g %g %g bracket",
 			 Lmargin[isyst] - max_staveheight*0.225,
-			 YblineTop[isyst][i], YblineBot[isyst][i], max_staveheight))
+			 YblineTop[isyst][i], YblineBot[isyst][i], max_staveheight)
 		end
 		Y = Y - systemgap
 	end
@@ -1355,11 +1426,11 @@ local function ps_pagenum (str)
 	end
 	RememberHeader['pagenum'] = PageNum
 	if (PageNum % 2) > 0.5 then	-- odd page number
-		print(string.format("%d %d /%s %g (%d) rightshow",
-		  rmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum))
+		printf("%d %d /%s %g (%d) rightshow",
+		  rmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum)
 	else	 -- even page number
-		print(string.format("%d %d /%s %g (%d) leftshow",
-		  lmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum))
+		printf("%d %d /%s %g (%d) leftshow",
+		  lmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum)
 	end
 end
 local function title (str)
@@ -1371,8 +1442,8 @@ local function title (str)
 		return;
 	else
 		RememberHeader['title'] = escape_and_utf2iso(str)
-		print(string.format("%g %g /%s %g (%s) centreshow", 0.5*(lmar+rmar),
-		  HeadMar-5, BoldFont, TitleFontSize, RememberHeader['title']))
+		printf("%g %g /%s %g (%s) centreshow", 0.5*(lmar+rmar),
+		  HeadMar-5, BoldFont, TitleFontSize, RememberHeader['title'])
 	end
 end
 local function comment (s)
@@ -1386,8 +1457,8 @@ local function ps_finish_ties() end
 
 local function ps_repeatmark (isyst, istave, x)
 	if MIDI or  XmlOpt then die('BUG: ps_repeatmark called with MIDI or Xml') end
-	print(string.format("%g %g %g repeatmark",
-		x, Ystave[isyst][istave], StaveHeight[isyst][istave]))
+	printf("%g %g %g repeatmark",
+		x, Ystave[isyst][istave], StaveHeight[isyst][istave])
 end
 
 local function ps_barline (x, isyst, ibar)
@@ -1397,9 +1468,8 @@ local function ps_barline (x, isyst, ibar)
 	-- add 2 for end-repeat, 4 for start-repeat, 8 for Segno, 16 for missing
 	if bartype > 15 then return end  -- 2.7g
 	if bartype > 7 then   -- Segno ...
-		print(string.format("%g %g %g segno", x + .22*StaveHeight[isyst][1],
-			Ystave[isyst][1] + StaveHeight[isyst][1]*SegnoHeight,
-			maxstvhgt))
+		printf("%g %g %g segno", x + .22*StaveHeight[isyst][1],
+			Ystave[isyst][1] + StaveHeight[isyst][1]*SegnoHeight, maxstvhgt)
 		bartype = bartype - 8
 	end
 	if bartype > 3 then   -- begin repeated section ...
@@ -1418,23 +1488,963 @@ local function ps_barline (x, isyst, ibar)
 	end
 	if bartype == 0 then
 		for i = 1,Nblines[isyst] do
-			print(string.format("%g %g %g %g barline", x, YblineTop[isyst][i],
-			 YblineBot[isyst][i], maxstvhgt))
+			printf("%g %g %g %g barline", x, YblineTop[isyst][i],
+			 YblineBot[isyst][i], maxstvhgt)
 		end
 		return;
 	end
 	if bartype == 1 then
 		for i = 1,Nblines[isyst] do
 			local staveheight = StaveHeight[isyst][i]
-			print(string.format("%g %g %g %g barline", x + 0.03*staveheight,
-			 YblineTop[isyst][i], YblineBot[isyst][i], 2.0*maxstvhgt))
-			print(string.format("%g %g %g %g barline", x - 0.07*staveheight,
-			 YblineTop[isyst][i], YblineBot[isyst][i], maxstvhgt))
+			printf("%g %g %g %g barline", x + 0.03*staveheight,
+			 YblineTop[isyst][i], YblineBot[isyst][i], 2.0*maxstvhgt)
+			printf("%g %g %g %g barline", x - 0.07*staveheight,
+			 YblineTop[isyst][i], YblineBot[isyst][i], maxstvhgt)
 		end
 		return
 	end
-	print(string.format("%% ERROR: barline called with type = %d", type))
+	printf("%% ERROR: barline called with type = %d", type)
 	return
+end
+
+local function ps_beat2x (crossofar,crosperpart)
+--warn('ps_beat2x: crossofar=',crossofar,' crosperpart=',crosperpart)
+	local ipart = 1 + math.floor(crossofar/crosperpart + Epsilon)
+-- why -Epsilon ? 
+--warn('ps_beat2x: ipart=',ipart,' Xpart[ipart]=',Xpart[ipart],' Xpart[ipart+1]=',Xpart[ipart+1])
+	return (Xpart[ipart] + (Xpart[ipart+1] - Xpart[ipart]) *
+		(crossofar - crosperpart*(ipart-1)) / crosperpart)
+end
+
+local function parse_note (s)
+	if not s then return end
+	local scopy = s -- just in case there's a warning-message
+	local r = {}    -- will return this
+	local find  = string.find ;  local  gsub  = string.gsub
+	local match = string.match ; local gmatch = string.gmatch
+	if find(s,']$') then r['endbeam']=']'; s=gsub(s,']$','') end
+	if find(s,'>$') then r['endchord']='>'; s=gsub(s,'>$','') end
+	-- local len = 1 + string.len(notebit)
+	if find(s,'^%[') then r['startbeam']=']'; s=gsub(s,'%[','') end
+	if find(s,'^<') then r['startchord']='>'; s=gsub(s,'^<','') end
+	local notebit,options = table.unpack(split(s,'-', 2))
+	r['notebit'] = notebit
+	r['options'] = options
+	local s1,s2 =  match(notebit,'^([A-Ga-g][_~]*)([#bn]*)')
+	if s2 then
+		r['pitch']=s1; r['accidental']=s2
+		notebit = gsub(notebit,'^[A-Ga-g][_~]*[#bn]*','')
+	end
+	if notebit == '' then return r end
+	if find(notebit, "l") then
+		notebit, r['accidentalshift'] = gsub(notebit, 'l', '')
+	end
+	if find(notebit, "r") then
+		notebit, r['rightshift'] = gsub(notebit, 'r', '')
+	end
+	if find(notebit, "x") then
+		r['cross'] = 'x' ; notebit = gsub(notebit, 'x', '')
+	end
+	local beforeslur = gsub(notebit, "[{}()].*$", "")
+	local s1 = match(beforeslur, "([,'])") ; if s1 then
+		r['stem'] = s1
+		notebit = gsub(notebit, "^[^{}()]+", '')
+	end
+	if notebit == '' then return r end
+--	for slurtie in gmatch(notebit, "[{}%(%)][',]?%d+") do
+--		local s1,s2,s3 = match(slurtie, "([{}%(%)])([',]*)(%d)")
+--		if s1 and s3 then r[SlurOrTie[s1]] = s3 end
+--		if s2 ~= '' then r[s3..'shift'] = SlurOrTieShift[s2] end
+--	end
+	s1,s2 = match(notebit,"%(([',]*)(%d+)"); if s2 then
+		r['starttie'] = s2
+		if s1 and s1 ~= '' then r['starttieshift'] = SlurOrTieShift[s2] end
+	end
+	s1,s2 = match(notebit,"%)([',]*)(%d+)"); if s2 then
+		r['endtie'] = s2
+		if s1 and s1 ~= '' then r['endtieshift'] = SlurOrTieShift[s2] end
+	end
+	s1,s2 = match(notebit,"{([',]*)(%d+)"); if s2 then
+		r['startslur'] = s2
+		if s1 and s1 ~= '' then r['startslurshift'] = SlurOrTieShift[s2] end
+	end
+	s1,s2 = match(notebit,"}([',]*)(%d+)"); if s2 then
+		r['endslur'] = s2
+		if s1 and s1 ~= '' then r['endslurshift'] = SlurOrTieShift[s2] end
+	end
+	notebit = gsub(notebit, "[{}%(%)][',]?%d+", "")
+	if notebit == '' then return r end
+	warn_ln('bad note syntax in "',scopy,'" at "',s1,'"')
+	return r
+end
+
+local function append_options (a,b)
+	if not n or b=='' then return a end
+	if not a or a=='' then return b end
+	return a..'-'..b
+end
+
+local function dypitch (pitch)
+	local y = Ytable[pitch]
+	if string.find(Stave2clef[Istave], '^treble') then y = y + 0.125
+	elseif Stave2clef[Istave] == 'tenor' then y = y + 0.25
+	elseif string.find(Stave2clef[Istave], '^bass') then y = y - 0.125
+	end
+	return y  -- how far is the pitch above the top line, in staveheights
+end
+
+local function ps_ypitch (pitch)
+	-- returns the Y coord of the pitch (eg Eb_, c#, f~) on the current stave
+	return Ystv + dypitch(pitch) * StvHgt
+end
+
+local function is_stemup (stem, pitch)
+	local stemup = false
+	if     stem and string.find(stem, "'") then stemup = true
+	elseif stem and string.find(stem, ",") then stemup = false
+	elseif DefaultStem == "'" then stemup = true
+	elseif DefaultStem == "," then stemup = false
+	else
+		if dypitch(pitch) < -0.6 then stemup = true
+		else                          stemup = false
+		end
+	end
+	return stemup
+end
+
+local function ps_is_stemless ()
+	if string.find(CurrentPulseText,'^smb') or
+	   string.find(CurrentPulseText,'^bre') then return true
+	else return false end
+end
+
+-- if we could make a block containing ps_event(), ps_y_above_note() and
+-- ps_y_below_note() then LowestStemDown, LowestStemUp, LowestNoStem,
+-- HighestStemDown, HighestStemUp, HighestNoStem could be local to it
+
+local function ps_y_above_note () -- finds the y for options above the note ...
+	local y = 0 ; local ysmb
+	local fc = (OptionClearance+WhiteBlobHalfHeight) * StvHgt
+	if HighestStemUp then    -- from the calling context
+		y = HighestStemUp + (StemLength+OptionClearance) * StvHgt
+	elseif HighestStemDown then
+		y = HighestStemDown + fc
+	end
+	ysmb = (HighestNoStem or 0) + fc ;  if y < ysmb then y = ysmb end
+	return y
+end
+
+local function ps_y_below_note () -- finds the y for options below the note ...
+	local y = 0 ; local ysmb
+	local fc = (OptionClearance+WhiteBlobHalfHeight) * StvHgt
+	if LowestStemDown and LowestStemDown < 999 then  -- magic number
+		y = LowestStemDown - (StemLength+OptionClearance) * StvHgt
+	elseif LowestStemUp and LowestStemUp < 999 then
+		y = LowestStemUp - fc
+	else
+		-- if LowestStemDown & LowestStemUp = 1000, LowestNoStem should be set
+		y = 1000
+	end
+	ysmb = (LowestNoStem or 0) - fc ;  if y > ysmb then y = ysmb end
+	return y
+end
+
+local function ps_note_options (X,ybot,ytop,stem,options)
+	-- ensure the option clears the stave lines ...
+	local ystop = Ystave[Isyst][Istave] + OptionClearance*StvHgt
+	if ytop < ystop then ytop = ystop end
+	local ysbot = Ystave[Isyst][Istave] - (OptionClearance+1)*StvHgt
+	if ybot > ysbot then ybot = ysbot end
+	local y
+	local dytop = 0.0   -- to space multiple options above the note
+	local dybot = 0.0   -- to space multiple options beneath the note
+	if not Opt_Cache[options] then
+		Opt_Cache[options] = parse_options(options,false) -- 2.7m
+	end
+	for i,option in ipairs(Opt_Cache[options]) do -- doesnt clobber the cache
+		local option_is_above = true
+		if OptionMustGoBelow[option] then option_is_above = false end
+		if string.find(option, ',$') then -- 3.1d,e,n
+			option = string.gsub(option, ',$', '')
+			option_is_above = false
+		end
+		local x = X
+		if option_is_above and stem == 'up' then  -- 2.8z
+			x = x + BlobQuarterWidth*StvHgt
+		elseif not option_is_above and stem == 'down' then
+			x = x - BlobQuarterWidth*StvHgt
+		end
+		local text = '';  local shortoption = ''
+		if option ==  'blank' or option ==  '' then
+			shortoption = 'blank'
+		elseif string.find(option,"^[Ibir]s?.+$") then  -- text option
+			shortoption,text = string.match(option,"^([Ibir]s?)(.+)$") 
+		elseif string.find(option,"^s.+$") then
+			shortoption = 'rs' ; text = string.match(option,"^s(.+)$")
+		elseif string.find(option,"^gs.+$") then
+			shortoption = 'gs' ; text = string.match(option,"^gs(.+)$")
+		elseif string.find(option,"^dim") then
+			shortoption = 'dim'
+		elseif string.find(option,"^cre") then
+			shortoption = 'cre'
+		else
+			shortoption = string.gsub(option,"[,']", "")
+			shortoption = Options[shortoption] or shortoption
+		end
+		local optiondy = StvHgt
+		if OptionDy[shortoption] then
+			optiondy = optiondy * OptionDy[shortoption]
+		else
+			optiondy = optiondy * OptionDyDflt
+		end
+		if string.find(text, "^[aceimnorsuvwxz]+$") then
+			optiondy = optiondy * 0.85
+		end
+		if option_is_above then
+			option = string.gsub(option, "'$", "")
+			y = ytop + dytop + 0.5*optiondy
+			dytop = dytop + optiondy
+		else
+			y = ybot - dybot - 0.5*optiondy
+			dybot = dybot + optiondy
+		end
+		if shortoption == 'fermata' then
+			if option_is_above then
+				printf("%g %g %g fermata",  x, y, StvHgt)
+			else
+				printf("%g %g %g fermata",  x, y, 0.0-StvHgt)
+			end
+		elseif shortoption == 'gs' then
+			printf("%s %g %g %g guitar_string", text,x,y,StvHgt)
+		elseif Options[option] then
+			printf("%g %g %g %s", x,y,StvHgt,Options[option])
+		elseif option == 'blank' or option == '' then
+		elseif text and string.len(text)>0.5 then  -- text option
+			local font ;  local fontsize = TextSize*StvHgt
+			if     string.find(shortoption,"^I") then font = BoldItalicFont
+			elseif string.find(shortoption,"^i") then font = ItalicFont
+			elseif string.find(shortoption,"^b") then font = BoldFont
+			else font = RegularFont
+			end
+			if string.find(shortoption,"s") then
+				fontsize = fontsize * SmallFontRatio
+			end
+			if string.find(text,"[(){}][',]*%d$") then -- 3.0d
+				warn("\nline "..tostring(LineNum)..": dubious text-option "
+				..text.." (slurs and ties must precede options!)")
+			end
+			s1 = string.match(text,'^"(.*)"$') ; if s1 then text = s1 end
+			printf("%g %g /%s %g (%s) centreshow",
+			 x, y, font, fontsize, escape_and_utf2iso(text))
+		elseif string.find(option,'^cre') or string.find(option,'^dim') then
+		elseif string.find(option,'^Pe?d?$') then   -- 3.0b
+			-- should be a more consistent distance beneath the stave
+			local fontsize = TextSize*StvHgt
+			printf("%g %g /%s %g (%s) centreshow",x,y,PedalFont,fontsize,"Ped")
+		elseif option == '*' then   -- 3.1d,n
+			-- as text, * is too off-centre; it needs a PS routine.
+			local fontsize = 2.0*TextSize*StvHgt
+			printf("%g %g /%s %g (%s) centreshow",
+				x-0.2*fontsize, y-0.37*fontsize, PedalFont, fontsize, '*')
+		elseif OptionMustGoBelow[option] then   -- 3.1n
+			if     option == 'Una' then option = 'Una Corda'  -- 3.1p
+			elseif option == 'Tre' then option = 'Tre Corde';
+			end
+			local fontsize = TextSize*StvHgt
+			printf("%g %g /%s %g (%s) centreshow",x,y,PedalFont,fontsize,option)
+		else
+			warn_ln("unrecognised option "..option)
+		end
+	end
+end
+
+local function ps_blank (currentpulse, symbol, x)
+	local options;
+	symbol,options = table.unpack(split(symbol,'-',2)) -- blank-fermata etc
+	if options then
+		ps_note_options(x,ps_y_below_note(),ps_y_above_note(),'none',options)
+	end
+end
+
+local function ps_rest (currentpulse, symbol, X)
+	-- currentpulse is (dsq|smq|qua|cro|min|smb|bre)3?\.?\.?
+	-- symbol is rest|rest,|rest,,|rest,,,|rest'|rest''|rest'''
+	local options
+	symbol,options = table.unpack(split(symbol,'-',2)) -- rest-fermata etc
+	local dy = -0.5  -- default middle stave-line
+	local s1 = string.match(symbol, "^rest([,']*)")
+	local n = 0.5 * string.len(s1)  -- 3.0a
+	if     string.find(s1, ",") then dy = dy - n
+	elseif string.find(s1, "'") then dy = dy + n
+	end
+	local Y = Ystv + dy*StvHgt;
+	local smallstvhgt = StvHgt   -- 3.1o
+	if string.find(currentpulse,"-s$") then
+		smallstvhgt = smallstvhgt * SmallStemRatio
+	end
+	if string.find(currentpulse, "^smb") then
+		Y = Y + 0.25*StvHgt ;  dy = dy + 0.25  -- 4th stave-line
+		printf("%g %g %g smbrest", X,Y,StvHgt)
+		if dy > 0.2 or dy < -1.2 then  -- 2.7t
+			printf("%g %g %g ledger", X,Y,StvHgt)
+		end
+	elseif string.find(currentpulse, "^min") then
+		printf("%g %g %g minimrest", X,Y,StvHgt)
+		if dy > 0.2 or dy < -1.2 then  -- 2.7t
+			printf("%g %g %g ledger", X,Y,StvHgt)
+		end
+	elseif string.find(currentpulse, "^cro") then
+		printf("%g %g %g crochetrest", X,Y,smallstvhgt)
+	elseif string.find(currentpulse, "^qua") then
+		printf("%g %g %g quaverrest", X,Y,smallstvhgt)
+	elseif string.find(currentpulse, "^bre") then
+		printf("%g %g %g breverest", X,Y,StvHgt)
+	elseif string.find(currentpulse, "^dsq") then
+		printf("%g %g %g demisemiquaverrest",X,Y,smallstvhgt)
+	elseif string.find(currentpulse, "^hds") then
+		printf("%g %g %g hemidemisemiquaverrest",X,Y,smallstvhgt)
+	else
+		printf("%g %g %g semiquaverrest", X,Y,smallstvhgt)
+	end
+	if string.find(currentpulse, "%.%.$") then  -- print the dot, if any
+		local x_plus  = X + DotRightOfNote * StvHgt
+		-- should only raise dot if note on line ...
+		local y_minus = Y + DotAboveNote * StvHgt 
+		printf("%g %g %g doubledot", x_plus,y_minus,StvHgt)
+	elseif string.find(currentpulse, "%.$") then
+		local x_plus  = X + DotRightOfNote * StvHgt;
+		-- should only raise dot if note on line ...
+		local y_minus = Y + DotAboveNote * StvHgt 
+		printf("%g %g %g dot", x_plus,y_minus,StvHgt)
+	end
+	if options and option~='' then
+		ps_note_options(X,ps_y_below_note(),ps_y_above_note(),'none',options)
+	end
+end
+
+local function ps_ledger_lines (x, dy)
+	-- draws ledger lines if $dy > 0.2 above top of stave, or <-1.2 below top
+	if not x then  print("% BUG: ps_ledger_lines: x undefined"); return end
+	if not dy then print("% BUG: ps_ledger_lines dy undefined"); return end
+	local yl  -- the height of the ledger line, rather than the note
+	local y   -- the absolute height of the ledger line on the page
+	if dy > 0.2 then  -- ledger line(s) above stave
+		yl = 0.25
+		while true do
+			y = Ystv + StvHgt * yl
+			printf("%g %g %g ledger", x, y, StvHgt)
+			yl = y + 0.25
+			if yl > (dy+0.1) then break end
+		end
+	elseif dy < -1.2 then -- ledger line(s) below stave
+		yl = -1.25
+		while true do
+			y = Ystv + StvHgt * yl;
+			printf("%g %g %g ledger", x, y, StvHgt)
+			yl = yl - 0.25
+			if yl < (dy-0.1) then break end
+		end
+	end
+end
+
+local function ps_note (noteref, X, height2cross)
+	-- $X,$Y need local in Perl, thus should be global or an upvalue in Lua
+	-- all the stem, tail, beam and rightshift stuff is in sub ps_event
+	-- Inconsistency here of WhiteBlobHalfWidth with sub ps_beam ...
+	local Y      = ps_ypitch(noteref['pitch'])  -- $Y needs local
+	local stemup = is_stemup(noteref['stem'], noteref['pitch'])
+	local accidental = noteref['accidental']  -- also used in line 3050
+	if not accidental then accidental = '' end
+	local acc_shift = noteref['accidentalshift']
+	local accidental_before_note = AccidentalBeforeNote*StvHgt -- 2.9o
+	-- 20130124 do I need to calculate accidental_before_note if no accidental?
+	if (stemup or ps_is_stemless()) and noteref['cross'] then -- 2.8p
+		accidental_before_note = accidental_before_note +
+		  0.37*StvHgt*AccidentalShift
+	elseif acc_shift and not stemup and not noteref['cross'] then
+		local height = round(8*Ytable[noteref['pitch']])  -- 3.1j
+		if height2cross[height-1] or height2cross[height+1] then
+			accidental_before_note = accidental_before_note +
+			  0.42*StvHgt*AccidentalShift
+			-- 20130124 why .42 here but .37 in the stemup case ?!
+			-- Naturals are good at .42; flats need more space for $height+1
+			-- and a bit less for $height-1 . How fussy do I want to get ?
+			-- That calculation applies to both stemup and stemdown...
+		end
+	end
+	if acc_shift then
+		accidental_before_note = accidental_before_note +
+			acc_shift*StvHgt*AccidentalShift
+	end
+	local acc_size = StvHgt
+	if string.find(CurrentPulseText,'-s$') then
+		accidental_before_note = accidental_before_note * SmallNoteRatio
+		acc_size = acc_size * SmallNoteRatio
+	end
+	local xacc = X - accidental_before_note   -- 2.9o
+	-- print the accidental, if any
+	if accidental == '#' then
+		printf("%g %g %g sharp", xacc, Y, acc_size)
+	elseif accidental == 'b' then
+		printf("%g %g %g flat",  xacc, Y, acc_size)
+	elseif accidental == 'n' then
+		printf("%g %g %g natural",  xacc, Y, acc_size)
+	elseif accidental == '##' then
+		printf("%g %g %g doublesharp", xacc, Y, acc_size)
+	elseif accidental == 'bb' then
+		printf("%g %g %g flat",  xacc, Y, acc_size*0.9)
+		printf("%g %g %g flat", xacc-DoubleFlatSpacing*StvHgt,Y,acc_size*0.9)
+	elseif accidental ~= '' then
+		die("BUG! pitch = ",pitch," wierd accidental ",accidental)
+	end
+	-- print the blob, white or black
+	if string.find(CurrentPulseText,'^bre') then -- 2.9a bre can now be small
+		printf ("%g %g %g breve", X, Y, acc_size)
+	-- elseif ($CurrentPulseText =~ /^min|^smb/) {
+	elseif string.find(CurrentPulseText,'^min') or
+	  string.find(CurrentPulseText,'^smb') then
+		printf ("%g %g %g whiteblob", X, Y, acc_size)
+	else
+		printf ("%g %g %g blackblob", X, Y, acc_size)
+	end
+	-- print the ledger lines, if any
+	ps_ledger_lines(X, dypitch(noteref['pitch']))
+	-- print the dot, if any
+	do
+		local sh = StvHgt
+		if string.find(CurrentPulseText,'-s$') then
+			sh = sh * SmallNoteRatio
+		end
+		-- should really only raise dot if note is on a line ...
+		if string.find(CurrentPulseText,'%.%.') then
+			local x_plus  = X + DotRightOfNote*sh; 
+			local y_minus = Y + DotAboveNote*sh; 
+			printf("%g %g %g doubledot", x_plus,y_minus,sh)
+		elseif string.find(CurrentPulseText,'%.') then
+			local x_plus  = X + DotRightOfNote*sh
+			local y_minus = Y + DotAboveNote*sh
+			printf("%g %g %g dot", x_plus, y_minus, sh)
+		end
+	end
+	-- end the slur or tie, if any; here in PostScript they're the same.
+	-- XXX but if up {'1 then the x-adjustments could be dispensed with.
+	-- XXX we could have endslur AND endtie, or startslur AND starttie
+	local function end_thing (th_type, th_num, th_shift)
+		local x_left, y_left
+		x_left = Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
+		if not x_left then -- detect the nearest :|| before using BOL ...
+			local ib = Ibar
+			while true do
+				ib = ib -1
+				if bit32.band(BarType[Isyst][ib], 2) then
+					x_left = Xbar[Isyst][ib] ; break
+				end
+				if ib < 1 then
+					x_left = Lmargin[Isyst] + SpaceForClef*StvHgt ; break
+				end
+			end
+		end
+		-- XXX if stemup & shiftup, 1st step is a notestem, else .5 StvHgt
+		-- BUT if up&up 1st step should be to just above the top-of-stem (beams)
+		local updown = 1.0
+		if (th_num % 2) > 0.5 then  -- end tie above (odd numbers)
+			local above_note = TieAboveNote + th_shift*TieDy
+			if stemup and th_shift>0 then above_note=above_note+TieShift end
+			y_right = Y + above_note*StvHgt
+			x_right = X
+			y_left=Ystart[concat({th_type,Isyst,Istave,th_num},' ')] or y_right
+			if accidental == 'b' and not th_shift then
+			  y_right = y_right + 0.7*TieAboveNote*StvHgt
+			end
+		else	-- end tie below
+			updown = -1.0
+			local above_note = th_shift*TieDy - TieAboveNote
+			if not stemup and th_shift<0 then above_note=above_note-TieShift end
+			y_right = Y + above_note*StvHgt
+			y_left=Ystart[concat({th_type,Isyst,Istave,th_num},' ')] or y_right
+			if stemup or th_shift then x_right = X
+			else x_right = X - 1.6 * BlackBlobHalfWidth * StvHgt;
+			end
+		end
+		if (x_right-x_left) < MustReallySquashTie*StvHgt then
+			x_left  = x_left  - 0.75*BlackBlobHalfWidth*StvHgt  -- 2.4f
+			x_right = x_right + 0.75*BlackBlobHalfWidth*StvHgt  -- 2.4f
+		elseif (x_right-x_left) < MustSquashTie*StvHgt then
+			x_left  = x_left  - 0.50*BlackBlobHalfWidth*StvHgt
+			x_right = x_right + 0.50*BlackBlobHalfWidth*StvHgt
+		end
+		-- impose max tie gradient ...
+		local max_delta_y = MaxTieGradient * (x_right-x_left)
+		local actual_delta_y = math.abs(y_right-y_left)
+		if actual_delta_y > max_delta_y then
+			if y_right > y_left then  -- positive gradient
+				if bit32.band(th_num,2) > 0.5 then
+					 y_left  = y_left  + actual_delta_y - max_delta_y
+				else y_right = y_right - actual_delta_y - max_delta_y
+				end
+			else	-- negative gradient
+				if bit32.band(th_num,2) > 0.5 then
+					 y_right = y_right + actual_delta_y - max_delta_y
+				else y_left  = y_left  - actual_delta_y - max_delta_y
+				end
+			end
+		end
+		printf("%g %g %g %g %g %g slur",
+			x_left, y_left, x_right, y_right, updown, StvHgt)
+		Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = nil
+		Ystart[concat({th_type,Isyst,Istave,th_num},' ')] = nil
+	end
+	if noteref['endtie'] then
+		end_thing('tie', noteref['endtie'], noteref['endtieshift'] or 0)
+	end
+	if noteref['endslur'] then
+		end_thing('slur',noteref['endslur'], noteref['endslurshift'] or 0)
+	end
+	-- start a tie or slur, if any
+	local function start_thing (th_type, th_num, th_shift)
+		if (th_num % 2) > 0.5 then  -- start tie above (odd numbers)
+			local above_note = th_shift*TieDy + TieAboveNote
+			if stemup and th_shift>0 then above_note=above_note+TieShift end
+			y_right = Y + above_note*StvHgt
+			Ystart[concat({th_type,Isyst,Istave,th_num},' ')]
+			 = Y + above_note*StvHgt
+			if th_shift then
+				Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
+					= X + 0.5*BlackBlobHalfWidth*StvHgt
+			elseif stemup then
+				Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
+					= X + 1.6*BlackBlobHalfWidth*StvHgt -- too far?
+				if #BeamUp==0 and (string.find(CurrentPulseText,'^smq')
+				  or string.find(CurrentPulseText,'^qua')
+				  or string.find(CurrentPulseText,'^dsq')
+				  or string.find(CurrentPulseText,'^hds')) then
+					local k = concat({th_type,Isyst,Istave,th_num},' ')
+					Xstart[k] = Xstart[k] + BlackBlobHalfWidth*StvHgt
+				end
+			else
+				Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = X
+			end
+		else	-- start tie below (even numbers)
+			local above_note = th_shift*TieDy - TieAboveNote
+			if not stemup and th_shift<0 then
+				above_note = above_note - TieShift
+			end
+			Ystart[concat({th_type,Isyst,Istave,th_num},' ')] =
+			 Y + above_note*StvHgt
+			Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = X
+		end
+	end
+	if (noteref['starttie']) then
+		start_thing('tie', noteref['starttie'], noteref['starttieshift'] or 0)
+	end
+	if (noteref['startslur']) then
+		start_thing('slur',noteref['startslur'],noteref['startslurshift'] or 0)
+	end
+-- frontier
+--[[
+	local options = noteref[''options'};
+	if ($options and (!ps_tails_or_beams($CurrentPulseText)
+--	  or  (! defined @BeamUp and ! $StartBeamUp
+--	  and ! defined @BeamDown and ! $StartBeamDown))) { -- 2.9z
+	  or  (! @BeamUp and ! $StartBeamUp
+	  and ! @BeamDown and ! $StartBeamDown))) { -- 2.9z, 3.1m
+		local stem = 'none';   -- 2.8z
+		if (! ps_is_stemless()) {
+			if ($stemup) { $stem = 'up'; else $stem = 'down'; }
+		end
+		ps_note_options($X, ps_y_below_note(), ps_y_above_note(),
+		 $stem, $options);
+	end
+]]
+end
+
+local function ps_event (symbols)
+	-- print one thing, or multiple simultaneous things, on one stave ...
+	if MIDI   then die("BUG: ps_event called with MIDI set") end
+	if XmlOpt then die("BUG: ps_event called with XmlOpt set") end
+	-- will be right-adjusted later if there is an r in one of the notes ...
+	local X = ps_beat2x(CrosSoFar,CrosPerPart)
+	local concat = table.concat
+
+	-- measure shortest, highest and lowest stemup and stemdown notes ...
+	HighestStemUp   = 0 ; LowestStemUp   = 1000 -- used by ps_y_above_note
+	HighestStemDown = 0 ; LowestStemDown = 1000 --  and by ps_y_below_note
+	HighestNoStem   = 0 ; LowestNoStem   = 1000
+	local shortest = 99 ; local shortestup = 99 ; local shortestdown = 99
+	local stemup_rightshift = 0 ; local stemdown_rightshift = 0
+	local smb_rightshift    = 0
+	local notebit = '' ; local endbeamup = false ; local endbeamdown = false
+	local accidentalup = '' ;  local accidentaldown = '' -- globals in Perl...
+	local startcrossbeam = '' ; local total_chord_options = ''
+	local height2cross = {}  -- 2.8p
+
+	for i,symbol in ipairs(symbols) do
+		local Y
+		if string.find(symbol, '^blank') then
+			Y = Ystv - 0.5*StvHgt
+			if Y > HighestNoStem then HighestNoStem = Y end
+			if Y < LowestNoStem  then LowestNoStem  = Y end
+			local a = split(symbol, '-', 2);
+			total_chord_options = append_options(total_chord_options,a[2])
+		elseif string.find(symbol, "^rest[,']*") then
+			local s1 = string.match(symbol, "^rest([,']*)")
+			local n = 0.5 * string.len(s1)  -- 3.0a
+			if string.find(s1, ",")     then Y = Ystv - (0.65+n)*StvHgt;
+			elseif string.find(s1, "'") then Y = Ystv + (n-0.35)*StvHgt
+			else Y = Ystv - 0.5*StvHgt
+			end
+			if Y > HighestNoStem then HighestNoStem = Y end
+			if Y < LowestNoStem  then LowestNoStem  = Y end
+			local a = split(symbol, '-', 2);
+			total_chord_options = append_options(total_chord_options,a[2])
+		elseif is_a_note(symbol) then
+			local noteref = parse_note(symbol)
+			symbols[i] = noteref -- 2.5m change type of the element in @symbols
+			total_chord_options
+			 = append_options(total_chord_options,noteref['options'])
+			Y = ps_ypitch(noteref['pitch'])
+			stemup = is_stemup(noteref['stem'],noteref['pitch'])
+			if ps_is_stemless() then
+				if Y > HighestNoStem  then HighestNoStem = Y end
+				if Y < LowestNoStem   then LowestNoStem  = Y end
+				if noteref['rightshift'] then
+					smb_rightshift = noteref['rightshift']
+				end
+			else
+				local startbeam = noteref['startbeam']
+				local endbeam   = noteref['endbeam']
+				if stemup then  -- stem up note ...
+					if Y > HighestStemUp then
+						HighestStemUp = Y
+						accidentalup = noteref['accidental'] or '-'
+					end
+					if Y < LowestStemUp    then LowestStemUp = Y end
+					if startbeam == '['    then StartBeamUp = 1
+					elseif startbeam == '[X' then
+						startcrossbeam = startbeam
+					end
+					if endbeam == ']'      then endbeamup = true
+					elseif endbeam == ']X' then endcrossbeam = endbeam
+					end
+					if noteref['rightshift'] then
+						stemup_rightshift = noteref['rightshift']
+					end
+					if CurrentPulse < shortestup then
+						shortestup     = CurrentPulse
+						shortestuptext = CurrentPulseText
+					end
+				else -- stem down note ...
+					if Y > HighestStemDown then HighestStemDown = Y end
+					if Y < LowestStemDown then
+						LowestStemDown = Y
+						accidentaldown = noteref['accidental'] or '-'
+					end
+					if startbeam == '['      then startbeamdown = true
+					elseif startbeam == '[X' then
+						startcrossbeam = startbeam
+					end
+					if endbeam == ']'        then endbeamdown   = true
+					elseif endbeam == ']X'   then endcrossbeam = endbeam
+					end
+					if noteref['rightshift'] then
+						stemdown_rightshift = noteref['rightshift']
+					end
+					if noteref['cross'] then   -- 2.8p, 3.1j
+						local height = round( 8*Ytable[noteref['pitch']] )
+						height2cross[height] = 1
+					end
+					if CurrentPulse < shortestdown then
+						shortestdown     = CurrentPulse
+						shortestdowntext = CurrentPulseText
+					end
+				end
+			end
+		elseif Nbeats[symbol] then  -- it's smb min. min// cro etc
+			CurrentPulse     = Nbeats[symbol]   -- BUG XXX fails smb <C cro G>
+			CurrentPulseText = symbol
+		end -- it could also be other stuff, which we ignore here
+	end
+	-- here ends the measurement loop
+
+	-- now begins the printing loop; print each vertically aligned symbol ...
+	local note_shift             = NoteShift * StvHgt
+	local stem_from_blob_centre  = StemFromBlobCentre * StvHgt
+	for i,symbol in pairs(symbols) do
+		local is_note = type(symbol)=="table"
+		if is_note or string.find(symbol,'^rest') or
+		  string.find(symbol,'^blank') then
+			if CurrentPulse < shortest then shortest = CurrentPulse end
+		end
+		if not is_note then
+			if Nbeats[symbol] then  -- it's smb min cro qua smq dsq etc
+				-- should measure separately shortest stem-up and stem-down!
+				if Nbeats[symbol] < shortest then shortest=Nbeats[symbol] end
+				CurrentPulse = Nbeats[symbol]
+				CurrentPulseText = symbol
+			elseif not is_note and string.find(symbol,'^blank') then
+				if CurrentPulse < shortest then shortest = CurrentPulse end
+				ps_blank(CurrentPulseText,symbol,X)
+			elseif not is_note and string.find(symbol,'^rest') then
+				if CurrentPulse < shortest then shortest = CurrentPulse end
+				ps_rest(CurrentPulseText,symbol,X)
+			elseif not is_note and is_a_clef(symbol)     then -- clef
+			elseif not is_note and symbol == 'clefspace' then -- clefspace
+			end
+		else               -- it's a note !
+			local noteref = symbol  -- why ?
+			local stemup = is_stemup(noteref['stem'],noteref['pitch'])
+			local shift;
+			if string.find(CurrentPulseText,'-s$') then
+				acc = acc*SmallNoteRatio
+			end
+			if noteref['cross'] then
+				local d = stem_from_blob_centre * 2.0
+				if string.find(CurrentPulseText, '-s$') then
+					 d = d*SmallNoteRatio
+				end
+				if ps_is_stemless() then
+					shift = smb_rightshift * note_shift
+					ps_note(noteref, X+d+shift, height2cross)
+				elseif stemup then
+					shift = stemup_rightshift * note_shift
+					ps_note(noteref, X+d+shift, height2cross)
+				else
+					shift = stemdown_rightshift * note_shift;
+					ps_note(noteref, X-d+shift, height2cross)
+				end
+			else
+				shift = 0;
+				if ps_is_stemless() then
+					shift = smb_rightshift * note_shift
+				elseif stemup_rightshift and stemup then
+					shift = stemup_rightshift * note_shift;
+				elseif stemdown_rightshift and not stemup then
+					shift = stemdown_rightshift * note_shift
+				end
+				ps_note(noteref, X+shift, height2cross)
+			end
+		end
+	end
+
+-- frontier in ps_event
+--[[
+	-- print the notestems, if any ...
+	my ($ystemend, $halfstemlength);
+	if (&ps_is_stemless()) {   -- just print the tremolandi, if any
+		local halfstemlength = 0.6*$StemLength * $StvHgt;
+		local smb_x = $X + $smb_rightshift * $note_shift;
+		if ($stemup) {   -- XXX but $stemup has not been set :-(
+			if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ check for startbeam min
+				printf "%d %g %g %g tremolando\n", length($1),
+				$smb_x, $HighestNoStem + $halfstemlength, $StvHgt;
+			end
+		else -- stemdown
+			if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ check for startbeam min
+				printf "%d %g %g %g tremolando\n", length($1),
+				$smb_x, $LowestNoStem - $halfstemlength,  $StvHgt;
+			end
+		end
+	else   -- stems and possibly also tremolandi needed
+		-- print the stem(s), if any ...
+		if ($HighestStemUp) {   -- if there are some stempup notes ...
+			$xstem = $X + $stem_from_blob_centre;
+			$xstem += $stemup_rightshift * $note_shift;
+			local smallness = 1.0;
+			if ($shortestuptext =~ /-s$/) {
+				$xstem -=
+					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
+				$smallness = $SmallStemRatio;
+			end
+			$ystemend = $HighestStemUp + $StemLength*$StvHgt*$smallness;
+			if (ps_tails_or_beams($shortestuptext)) { -- tails or beams ?
+				if ($StartBeamUp) {
+					if (@BeamUp) {
+						warn " line $LineNum: nested stem-up beams\n";
+					end
+					@BeamUp =
+					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 $xstem,$LowestStemUp,$HighestStemUp,
+					 $accidentalup, $total_chord_options);
+				elseif ($startcrossbeam) {
+					if (@crossbeam) {
+						warn " line $LineNum: nested crossbeams\n";
+					end
+					@crossbeam =
+					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 $xstem,$LowestStemUp, $HighestStemUp,
+					 $accidentalup, $total_chord_options);
+--				elseif (defined @crossbeam) { -- mysterious -w warning here !
+				elseif (@crossbeam) { -- 3.1m
+					push (@crossbeam,
+					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 $xstem,$LowestStemUp,$HighestStemUp,
+					 $accidentalup, $total_chord_options));
+--				elseif (defined @BeamUp) { -- mysterious -w warning here !
+				elseif (@BeamUp) { -- 3.1m
+					push (@BeamUp,
+					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 $xstem,$LowestStemUp,$HighestStemUp,
+					 $accidentalup, $total_chord_options));
+				else   -- an independent, non-beamed qua smq or dsq
+					if ($CurrentPulseText =~ m{(/+)}) {   -- smallness?
+						printf "%g %g %g %g notestem\n",
+						 $xstem, $ystemend, $LowestStemUp, $StvHgt;
+						printf "%d %g %g %g tremolando\n", length($1),
+						 $xstem, 0.5*($ystemend+$HighestStemUp),$StvHgt;
+					else   -- 2.9v
+						local nbeams = ps_tails_or_beams($shortestuptext);
+						local shiftup = 0.0;
+						if ($nbeams>1) { $shiftup = 0.5 + 0.1*($nbeams-2); }
+						local ybeam = $ystemend
+						 + $shiftup*$TailSpacing*$StvHgt*($nbeams-1);
+						local dybeam = $TailSpacing*$StvHgt*$smallness;
+						local ibeam = 1; while ($ibeam<=$nbeams) {
+							printf "%g %g %g %g quaverstemup\n", $xstem,
+							 $ybeam, $LowestStemUp, $StvHgt*$smallness;
+							$ybeam -= $dybeam;
+							$ibeam++;
+						end
+					end
+				end
+				if endbeamup then ps_beam(@BeamUp) end
+			else	-- crochets and minims ...
+				printf "%g %g %g %g notestem\n",
+				 $xstem, $ystemend, $LowestStemUp, $StvHgt;
+				-- print the tremolandi, if any
+				if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ
+					printf "%d %g %g %g tremolando\n", length($1),
+					$xstem, 0.5 * ($ystemend+$HighestStemUp), $StvHgt;
+				end
+			end
+			undef $StartBeamUp;
+		end
+		if ($HighestStemDown) {   -- also, if there are some stemdown notes ...
+			$xstem = $X - $stem_from_blob_centre;
+			$xstem += $stemdown_rightshift * $note_shift;
+			local smallness = 1.0;
+			if ($shortestdowntext =~ /-s$/) {
+				$xstem +=
+					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
+				$smallness = $SmallStemRatio;
+			end
+			$ystemend = $LowestStemDown - $StemLength*$StvHgt*$smallness;
+
+			if (ps_tails_or_beams($shortestdowntext)) { -- tails or beams ?
+				if ($startbeamdown) {
+					if (@beamdown) {
+						warn " line $LineNum: nested stem-down beams\n";
+					end
+					@beamdown = (
+					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
+					 $xstem,$LowestStemDown,$HighestStemDown,
+					 $accidentaldown, $total_chord_options));
+				elseif (@beamdown) {
+					push (@beamdown,
+					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
+					 $xstem,$LowestStemDown,$HighestStemDown,
+					 $accidentaldown, $total_chord_options));
+				else   -- an independent, non-beamed qua smq or dsq
+					if ($CurrentPulseText =~ m{(/+)}) {   -- smallness?
+						printf "%g %g %g %g notestem\n",
+				 		$xstem, $HighestStemDown, $ystemend, $StvHgt;
+						printf "%d %g %g %g tremolando\n", length($1),
+						 $xstem, 0.5*($ystemend+$LowestStemDown),$StvHgt;
+					else   -- 2.9v
+						local nbeams = ps_tails_or_beams($shortestdowntext);
+						local shiftdown = 0.0;
+						if ($nbeams>1) { $shiftdown = 0.5 + 0.1*($nbeams-2); }
+						local ybeam = $ystemend
+						 - $shiftdown*$TailSpacing*$StvHgt*($nbeams-1);
+						local dybeam = $TailSpacing*$StvHgt*$smallness;
+						local ibeam = 1; while ($ibeam<=$nbeams) {
+							printf "%g %g %g %g quaverstemdown\n", $xstem,
+							 $HighestStemDown, $ybeam, $StvHgt*$smallness;
+							$ybeam += $dybeam;
+							$ibeam++;
+						end
+					end
+				end
+				if ($endbeamdown) { &ps_beam(@beamdown); }
+			else	-- crochets and minims ...
+				printf "%g %g %g %g notestem\n",
+				 $xstem, $HighestStemDown, $ystemend, $StvHgt;
+				if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ
+					printf "%d %g %g %g tremolando\n", length($1),
+					$xstem, 0.5 * ($ystemend+$LowestStemDown), $StvHgt;
+				end
+			end
+			undef $Startbeamdown;
+		end
+	end
+]]
+
+	-- end of bracketed simultaneous notes, sub ps_event
+	-- accidentalup = '' ;  accidentaldown = ''  -- these should be local!
+--warn('CrosSoFar=',CrosSoFar,' shortest=',shortest)
+	CrosSoFar = CrosSoFar + shortest
+end
+
+local function ps_text (fonttype, fontsize, vertpos, text)
+	if  MIDI  then warn("bug: ps_text called with MIDI set"); return end
+	if XmlOpt then warn("bug: ps_text called with XmlOpt set");  return end
+	local font = RegularFont
+	if     fonttype == 'b' then font = BoldFont
+	elseif fonttype == 'i' then font = ItalicFont
+	elseif fonttype == 'I' then font = BoldItalicFon;
+	end
+	local ytext ; local size
+	-- remember ps_text() can be called before the first =1 line ...
+	local staveheight = StvHgt -- can be locally changed
+	if not vertpos then vertpos = TextBelowStave end
+	if Istave == 0 then   -- above the top stave in the system
+		staveheight = StaveHeight[Isyst][1]
+		ytext = Ystave[Isyst][1] + vertpos*staveheight
+		size  = TextSize * staveheight
+	elseif Istave < Nstaves[Isyst] then  -- text lies between staves
+		local netgap = GapHeight[Isyst][Istave] - TextSize*staveheight
+		size = 0.5*TextSize * (staveheight+StaveHeight[Isyst][Istave+1])
+		ytext = vertpos*netgap + Ystave[Isyst][Istave+1] + 0.33*size
+	else   -- below the bottom stave in the system
+		-- XXX just TextSize too clumsy: could be lowercase, could be small...
+		ytext = Ystave[Isyst][Istave] - (TextSize+1.0+vertpos)*staveheight
+		size  = TextSize * staveheight
+	end
+	if     fontsize == 's' then size = size * SmallFontRatio
+	elseif fontsize == 'l' then size = size / SmallFontRatio
+	end
+	-- interpret ".48 some text" horizontal spacing
+	local str_by_pos = {} ; local pos = '0.0'
+	--while ($text =~ /^(.*? )??(\.\d{1,3}) (.*)$/) do
+	--	str_by_pos[pos] = s1; pos = s2; text = s3
+	--end
+	while true do
+		local n = string.find(text, '%s%.%d+%s.-$')
+		if not n then
+			n = string.find(text, '^%.%d+%s.-$')
+			if not n then break end
+		end
+		s1   = string.sub(text, n, -1)
+		text = string.sub(text, 1, n-1)
+		s1,s2 = string.match(s1, '^%s?(%.%d+)%s(.+)$')
+		str_by_pos[s1] = s2
+	end
+	if string.find(text, '%S') then str_by_pos['0.0'] = text end
+	local left ; local right
+	for pos,text in pairs(str_by_pos) do  -- order doesn't matter !
+		-- should maybe handle $SpaceRightOfClef,$SpaceForClef,$SpaceForTimeSig,
+		-- $SpaceAfterKeySig, $SpaceForStartRepeat, $SpaceForEndRepeat,
+		-- $SpaceAtEndOfBar ?
+		local pn = tonumber(pos) ; if pn > Epsilon and Ibar == 1 then
+			left = Xbar[Isyst][0]+(SpaceForClef+WhiteBlobHalfWidth)*staveheight
+		else
+			left = Xbar[Isyst][Ibar-1] + WhiteBlobHalfWidth*staveheight
+		end
+		right = Xbar[Isyst][Ibar] - WhiteBlobHalfWidth*staveheight
+		if string.find(text, "%S") then
+			printf("%g %g /%s %g (%s) leftshow", (1.0-pn)*left + pn*right,
+			  ytext, font, size, escape_and_utf2iso(text))
+		end
+	end
 end
 
 local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
@@ -1442,7 +2452,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	if MIDI then return end
 	-- prints the barlines, and set the following global variables :
 	-- $BarType[Isyst,$Ibar}, $spaceatstart[Ibar}, $Nparts[Isyst,$Ibar},
-	-- $Proportion[Ibar}, $Partshare[Ibar,$ipart}, $Nbars[Isyst}
+	-- $Proportion[Ibar}, $PartShare[Ibar,$ipart}, $Nbars[Isyst}
 	-- and $Ibar
 	-- BarType bits mean: missing,segno,start-repeat,end-repeat,double
 	-- could extract strings for a leftgap from this ...
@@ -1470,7 +2480,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	end
 	str = string.gsub(str, '^|?|?:%s*', '')
 	local maxstvhgt = MaxStaveHeight[Isyst]
-	local spaceatstart = {}
+	local spaceatstart = {}  -- but the comment above say this is global
 	local sumofproportions   = 0.0  -- sum of  proportions  of all bars in line
 	local sumofspaceatstarts = 0.0  -- sum of spaceatstarts of all bars in line
 	local bars = split(str, '%s*:?||?:?%s*')  -- 2.7g
@@ -1536,20 +2546,20 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 			table.remove(tokens, 1)
 		end
 		-- this will be wrong if one of the tokens is a non-numeric syntax err
+--warn('bars: tokens = ', DataDumper(tokens))
 		Nparts[Isyst][ibar] = #tokens -- relative spacing
 		-- tot up the given proportions of the bars ...
 		Proportion[ibar] = 0.0
-		Partshare[ibar]  = {}
-		ipart = 1
+		PartShare[ibar]  = {}
+		local itoken = 1 ; local ipart = 1
 		while ipart <= Nparts[Isyst][ibar] do
 			local tok = tonumber(tokens[itoken])
 			if not tok or tok == 0 then
-				warn_ln("bars: '"..tokens[itoken]
-				  .."' should be numeric and nonzero")
+			warn_ln("bars: '",tokens[itoken],"' should be numeric and nonzero")
 				Nparts[Isyst][ibar] = Nparts[Isyst][ibar] - 1
 				itoken = itoken + 1
 			end
-			Partshare[ibar][ipart] = tok
+			PartShare[ibar][ipart] = tok
 			Proportion[ibar] = Proportion[ibar] + tok
 			itoken = itoken + 1;  ipart = ipart + 1
 		end
@@ -1557,6 +2567,8 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		sumofspaceatstarts = sumofspaceatstarts + spaceatstart[ibar]
 		::nextbar::
 	end
+--warn('bars: spaceatstart = ', DataDumper(spaceatstart))
+--warn('bars: Nparts = ', DataDumper(Nparts))
 	Nbars[Isyst] = nbars
 	if XmlOpt then Ibar = 0; Istave = 1 return end
 	-- 3.1f avoid division by zero:
@@ -1571,9 +2583,9 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	if bit32.band(BarType[Isyst][0], 8) > 0.5 then   -- Segno at first bar ?
 --warn('Isyst = '..tostring(Isyst)..' Istave = '..tostring(Istave))
 --warn('StaveHeight[Isyst][Istave] = '..tostring(StaveHeight[Isyst][Istave]))
-		print(string.format("%g %g %g segno", lmargin,
+		printf("%g %g %g segno", lmargin,
 		  Ystave[Isyst][1] + StaveHeight[Isyst][Istave]*SegnoHeight,
-		  StaveHeight[Isyst][Istave]))
+		  StaveHeight[Isyst][Istave])
 	end
 	for ib = 1,Nbars[Isyst] do
 		x = x + xperproportion * Proportion[ib] + spaceatstart[ib]
@@ -1602,7 +2614,7 @@ local function changestave (stavestr)
 		end
 		Ystv      = Ystave[Isyst][Istave]      -- timesaver
 		-- used by ps_event() ps_ypitch() ps_rest() ps_ledger_lines()
-		-- StvHgt = $StaveHeight[Isyst,$stave}; -- superannuated timesaver
+		StvHgt = StaveHeight[Isyst][Istave]
 	end
 	Istave      = stave
 	DefaultStem = string.match(tostring(stavestr), "^%d+([,']?)$")
@@ -1610,13 +2622,14 @@ local function changestave (stavestr)
 end
 
 local function reset_accidentalled (s)
-	if not s or s == '0' then Accidentalled = {} ; return end
-	local num,sign = string.gmatch(s, '^([1-7])([#bn])$')
+	if not s or s == '' or s == '0' then Accidentalled = {} ; return end
+	local num,sign = string.match(s, '^([1-7])([#bn])$')
+	-- warn('reset_accidentalled: s=',s,' num=',num,' sign=',sign)
 	if     sign == '#' then pitches = {'F','C','G','D','A','E','B'}
 	elseif sign == 'b' then pitches = {'B','E','A','D','G','C','F'}
 	end
 	Accidentalled = {}
-	local i = 1; while i <= num do
+	local i = 1; while i <= tonumber(num) do
 		local letter = pitches[i]
 		Accidentalled[letter..'__'] = sign
 		Accidentalled[letter..'_']  = sign
@@ -1629,13 +2642,77 @@ local function reset_accidentalled (s)
 	end
 end
 
+local function midi_timesig (str)
+	if not MIDI then return end
+	-- should return here if !$str and midi_timesig has already been called.
+	local timesig, parts = table.unpack(split(str, ' ', 2))
+	local cc
+	local s1,s2 = string.match(timesig, '^(%d+)/(%d+)$')
+	if not timesig or timesig == '' then
+		timesig = MidiTimesig
+	elseif not s2 then
+		if string.find(timesig, '^[.%d]+$') then -- put it back
+			if parts then parts = timesig..' '..parts
+			else          parts = timesig
+			end
+		else
+			warn_ln("strange timesig ",timesig) ; return false
+		end
+	elseif timesig ~= MidiTimesig  then
+		-- time signature ...  could be in a sub
+		local nn = tonumber(s1) ; local bottom = tonumber(s2)
+		local dd=0 ; while true do
+			if 2^dd >= bottom then break end
+			dd = dd + 1
+		end
+		if bottom == 8  then
+			if nn%3==0 then cc=round(TPC*1.5) else cc=round(TPC*0.5) end
+		elseif bottom == 16  then
+			if nn%3==0 then cc=round(TPC*0.75) else cc=round(TPC*0.25) end
+		elseif bottom == 32  then
+			if nn%3==0 then cc=round(TPC*.375) else cc=round(TPC*.125) end
+		else cc = TPC * 4.0 / bottom
+		end
+		-- tweak the following globals ...
+		table.insert(MidiScore,{'time_signature',TicksAtBarStart,nn,dd,cc,8})
+		MidiTimesig = timesig
+		TicksPerMidiBeat = cc
+		TicksThisBar = round(384 * nn / bottom)
+	end
+	if MidiBarlines then comment("barline "..MidiTimesig) end   -- 3.1f
+	if not TicksThisBar or TicksThisBar==0 then TicksThisBar = TPC * 4 end
+	-- tempo changes ...
+	-- return if $parts == $MidiBarParts;
+	if not parts or parts == '' then
+		parts = MidiBarParts
+	else
+		MidiBarParts = parts
+	end
+	local parts_a = split(parts, ' ')
+	local ticksperpart = TicksThisBar / #parts_a
+	for i,part_str in ipairs(parts_a) do
+		local starttime = round(TicksAtBarStart + ticksperpart*(i-1))
+		local part = tonumber(part_str)
+		if part < 10 then -- secs per part -> uSec per cro
+			MidiTempo = round(TPC * 1000000 * part / ticksperpart)
+		else -- beats per minute -> uSec per cro
+			MidiTempo = round(60000000 * TPC / (TicksPerMidiBeat*part))
+		end
+		if MidiTempo ~= OldMidiTempo then
+			table.insert(MidiScore, {'set_tempo',starttime,MidiTempo})
+			OldMidiTempo = MidiTempo
+		end
+	end
+end
+
 local function newbar (line)
 	-- warn('newbar: line = ',line)
 	if MIDI then
 		TicksAtBarStart = TicksAtBarStart + TicksThisBar
-		Ibar = Ibar + 1; Istave = 1
---[[
+		Ibar = Ibar + 1; Istave = 0
+		-- if line and string.find(line,'%S') then midi_timesig(line) end
 		midi_timesig(line)
+--[[
 	elseif XmlOpt then
 		if (Xml{measure_number}) {
 			&xml_print_cache();
@@ -1654,7 +2731,7 @@ local function newbar (line)
 		if bit32.band(BarType[Isyst][Ibar],2) > 0.5 then  -- is :|| or :||:
 			ps_finish_ties(Xbar[syst][Ibar])
 		end
-		Ibar = Ibar + 1 ; Istave = 1;   -- globals.
+		Ibar = Ibar + 1 ; Istave = 0;   -- globals.
 		if Ibar > Nbars[Isyst] then
 			if not JustDidNewsystem then newsystem('/') end
 			bars(); Ibar = 1  --XXXX
@@ -1665,6 +2742,8 @@ local function newbar (line)
 		  ", bar "..tostring(Ibar)..":")
 	end
 end
+
+
 
 -------------------------- MIDI stuff -------------------------------
 
@@ -1681,7 +2760,7 @@ end
 local function midi_expression (ticks, cha, val)
 	if MidiExpression[cha] == val then return end
 	table.insert(MidiScore, {'control_change', ticks, cha, 11, val})
-	MidiExpression['cha'] = val
+	MidiExpression[cha] = val
 end
 
 local function midi_global (s)
@@ -1693,7 +2772,7 @@ local function midi_global (s)
 --[[
 		local t3 = "\t\t\t"; local t4 = "\t\t\t\t";
 		if (defined $cha) {
-			local pan = q{};
+			local pan = '';
 			if (defined $str{pan}) {
 				$pan = sprintf " pan=\"%d\"", int (($str{pan}-50)*1.8);
 			}
@@ -1798,10 +2877,10 @@ local function midi_global (s)
 			if str['delay']   then midi_cc_100(cha,78,str['delay']) end
 			if str['chorus']  then midi_cc_100(cha,93,str['chorus']) end
 			if str['tra']       then
-				cha2transpose[cha] = tonumber(str['tra'])
+				Cha2transpose[cha] = tonumber(str['tra'])
 			end
 			if str['transpose'] then   -- 3.1u
-				cha2transpose[cha] = tonumber(str['transpose'])
+				Cha2transpose[cha] = tonumber(str['transpose'])
 			end
 		elseif str['pause'] then
 			if MidiTempo then  -- uSec per crochet 
@@ -1814,10 +2893,20 @@ local function midi_global (s)
 	end
 end
 
+local function current_volume ()
+	return Stave2volume[Istave] or DefaultVolume
+end
+local function current_pan ()
+		return Stave2pan[Istave] or 50
+end
+local function current_bend ()   -- 3.2  cha2bend ? for incremental bend+2 ?
+	return Stave2bend[Istave] or false
+end
+
 function midi_in_stave (str)
-	-- warn('midi_in_stave: Istave = ',Istave,' str = ',str)
 	local s1
 	if string.find(str,'^vol') then
+		-- warn('midi_in_stave: Istave = ',Istave,' str = "',str,'"')
 		s1 = string.match(str, '^vol(%d+)$') ; if s1 then -- 3.2a u?m?e?
 			local vol = tonumber(s1); if vol > 127 then vol = 127 end
 			Stave2volume[Istave] = vol; return true
@@ -1827,7 +2916,7 @@ function midi_in_stave (str)
 			if vol > 127 then vol = 127 end
 			Stave2volume[Istave] = vol; return true
 		end
-		s1 = string.match(str, '^vol-(%d+)$') ; if s1 then -- 3.2a u?m?e?
+		s1 = string.match(str, '^vol%-(%d+)$') ; if s1 then -- 3.2a u?m?e?
 			local vol = current_volume() - tonumber(s1)
 			if vol < 2 then vol = 1 end
 			Stave2volume[Istave] = vol; return true
@@ -1938,6 +3027,287 @@ function midi_in_stave (str)
 	end
 end
 
+local function midi_event_option (option, starttime, cha)   -- 3.1i
+-- warn('midi_event_option: option=',option,' starttime=',starttime,' cha=',cha)
+	if option == '*' then   -- 3.0b
+		table.insert(MidiScore, {'control_change',starttime+1,cha,0x40,0x00})
+		table.remove(MidiPedal,cha)
+	elseif option == 'P' then    -- 3.0b
+		if MidiPedal[cha] then
+		  table.insert(MidiScore,{'control_change',starttime+1,cha,0x40,0x00})
+		end
+		table.insert(MidiScore, {'control_change',starttime+3,cha,0x40,0x7F})
+		MidiPedal[cha] = 1
+	elseif option == '*Sos' then
+		table.insert(MidiScore, {'control_change',starttime+1,cha,0x42,0x00})
+		table.remove(MidiSosPed,cha)
+	elseif option == 'Sos' then  -- 3.0g
+		if MidiSosPed[cha] then
+		  table.insert(MidiScore, {'control_change',starttime+1,cha,0x42,0x00})
+		end
+		table.insert(MidiScore, {'control_change',starttime+3,cha,0x42,0x7F})
+		MidiSosPed[cha] = 1
+	elseif option == 'Una'  then  -- 3.1n
+		table.insert(MidiScore, {'control_change',starttime-2,cha,0x43,0x7F})
+		MidiUnaPed[cha] = 1
+	elseif option == 'Tre'  then  -- 3.1n
+		table.insert(MidiScore, {'control_change',starttime-2,cha,0x43,0x00})
+		table.remove(MidiUnaPed, cha)
+	end
+end
+
+local function midi_pitch (pitch)  -- middleC = 60
+	local p = NoteTable[pitch]
+	if     Stave2clef[Istave] == 'treble8va' then p = p + 24
+	elseif Stave2clef[Istave] == 'treble'    then p = p + 12
+	elseif Stave2clef[Istave] == 'bass'      then p = p - 12
+	elseif Stave2clef[Istave] == 'bass8vab'  then p = p - 24
+	end
+	return p
+end
+
+
+
+------------------------- PostScript stuff ----------------------
+
+local function ps_keysig (num, sign, x)
+	if MIDI or XmlOpt then die('ps_keysig called in MIDI or XML mode') end
+	local dx = AccidentalDxInKeysig * MaxStaveHeight[Isyst]
+	local accidental = ''
+	x = x + 0.5 * dx
+	num = tonumber(num) or 0
+	if num < 0 then
+		accidental = 'natural'
+		num = 0 - num  -- 2.8b
+		Stave2nullkeysigDx[Istave] = dx*num + SpaceAfterKeySig*StvHgt -- 2.9y
+	elseif sign == '#' then accidental = 'sharp'
+	elseif sign == 'b' then accidental = 'flat'
+	else return false
+	end
+	local pitches = {}
+	if string.find(Stave2clef[Istave], '^treble') then
+		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
+		elseif sign == 'b' then pitches = {'B','e','A','d','G','c','F'}
+		end
+	elseif Stave2clef[Istave] == 'alto' then
+		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
+		elseif sign == 'b' then pitches = {'B','e','A','d','G','c','F'}
+		end
+	elseif Stave2clef[Istave] == 'tenor' then
+		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
+		elseif sign == 'b' then pitches = {'B','e','A','d','g','c','f'}
+		end
+	elseif string.find(Stave2clef[Istave], '^bass') then
+		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
+		elseif sign == 'b' then pitches = {'B','e','A','d','G','c','F'}
+		end
+	end
+	for i = 1,num do
+		printf("%g %g %g %s\n", x, ps_ypitch(pitches[i]), StvHgt, accidental)
+		x = x + dx
+	end
+	Xpart[1] = Xpart[1] + dx * num;   -- XXX
+	Xpart[1] = Xpart[1] + SpaceAfterKeySig * StvHgt
+end
+
+local function midi_event (symbols)
+	if not MIDI then die("BUG midi_event called without MIDI set") end
+	local shortest = 99
+	-- Here also, we'll need a measurement loop, to get $total_chord_options
+	-- if type(symbols) == 'string' then symbols = split(symbols, '-') end -- ?
+	if type(symbols) == 'string' then symbols = { symbols, } end -- ?
+	for i,symbol in ipairs(symbols) do
+		local is_note = is_a_note(symbol)
+		if is_note or string.find(symbol,'^rest') or
+		  string.find(symbol,'^blank') then
+-- where do CurrentPulse and shortest come from ?
+			if CurrentPulse < shortest then shortest = CurrentPulse end
+		end
+		if Nbeats[symbol] then  -- it's smb min cro qua smq dsq etc
+			-- we need to measure separately shortest stem-up and stem-down !
+			if Nbeats[symbol]<shortest then shortest=Nbeats[symbol] end
+			CurrentPulse = Nbeats[symbol]
+		elseif string.find(symbol, "^rest[,']*-%S") or
+		 string.find(symbol, "^blank[,']*-%S") then  -- 3.1i,n,q
+			local options = string.match(symbol, "^[a-z]+[,']*-(.+)$")
+			if options then
+				local starttime  = TicksAtBarStart + CrosSoFar*TicksPerCro
+				for i,cha in ipairs(Stave2channels[Istave]) do   -- 3.1v
+					for i,option in ipairs(parse_line(options,false)) do
+						midi_event_option(option, starttime, cha)
+					end
+				end
+			end
+		elseif is_note then
+			local noteref    = parse_note(symbol)
+			local pitch      = noteref['pitch']
+			local accidental = noteref['accidental']
+			local options    = noteref['options']
+			-- 3.1s:
+			local starttime = round(TicksAtBarStart + CrosSoFar*TicksPerCro)
+			local fullduration = round(CurrentPulse * TicksPerCro)
+			local duration     = fullduration
+			local legato = Stave2legato[Istave] or DefaultLegato
+			if duration > TPC then
+				duration = duration - round((1.0-legato) * TPC)
+			else
+				duration = round(legato * duration)
+			end
+			for i,cha in ipairs(Stave2channels[Istave]) do   -- 3.1v
+				local note = midi_pitch(pitch..accidental)   -- 3.1u
+				 + (Stave2transpose[Istave] or 0) + (Cha2transpose[cha] or 0)
+				if accidental and accidental ~= '' then
+					Accidentalled[pitch] = accidental
+				else
+					local a = Accidentalled[pitch]
+					if     a == '#'  then note = note+1
+					elseif a == 'b'  then note = note-1
+					elseif a == '##' then note = note+2
+					elseif a == 'bb' then note = note-2
+					end
+				end
+				local velocity = current_volume()
+-- warn('starttime = ',starttime,' duration = ',duration,' note = ',note)
+-- warn('velocity = ',velocity)
+				-- $options =~ s{'}{\\'}g;
+				local midiexpressions = {} -- array of cre and dim commands
+				for i,option in ipairs(parse_options(options, false)) do
+					-- option =~ s{\\'}{'}g;
+					option = string.gsub(option, "[,']$", "")
+					if     option == 'fermata' then -- tempo down & up again
+		  			elseif option == 'mordent' then
+		  			elseif option == 'tr'   then  -- trill about 10 notes/sec
+		  			elseif option == 'tr#'  then
+		  			elseif option == 'trb'  then
+		  			elseif option == 'trn'  then
+		  			elseif option == 'turn' then
+		  			elseif option == '.' or string.find(option,'stacc?') then
+						duration = round(0.55 * CurrentPulse * TicksPerCro)
+		  			elseif option == 'ten' then
+						starttime  = starttime - 3
+						duration = CurrentPulse*TicksPerCro + 3;
+						velocity = round(1.15 * velocity)
+						if velocity > 127 then velocity = 127 end
+		  			elseif option == 'emph' then
+						velocity = round(1.3 * velocity)
+						if velocity > 127 then velocity = 127 end
+		  			elseif string.find(option, "/^cre%d+$") then
+						local s1 = string.match(option, "/^cre(%d+)$")
+						table.insert(midiexpressions, tonumber(s1))
+		  			elseif string.find(option, "/^dim%d+$") then
+						local s1 = string.match(option, "/^dim(%d+)$")
+						table.insert(midiexpressions, 0 - tonumber(s1))
+					else  -- pedal options that are also needed by rests...
+						midi_event_option(option, starttime, cha)
+					end
+				end
+				local stemup = is_stemup(noteref['stem'], noteref['pitch'])
+				local B = starttime
+				local D = duration
+				local startslur = noteref['startslur']
+				local starttie  = noteref['starttie']
+				local endslur   = noteref['endslur']
+				local endtie    = noteref['endtie']
+-- warn('noteref = ',DataDumper(noteref))
+				if startslur then StartedSlurs[Istave] = true end
+				if endtie then
+--warn('endtie = ',endtie)
+					local begref = StartedTies[concat({Istave,endtie,cha},' ')]
+					if begref then
+						local begn =   begref[5]
+						if pitch == begref[7] and accidental == '' then
+							note = begn  -- accidental tied from prev bar
+						end
+						local e = concat({Istave,endtie,cha},' ')
+-- warn('begn = ',begn,' note = ',note)
+						if begn == note then
+							local begtime = begref[2]
+							if starttie then -- prolong the remembered note
+								begref[3] = starttime + duration - begtime
+								if starttie ~= endtie then
+								-- the tie-number might have changed, eg )1(2
+								  StartedTies[concat({Istave,starttie,cha},' ')]
+									  = StartedTies[e]
+									StartedTies[e] = nil
+								end
+							else -- output the full-length combined note
+								StartedTies[e] = nil
+								B = begtime
+								D = starttime + duration - begtime
+							end
+						else
+							warn_ln("at "..symbol..": deprecated use"
+							  .." of ( for slur. Use { instead")
+							table.remove(begref)   -- pop old $pitch off end
+							table.insert(MidiScore, begref)
+							StartedTies[e] = nil
+							startslur = starttie
+						end
+					else
+						warn_ln("tie )",endtie," has no corresponding (")
+					end
+				elseif MidiExpression[cha] ~= 100 then
+					-- we're already within a loop over channels
+					midi_expression(B, cha, 100);
+				end
+				if StartedSlurs[Istave] then
+					if endslur then table.remove(StartedSlurs,Istave)
+					else D = D + fullduration - duration
+					end
+				end
+--[[
+				if (@midiexpressions) { -- 2.7a cre and dim
+					-- could also pan+50, 20141118 could also bend
+					local n = scalar @midiexpressions;
+					local begin_section = $B;
+					local duration = $D;
+					if ($starttie) { $duration = $fullduration; }
+					local ticks_per_section = round($duration / $n);
+					local expression = 100;
+					foreach local expr (@midiexpressions) {
+						if ($expression+$expr > 127)  { $expr=127-$expression;
+						elseif ($expression+$expr < 0) { $expr=0-$expression;
+						end
+-- 20141104  should leave at least, say, 5ms  between each cc-change !
+						local step = int(1.01 + 5*abs($expr)/$ticks_per_section);
+-- 20141104  $step should correspond to at least, say, 5ms !
+-- $MidiTempo = uSec-per-cro ;    $TPC = ticks-per-cro
+-- ticks_per_5000uS = int(1.01 + 5000 * $TPC / $MidiTempo)
+						if ($expr < 0) { $step = 0 - $step; }
+						local nsteps = round($expr / $step);
+						if (! $nsteps) {
+							$begin_section += $ticks_per_section; next;
+						end
+						local i = 1; while (1) {
+							$expression += $step;
+							$ticks = round($begin_section
+							 + $i * $ticks_per_section/(1+$nsteps) );
+							midi_expression($ticks, $cha, $expression);
+							$i++; if ($i > $nsteps) { last; }
+						end
+						$begin_section += $ticks_per_section;
+					end
+				end
+]]
+-- frontier
+				if starttie then
+					if not endtie then  -- 2.4e
+						StartedTies[concat({Istave,starttie,cha}, ' ')] =
+						  {'note',B,fullduration,cha,note,velocity,pitch}
+					end
+				else
+					-- Difficult bug here if a voice crosses through a tied note
+					-- in the other voice on the same stave it terminates it :-(
+					table.insert(MidiScore, {'note',B,D,cha,note,velocity})
+				end
+			end
+		end
+	end
+	CrosSoFar = CrosSoFar + shortest
+	return
+end
+
+
 local function midi_write ()
 	if not MIDI then return end
 	local ticks    = TicksAtBarStart + CrosSoFar*TicksPerCro
@@ -1966,7 +3336,8 @@ local function newstave (line)
 	Istave = tonumber(tmp)   -- why not Istave directly ?
 -- warn('newstave = ',newstave,' Istave = ',Istave)
 	if not Stave2channels[Istave] then Stave2channels[Istave] = {} end
-	local currentpulse = 99
+	local maxstvhgt = MaxStaveHeight[Isyst] -- for speed ...
+-- warn('newstave: maxstvhgt = ',maxstvhgt)
 	if not PrePro and not changestave(newstave) then return false end
 	if MIDI then
 		reset_accidentalled(Keysig[Istave])
@@ -1989,19 +3360,8 @@ local function newstave (line)
 	end
 	remainder = string.gsub(remainder, "^%s+", "")
 	remainder = string.gsub(remainder, "%s+$", "")
-	remainder = string.gsub(remainder, "'", "\\'")
-	-- local array = parse_line('\s+', 1, remainder);
-	-- breaks the line up into a list of words ignoring delimiters that
-	-- appear inside quotes. If the keep argument is true, then the tokens
-	-- are split on the specified delimiter, but other suspicious-looking
-	-- characters (quotes, backslashes, etc.) are kept in the tokens.
-	local array = split(remainder, '%s+')   -- stub, for development purposes
-	for i,v in ipairs(array) do
-		v = string.gsub(v, "\'", "'")
-		if Intl2en[v] then v = Intl2en[v] end   -- 2.9a
-		array[i] = v
-	end
-	-- warn(DataDumper(array))
+	local array = parse_line(remainder,false)   -- true ?
+	for i,v in ipairs(array) do array[i] = Intl2en[v] or v end
 	-- count up the total beats in this bar, and calculate spacings ...
 	CrosSoFar = 0  -- global
 	local i=1 ; while i <= #array do  -- for all fields
@@ -2016,14 +3376,13 @@ local function newstave (line)
 				end
 				if is_a_note(token) or string.find(token,'^rest') or
 				  string.find(token,'^blank') then
-					if currentpulse<shortest then shortest=currentpulse end
+					if CurrentPulse<shortest then shortest=CurrentPulse end
 				elseif Nbeats[token] then  -- it's a smb, min, etc
 --warn('token = ',token,' Nbeats[token] = ', Nbeats[token])
 					if Nbeats[token]<shortest then shortest=Nbeats[token] end
-					currentpulse     = Nbeats[token]
-					-- currentpulsetext = token
+					CurrentPulse     = Nbeats[token]
 				end
---warn('token = ',token,' currentpulse = ', currentpulse)
+--warn('token = ',token,' CurrentPulse = ', CurrentPulse)
 				i = i + 1
 				if i>#array then warn_ln("missing >"); break end
 				token = array[i]
@@ -2032,14 +3391,12 @@ local function newstave (line)
 			goto nexttoken
 		end
 		if Nbeats[token] then  -- smb, min, cro, qua etc
-			currentpulse     = Nbeats[token]
-			-- $currentpulsetext = $token;
+			CurrentPulse     = Nbeats[token]
 		elseif token == 'clefspace' then -- should reserve space by xgap hash..
 		elseif is_a_note(token) or string.find(token,'^rest') or
 		  string.find(token,'^blank') then
 			-- if note contains "+", should build up xgap hash ...
-			CrosSoFar = CrosSoFar + currentpulse
---warn('currentpulse = ',currentpulse,' CrosSoFar =',CrosSoFar)
+			CrosSoFar = CrosSoFar + CurrentPulse
 		end
 		::nexttoken::
 		i = i + 1
@@ -2053,7 +3410,7 @@ local function newstave (line)
 		end
 	elseif XmlOpt then
 	else
-		-- The spacing of the bar was specified in nparts parts
+		-- The spacing of the bar was specified in Nparts parts
 		-- BUG ! if the "|" line after a "N bars " is omitted, nparts = 0 !!
 		if Nparts[Isyst][Ibar] then
 			CrosPerPart = CrosSoFar / Nparts[Isyst][Ibar]
@@ -2061,11 +3418,11 @@ local function newstave (line)
 		  '% ERROR: no | before stave line, page ',pagenum,', sys ',Isyst)
 			CrosPerPart = 10 -- ugly but legal
 		end
+--warn('Nparts[Isyst][Ibar] = ',Nparts[Isyst][Ibar])
 	
 		-- so what are the corresponding x positions ?
 		-- NB! Xpart[n] is the left end of part n, but Xbar{s,m} is right end
 		-- of bar m !  So Xbar{isyst,0} = LeftHandMargin.
-		local maxstvhgt = MaxStaveHeight[Isyst] -- for speed ...
 
 		-- place the beginning of the bar
 		Xpart[1]=(Xbar[Isyst][Ibar-1] or 0)+SpaceAtBeginningOfBar*maxstvhgt
@@ -2086,13 +3443,14 @@ local function newstave (line)
 		if bit32.band(BarType[Isyst][Ibar],2) > 0 then
 			Xpart[ilastpart] = Xpart[ilastpart] - SpaceForEndRepeat*maxstvhgt
 		end
--- warn('Xpart = ',DataDumper(Xpart))
+--warn('Xpart[ilastpart] = ',Xpart[ilastpart])
 	end
+--warn('Xpart = ',DataDumper(Xpart))
 
 	-- OK. Now rescan the string bar, actually writing out the symbols ...
 	CrosSoFar = 0;			-- so far this bar
-	local theresaclef = 0;
-	local retain_clef = 0;
+	local theresaclef = false
+	local retain_clef = false
 	i = 1   -- back to the first field
 
 	-- first write things that can be at BOL, like clef,keysig,timesig,repeat
@@ -2100,137 +3458,143 @@ local function newstave (line)
 	local attributes = {}
 	if XmlOpt and
 	  Xml['current transpose'] ~= Stave2transpose[Istave] then
-		attributes['transpose']
-		 = xml_transpose(Stave2transpose[Istave])
+		attributes['transpose'] = xml_transpose(Stave2transpose[Istave])
 	end
 	local must_null_the_keysig = false   -- 2.8o
 	if midi_in_stave(array[i]) then i = i + 1 end   -- BUG should be a loop!
---[[
-	if (&is_a_clef($array[$i])) {	 -- clef
-		local cleftype = $array[$i];
-		$must_null_the_keysig = 1;   -- 2.8o explicit clef cancels the keysig
-		if (MIDI) {
+	if is_a_clef(array[i]) then  -- clef
+		local cleftype = array[i]
+		must_null_the_keysig = true  -- 2.8o explicit clef cancels the keysig
+		if MIDI then
 			Accidentalled = {}
-		elseif (XmlOpt) {
-			if (Xml{"clef $istave"} ne $cleftype) {
-				$attributes{clef} = &xml_clef_attribute($cleftype);
-				Xml{"clef $istave"} = $cleftype;
-			}
+		elseif XmlOpt then
+			if Xml["clef "..tostring(Istave)] ~= cleftype then
+				attributes['clef'] = xml_clef_attribute(cleftype)
+				Xml["clef "..tostring(Istave)] = cleftype
+			end
 		else
-			local x = $Xbar[Isyst,$Ibar-1} + $SpaceLeftOfClef*maxstvhgt;
-			if ($Ibar>1 and $BarType[Isyst,$Ibar-1} & 4) {  -- start-of-repeat
-				$x += $SpaceForStartRepeat * maxstvhgt;
-			elseif ($Ibar>1 and $BarType[Isyst,$Ibar-1} & 1) {  -- double-bar
-				$x += 0.3 * $SpaceForStartRepeat * maxstvhgt;
-			}
-			printf "%g %g %g %sclef\n", $x, $Ystv, $StvHgt, $cleftype;
-			if ($Ibar > 1) {  -- at BOL, space is already reserved for clef
-				Xpart{1} += 0.9 * $SpaceForClef * maxstvhgt;  -- kludge
-				$theresaclef = 1;
-			}
-		}
-		$clef[Istave] = $cleftype;
-		$i++;
-	elseif ($array[$i] == 'clefspace') {
-		Xpart{1} += 0.9 * $SpaceForClef * maxstvhgt;   -- 3.2d ibar==1?
-		$theresaclef = 1;
-		$i++;
-	elseif ($Ibar == 1 and $clef[Istave]) {
-		if (!MIDI and !XmlOpt) { printf "%g %g %g %sclef\n",
-			 $Xbar[Isyst,$Ibar-1} + $SpaceLeftOfClef*maxstvhgt,
-			 $Ystv, $StvHgt, $clef[Istave];
-		}
-		$theresaclef = 1;
-		$retain_clef = 1;
-	}
+			local x = Xbar[Isyst][Ibar-1] + SpaceLeftOfClef*maxstvhgt
+			if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4) > 0 then
+				x = x + SpaceForStartRepeat*maxstvhgt
+			elseif Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],1) > 0 then
+				x = x + 0.3 * SpaceForStartRepeat*maxstvhgt
+			end
+			printf("%g %g %g %sclef\n",x,Ystv,StvHgt,cleftype)
+			if Ibar > 1 then  -- at BOL, space is already reserved for clef
+				Xpart[1] = Xpart[1] + 0.9 * SpaceForClef*maxstvhgt -- kludge
+				theresaclef = true
+			end
+		end
+		Stave2clef[Istave] = cleftype
+		i = i + 1
+	elseif array[i] == 'clefspace' then
+		Xpart[1] = Xpart[1] + 0.9*SpaceForClef*maxstvhgt   -- 3.2d ibar==1?
+		theresaclef = true
+		i = i + 1
+	elseif Ibar == 1 and Stave2clef[Istave] then
+		if not MIDI and not XmlOpt then printf("%g %g %g %sclef",
+			 Xbar[Isyst][Ibar-1] + SpaceLeftOfClef*maxstvhgt,
+			 Ystv, StvHgt, Stave2clef[Istave])
+		end
+		theresaclef = true
+		retain_clef = true
+	end
 
-	if (&midi_in_stave($array[$i])) { $i++; }
-	local xml_keysig = q{};
-	if ($array[$i] =~ /^([1-7])([#bn])$/ or $array[$i] == q{0}) {  -- keysig
-		$must_null_the_keysig = 0;   -- 2.8o
-		if (MIDI) {
-			&reset_accidentalled($array[$i]);
-		elseif (XmlOpt) {
-			&reset_accidentalled($array[$i]);
-			if (Xml{"keysig $istave"} ne $array[$i]) {
-				$xml_keysig = &xml_keysig($array[$i]);
-				Xml{"keysig $istave"} = $array[$i];
-			}
+	if midi_in_stave(array[i]) then i = i + 1 end
+	local xmlkeysig = ''
+	if string.find(array[i],'^[1-7][#bn]$') or array[i] == '0' then  -- keysig
+		must_null_the_keysig = false   -- 2.8o
+		if MIDI then
+			reset_accidentalled(array[i])
+		elseif XmlOpt then
+			reset_accidentalled(array[i])
+			if Xml["keysig "..tostring(Istave)] ~= array[i] then
+				xmlkeysig = xml_keysig(array[i])
+				Xml["keysig "..tostring(Istave)] = array[i]
+			end
 		else
-			local x = $Xbar[Isyst,$Ibar-1};
-			if ($Ibar == 1 or $theresaclef) {
-				$x += $SpaceForClef*maxstvhgt;
+			local x = Xbar[Isyst][Ibar-1]
+			if Ibar == 1 or theresaclef then
+				x = x + SpaceForClef*maxstvhgt;
 			else
-				$x += 0.6 * $AccidentalDxInKeysig * maxstvhgt;
-				if ($BarType[Isyst, $Ibar-1} & 1) {   -- doublebar
-					$x += 0.3 * $SpaceForStartRepeat * maxstvhgt;
-				}
+				x = x + 0.6*AccidentalDxInKeysig*maxstvhgt
+				if bit32.band(BarType[Isyst][Ibar-1],1) > 0.5 then -- doublebar
+					x = x + 0.3*SpaceForStartRepeat*maxstvhgt
+				end
 				-- echoes code 85 lines above ... XXX why 0.5 ?
-				if ($Ibar>1 and $BarType[Isyst,$Ibar-1} & 4) {  -- repeat mark
-					$x += 0.5 * $SpaceForStartRepeat * maxstvhgt;
-				}
-			}
-			if ($array[$i] == q{0}) {  -- 2.8c cancel keysig, back to Cmaj
+				if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4) > 0.5 then
+					x = x + 0.5*SpaceForStartRepeat*maxstvhgt; -- repeat mark
+				end
+			end
+			if array[i] == '0' then  -- 2.8c cancel keysig, back to Cmaj
 				-- XXX if 2 lines on same stave, only the 1st reserves space :-(
-				if ($keysig[Istave] =~ /^([1-7])([#bn])$/) {
-					&ps_keysig(0-$1,$2,$x);
+				s1,s2 = string.gmatch(Keysig[Istave], '^([1-7])([#bn])$')
+				if s2 then
+					ps_keysig('-'..s1, s2, x)
 				else
-					Xpart{1} += $Stave2nullkeysigDx[Istave];   -- 2.9y
-				}
+					Xpart[1] = Xpart[1] + Stave2nullkeysigDx[Istave]  -- 2.9y
+				end
 			else
-				&ps_keysig($1,$2,$x);
-			}
-		}
-		$keysig[Istave] = $array[$i];
-		$i++;
-	elseif($Ibar==1 and $retain_clef and $keysig[Istave]=~/^([1-7])([#bn])$/){
-		$must_null_the_keysig = 0;   -- 2.8o
-		if (!MIDI and !XmlOpt) { &ps_keysig
-			($1, $2, $Xbar[Isyst,$Ibar-1}+$SpaceForClef*maxstvhgt);
-		}
-	}
-	if ($must_null_the_keysig) { $keysig[Istave] = q{}; }   -- 2.8o
+				s1,s2 = string.gmatch(array[i], '^([1-7])([#bn])$')
+				ps_keysig(s1, s2, x)
+			end
+		end
+		Keysig[Istave] = array[i]
+		i = i + 1
+	elseif Ibar==1 and retain_clef and
+	  string.find(Keysig[Istave],'^([1-7])([#bn])$') then
+		must_null_the_keysig = false   -- 2.8o
+		if not MIDI and not XmlOpt then
+			s1,s2 = string.gmatch(Keysig[Istave], '^([1-7])([#bn])$')
+			ps_keysig(s1, s2, Xbar[Isyst][Ibar-1] + SpaceForClef*maxstvhgt)
+		end
+	end
+	if must_null_the_keysig then Keysig[Istave] = '' end   -- 2.8o
 
 	-- if new timesig, print it and adjust beginning of bar, xpart{1}
 	-- BUG: should actually adjust all the bars in the whole line ...
-	if (&midi_in_stave($array[$i]))   { $i++; }
-	if ($array[$i] =~ m{\d+/\d+}) { -- new time signature, eg 6/4 or 15/8
-		if (MIDI) {
-		elseif (XmlOpt) {
-			if (Xml{"timesig $istave"} ne $array[$i]) {
+	if midi_in_stave(array[i]) then i = i + 1 end
+	if string.find(array[i], '%d+/%d+') then -- new timesig, eg 6/4 or 15/8
+		if MIDI then
+--[[
+		elseif XmlOpt then
+			if (Xml{"timesig $istave"} ne $array[$i]) then
 				$attributes{time} = &xml_time_attribute($array[$i]);
 				Xml{"timesig $istave"} = $array[$i];
-			}
+			end
+]]
 		else
-			my ($topnum, $botnum) = split ('/', $array[$i], 2);
-			printf "%g %g %g ($topnum) ($botnum) timesig\n",
-				Xpart{1} - 0.5*$SpaceAtBeginningOfBar*maxstvhgt,
-				$Ystv, $StvHgt;
-			if ($topnum>9 or $botnum>9) {  -- 2.9z
-				Xpart{1} += $SpaceForFatTimeSig * maxstvhgt;
+			local topnum, botnum = table.unpack(split(array[i], '/', 2))
+			printf("%g %g %g (%s) (%s) timesig",
+				Xpart[1] - 0.5*SpaceAtBeginningOfBar*maxstvhgt,
+				Ystv, StvHgt, topnum, botnum)
+			if tonumber(topnum) > 9 or tonumber(botnum) > 9 then  -- 2.9z
+				Xpart[1] = Xpart[1] + SpaceForFatTimeSig * maxstvhgt
 			else
-				Xpart{1} += $SpaceForTimeSig * maxstvhgt;
-			}
-		}
-		$i++;
-	}
-
-	if (!MIDI and !XmlOpt) {
-		if ($Ibar==1 and $BarType[Isyst,0} & 4) { -- start repeat at BOL
-			&ps_repeatmark($Isyst, $istave,
-				Xpart{1} - $SpaceForStartRepeat*$StvHgt);
-			Xpart{1} += $SpaceForStartRepeat * maxstvhgt;
-		}
+				Xpart[1] = Xpart[1] + SpaceForTimeSig * maxstvhgt
+			end
+		end
+		i = i + 1
+	end
+	if not MIDI and not XmlOpt then
+		if Ibar==1 and bit32.band(BarType[Isyst][0],4)>0.5 then --repeat at BOL
+			ps_repeatmark(Isyst, istave, Xpart[1]-SpaceForStartRepeat*StvHgt)
+			Xpart[1] = Xpart[1] + SpaceForStartRepeat * maxstvhgt
+		end
 		-- calculate the length of bar available for music, = end - beginning
-		$dxbar = Xpart{1 + $Nparts[Isyst, $Ibar}} - Xpart{1};
+--warn('Nparts[Isyst][Ibar]=',Nparts[Isyst][Ibar],' Xpart[1]=',Xpart[1])
+		dxbar = Xpart[1 + Nparts[Isyst][Ibar]] - Xpart[1]
 		-- and thus place the various parts within the bar
-		for ($ipart = 2; $ipart <= $Nparts[Isyst, $Ibar}; $ipart++) {
-			Xpart[ipart} = Xpart[ipart-1} +
-				$dxbar * $partshare[Ibar, $ipart-1} / $Proportion[Ibar};
-		}
+		for ipart = 2, Nparts[Isyst][Ibar] do
+			Xpart[ipart] = Xpart[ipart-1] +
+			  dxbar * PartShare[Ibar][ipart-1] / Proportion[Ibar]
+		end
+end
+-- frontier
+--[[
 	elseif (XmlOpt) {
-		if ($xml_keysig) {
-			$attributes{key} = $xml_keysig;
+		if ($xmlkeysig) {
+			$attributes{key} = $xmlkeysig;
 		else  -- musicxml2ly insists on a key even when there isn't one :-(
 			if (! Xml{"keysig $istave"}) {  -- XXX 2.5u
 				$attributes{key} = &xml_keysig('');
@@ -2244,67 +3608,71 @@ local function newstave (line)
 		if (%attributes) { -- XXX
 			push @xml_cache, \%attributes;
 		}
-	}
 ]]
--- frontier
 	while i <= #array do
-		symbol = array[i];
---[[
-		if (symbol =~ s/<//) {   -- 2.7w
+		symbol = array[i]
+		if string.find(symbol, '<') then   -- 2.7w
+			symbol = string.gsub(symbol, '<', '')
 			-- start of bracketed simultaneous notes
 			-- extract list of simultaneous things to pass to &ps_event ...
-			my (@things); local is_end_of_bracket = 0;
-			while (1) {
-				if ($array[$i] =~ s/>//) { $is_end_of_bracket = 1; }
-				push (@things, $array[$i]);
-				if ($is_end_of_bracket) { $is_end_of_bracket = 0; last; end
-				$i++;
-				if ($i > $#array) { last; end
-			end
-			if (MIDI) { &midi_event(@things)
-			elseif (XmlOpt) { &xml_event(@things)
-			else &ps_event(@things);
-			end
-			next;
-		end
-		if (defined Nbeats[symbol}) {	-- it's smq, min, cro, qua etc
-			$currentpulse = Nbeats[symbol};
-			$currentpulsetext = symbol;
-		elseif (&is_a_clef(symbol)) { -- clef
-			if (!MIDI and !XmlOpt) {
-				-- 2.8m If last symbol in bar, omit SpaceRightOfClef
-				my $x = &ps_beat2x(CrosSoFar,$CrosPerPart);
-				if ($i == #array) { $x -= 0.6*$SpaceForClef*$StvHgt;
-				else $x -= $SpaceRightOfClef*$StvHgt;
+			local things = {}; local is_end_of_bracket = false
+			while true do
+				if string.find(array[i],'>') then
+					is_end_of_bracket=true
+					array[i] = string.gsub(array[i], '>', '')
 				end
-				printf "%g %g %g %sclef\n", $x, $Ystv, $StvHgt, symbol;
+				table.insert(things, array[i])
+				if is_end_of_bracket then is_end_of_bracket=false; break end
+				i = i + 1
+				if i > #array then break end
 			end
-			$clef[Istave] = symbol;
-		elseif (symbol == 'clefspace') {
+			if MIDI then midi_event(things)
+--[[
+			elseif (XmlOpt) then xml_event(@things)
+]]
+			else ps_event(things)
+			end
+			goto nextsymbol
+		end
+		if Nbeats[symbol] then	-- it's smq, min, cro, qua etc
+			CurrentPulse = Nbeats[symbol]
+			CurrentPulseText = symbol
+		elseif is_a_clef(symbol) then -- clef
+			if not MIDI and not XmlOpt then
+				-- 2.8m If last symbol in bar, omit SpaceRightOfClef
+				local x = ps_beat2x(CrosSoFar,CrosPerPart)
+				if i == #array then x = x - 0.6*SpaceForClef*StvHgt
+				else x = x - SpaceRightOfClef*StvHgt
+				end
+				printf("%g %g %g %sclef",x,Ystv,StvHgt,symbol)
+			end
+			Stave2clef[Istave] = symbol
+		elseif symbol == 'clefspace' then
+--[[
 		elseif (symbol == '|') {  -- 3.2f in-bar barline
 			if (!MIDI and !XmlOpt) {
-				my $x = ps_beat2x(CrosSoFar,$CrosPerPart);
+				local x = ps_beat2x(CrosSoFar,$CrosPerPart);
 				$x -= 0.8*$SpaceRightOfClef*$StvHgt;
 				printf "%g %g %g %g barline\n",
 				  $x, $Ystv, $Ystv-$StvHgt, $StvHgt;
 			end
 		elseif (symbol =~ /^=(\d+[,']?)$/) { &changestave($1);
 ]]
-		midi_in_stave(symbol)
+		elseif midi_in_stave(symbol) then   -- ignore it
+		elseif CrosPerPart or MIDI or XmlOpt then -- a note, blank or rest
+			if is_a_note(symbol) or string.find(symbol,'^rest') or
+	 		  string.find(symbol,'^blank') then
+				if MIDI then midi_event(symbol)
 --[[
-		elseif (midi_in_stave(symbol)) {
-
-		elseif ($CrosPerPart or MIDI or XmlOpt) { -- is a note, blank or rest
-			if (&is_a_note(symbol) or symbol =~ /^rest|^blank/) {
-				if (MIDI) { &midi_event(symbol);
-				elseif (XmlOpt) { &xml_event(symbol);
-				else &ps_event(symbol);
+				elseif XmlOpt then xml_event(symbol)
+]]
+				else ps_event({symbol})
 				end
 			else
-				warn " line $LineNum: not a note: symbol\n";
+				warn_ln("not a note: @",symbol,"@")
 			end
 		end
-]]
+		::nextsymbol::
 		i = i + 1
 	end
 end
@@ -2344,7 +3712,7 @@ local function interpret_syntax (line)
 	line = string.gsub(line, "^%s*(.-)%s*$", "%1") -- strip PiL p.209
 	-- invoked both per input-line, and from each line within a multiline var
 	if PrePro then print(line); return end
-	local s1, s2
+	local s1, s2, s3, s4
 	s1 = string.match(line, '^=%s*(.+)$') ; if s1 then
 		--if not MIDI or not Midi_off then newstave(s1) end ; return
 		newstave(s1) ; return
@@ -2400,13 +3768,14 @@ local function interpret_syntax (line)
 	end
 	s1 = string.match(line, '^(|%s*[^=]*)$')
 	if s1 then newbar(string.gsub(s1, '^|%s*', '')) ; return end
+	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)%s(.*)$')
+	if s4 then
+		-- if XmlOpt then xml_text(s1,s2,s3,s4) ; return end
+		if MIDI then return end
+		ps_text(s1,s2,s3,s4) ; return
+	end
 -- frontier
 --[[
-	if ($line =~ /^([rbiI])([ls]?)(\d?\.?\d*)\s(.*)$/) {
-		if (XmlOpt)   { xml_text($1,$2,$3,$4); next; }
-		if (MIDI)  { next; }
-		ps_text($1,$2,$3,$4);  next;
-	end
 	if ($line =~ /^play\s+(.*)$/) { if (MIDI) {midi_play_wav($1);} next; }
 end
 ]]
@@ -2502,17 +3871,17 @@ while LineNum < #Stack do  -- the main loop through the input-file
 	local line = Stack[LineNum]
 	while string.find(line, '\\$') do
 		LineNum = LineNum + 1
-		line = line .. Stack[LineNum]
+		line = string.gsub(line, '\\$', '') .. Stack[LineNum]
 	end
 	if string.find(line, '^%s*$') then goto nextline end
 	if string.find(line, '^%s*#P') then
 		if not PrePro then   -- 3.2c keep #P and expand them
-			if Midi then goto nextline end
+			if MIDI then goto nextline end
 			line = string.gsub(line, '^%s*#P', '')   -- 3.1h 3.2c
 		end
 	elseif string.find(line, '^%s*#M') then  -- 3.2c keep #M and expand them
 		if not PrePro then
-			if not Midi then goto nextline end
+			if not MIDI then goto nextline end
 			line = string.gsub(line, '^%s*#M', '')
 		end
 	elseif string.find(line, '^%s*#')  then  -- 3.2c
@@ -2564,16 +3933,16 @@ os.exit(0)
 
 -------------------------------------------------------
 local function set_var { my ($stackref, $infinite_depth) = @_;
-	my $line = shift @$stackref;
+	local line = shift @$stackref;
 	$line =~ /$VariableSetRE/o;
-	my $var = $1;   my $substitute_now = ($2 == '==');   my $val = $3;
+	local var = $1;   local substitute_now = ($2 == '==');   local val = $3;
 --warn "set_var: var=$var infinite_depth=$infinite_depth substitute_now=$substitute_now val=$val\n";
 	if ($val =~ /^{(\s*#.*)?$/) {   -- allow comments 3.1b
 		-- loop until closing brace, then set_var; store in %Vars as an arrayref
 		my @lines_of_var = ();
 		while (@$stackref) {
-			my $line = shift @$stackref;
-			while ($line=~s{\\\n$}{}) {my $nxt=shift @$stackref; $line.=$nxt;}
+			local line = shift @$stackref;
+			while ($line=~s{\\\n$}{}) {local nxt=shift @$stackref; $line.=$nxt;}
 			chop $line;
 			$line =~ s{^\s+}{};  -- strip leading space
 			if ($line =~ /^}/ or ! defined $line) { last; }
@@ -2707,94 +4076,8 @@ end
 
 -- ------------------------- infrastructure ------------------------
 
-local function dypitch { my $pitch = $_[$[];
-	-- returns how far the pitch is above the top line, in staveheights
-	my $Y = $Ytable[pitch};
-	if ($clef[Istave] =~ /^treble/)    { $Y += 0.125;
-	elseif ($clef[Istave] == 'tenor') { $Y += 0.25;
-	elseif ($clef[Istave] =~ /^bass/) { $Y -= 0.125;
-	end
-	return $Y;
-end
-local function is_stemup { my ($stem, $pitch) = @_;
-	my $stemup;
-	if      ($stem =~ /'/)     { $stemup = 1;
-	elseif ($stem =~ /,/)     { $stemup = 0;
-	elseif ($DefaultStem == q{'}) { $stemup = 1;
-	elseif ($DefaultStem == q{,}) { $stemup = 0;
-	else
-		if (&dypitch($pitch)<-0.6) { $stemup = 1;
-		else                     { $stemup = 0;
-		end
-	end
-	return $stemup;
-end
 
-local function parse_note { my $s = $_[$[];
-	return unless $s;
-	my $scopy = $s;
-	my %r;   -- will return hash_ref
 
-	if ($s =~ s/\]$//)  { $r{endbeam}    = ']'; }
-	if ($s =~ s/>$//)   { $r{endchord}   = '>'; }
-	my ($notebit,$options) = split (/-/, $s, 2);
-	$r{notebit} = $notebit;
-	$r{options} = $options;
-	my $len = $[ + length $notebit;
-	pos $notebit = $[;
-	if ($notebit =~ /\G\[/gc) { $r{startbeam}  = '['; }
-	if ($notebit =~ /\G</gc)  { $r{startchord} = '<'; }
-	if ($notebit =~ /\G([A-Ga-g][_~]*)([#bn]*)/gc) {
-		$r{pitch}=$1; $r{accidental}=$2;
-	end
-	return \%r if $len <= pos $notebit;
-	if ($notebit =~ /\G([xlr,']+)/gc) {
-		my $xlrupdown = $1;
-		if ($xlrupdown =~ s/(l+)//)   { $r{accidentalshift} = length $1; }
-		if ($xlrupdown =~ s/(r+)//)   { $r{rightshift}      = length $1; }
-		if ($xlrupdown =~ s/x//)      { $r{cross}           = 'x'; }
-		if ($xlrupdown =~ s/([',])//) { $r{stem}            = $1; }
-		return \%r if $len <= pos $notebit;
-	end
-	while ($len >= pos $notebit) {
-		if ($notebit =~ /\G([{}()])([',]*)(\d)/gc) {
-			$r[SlurOrTie{$1}} = $3;
-			if ($2) { $r[SlurOrTie{$1}.'shift'} = $SlurOrTieShift{$2}; }
-		else last;
-		end
-	end
-	if ($notebit =~ /\G(.+)/gc) {
-		my $before = substr( $notebit, $[, $-[$[] );
-		warn " line $LineNum: bad note syntax in \"$scopy\" at \"$1\"\n";
-	end
-	return \%r;
-end
-local function round { my $x = $_[$[];
-	if ($x > 0.0) { return int ($x + 0.5); }
-	if ($x < 0.0) { return int ($x - 0.5); }
-	return false
-end
-local function current_volume {
-	if (defined Stave2volume[Istave}) {
-		return Stave2volume[Istave};
-	else
-		return $DefaultVolume;
-	end
-end
-local function current_pan {
-	if (defined Stave2pan[Istave}) {
-		return Stave2pan[Istave};
-	else
-		return 50;
-	end
-end
-local function current_bend {   -- 3.2  should this be cha2bend ? for incremental bend+2
-	if (defined Stave2bend[Istave}) {
-		return Stave2bend[Istave};
-	else
-		return false  -- bend is -8191..8192
-	end
-end
 
 -- ----------------- sequence-generator infrastructure --------------
 local function cycle { my @list = @_;
@@ -2951,37 +4234,37 @@ local function xml_event {
 	my $t3 = "$t2$t1"; my $t5 = "$t4$t1"; my $t6 = "$t4$t2";
 
 	foreach my $symbol (@symbols) {
-		$is_a_note = &is_a_note($symbol);
-		if ($is_a_note or $symbol =~ /^rest|^blank/) {
-			if ($currentpulse < $shortest) { $shortest = $currentpulse; }
+		is_note = &is_a_note($symbol);
+		if (is_note or $symbol =~ /^rest|^blank/) {
+			if ($CurrentPulse < $shortest) { $shortest = $CurrentPulse; }
 		end
 		if (defined Nbeats[symbol}) {  -- it's smb min cro qua smq dsq etc
 			-- we need to measure separately shortest stem-up and stem-down !
 			if (Nbeats[symbol}<$shortest) { $shortest=Nbeats[symbol}; }
-			$currentpulse = Nbeats[symbol};
-			$currentpulsetext = $symbol;
-		elseif ($is_a_note) {
+			$CurrentPulse = Nbeats[symbol};
+			$CurrentPulseText = $symbol;
+		elseif (is_note) {
 			my $note_ref = &parse_note($symbol);
 
 			-- go through the options first; they can influence <note> element
 			my @notations = ();
-			if ($note_ref->{endslur}) {
-				my $updown = ($note_ref->{endslur}%2) ? 'above' : 'below';
+			if (noteref['endslur}) {
+				my $updown = (noteref['endslur}%2) ? 'above' : 'below';
 				push @notations,
 				 "<slur type=\"stop\" placement=\"$updown\"/>";
 			end
-			if ($note_ref->{startslur}) {
-				my $updown = ($note_ref->{startslur}%2) ? 'above' : 'below';
+			if (noteref['startslur}) {
+				my $updown = (noteref['startslur}%2) ? 'above' : 'below';
 				push @notations,
 				 "<slur type=\"start\" placement=\"$updown\"/>";
 			end
-			if ($note_ref->{endtie}) {
-				my $updown = ($note_ref->{endtie}%2) ? 'above' : 'below';
+			if (noteref['endtie}) {
+				my $updown = (noteref['endtie}%2) ? 'above' : 'below';
 				push @notations,
 				 "<tied type=\"stop\" placement=\"$updown\"/>";
 			end
-			if ($note_ref->{starttie}) {
-				my $updown = ($note_ref->{starttie}%2) ? 'above' : 'below';
+			if (noteref['starttie}) {
+				my $updown = (noteref['starttie}%2) ? 'above' : 'below';
 				push @notations,
 				 "<tied type=\"start\" placement=\"$updown\"/>";
 			end
@@ -2993,9 +4276,11 @@ local function xml_event {
 			my @ornaments = ();
 			my $is_staccato = 0;
 			my $is_emphasis = 0;
-			my $options = $note_ref->{options};
+			my $options = noteref['options};
 			$options =~ s{'}{\\'}g;
-			$Opt_Cache[options} ||= [ parse_line('-',0,$options) ];  -- 1?
+			if not Opt_Cache[options] then
+				Opt_Cache[options] = parse_options(options,false)  -- 1?
+			wend
 			foreach (@{$Opt_Cache[options}}) {
 				my $option = $_;   -- don't clobber the cache
 				$option =~ s{\\'}{'}g;
@@ -3003,7 +4288,7 @@ local function xml_event {
 				if ($option =~ s{,$}{}g) { $option_is_above = 0; }
 				-- need to to duplicate the 3.1d code below
 		
-				my $text = q{}; my $shortoption = q{};
+				my $text = ''; my $shortoption = '';
 				if ($option =~  /^([Ibir]s?)(.+)$/) {  -- text option
 					$shortoption = $1; $text = escape_and_utf2iso($2);
 				elseif ($option =~  /^s(.+)$/) {
@@ -3067,15 +4352,15 @@ local function xml_event {
 				end
 			end
 
-			my $note_attributes = q{};
+			my $note_attributes = '';
 			my $release = 0;   -- legato = <note release="-ticks">
 			my $legato = Stave2legato[Istave} or $DefaultLegato;
 			if ($is_staccato) { $legato *= 0.55; }
-			if ($currentpulsetext !~ /-s$/ and $currentpulse > 1.0) {
+			if ($CurrentPulseText !~ /-s$/ and $CurrentPulse > 1.0) {
 			 	$release = round(($legato-1.0) * $TPC);
-			else $release = round(($legato-1.0)*$currentpulse*$TPC);
+			else $release = round(($legato-1.0)*$CurrentPulse*$TPC);
 			end
-			if (!$note_ref->{starttie} and abs $release > 1) {
+			if (!noteref['starttie} and abs $release > 1) {
 				$note_attributes .= " release=\"$release\"";
 			end
 			my $vol = current_volume();
@@ -3085,22 +4370,22 @@ local function xml_event {
 			foreach my $cha (@{ Stave2channels[Istave] }) {   -- 3.1v
 				push @xml_cache, "$t3<note$note_attributes>\n";
 
-				if ($currentpulsetext =~ /-s$/) {
+				if ($CurrentPulseText =~ /-s$/) {
 					push @xml_cache, "$t4<grace/>\n";
 				end
 				if ($i_note) { push @xml_cache, "$t4<chord/>\n"; }
 				$xml_pitch =
-				  &xml_pitch($note_ref->{pitch}, $note_ref->{accidental});
+				  &xml_pitch(noteref['pitch}, noteref['accidental});
 				push @xml_cache, "$t4$xml_pitch\n";
-				if ($currentpulsetext !~ /-s$/) { -- no duration on grace notes
-					my $duration = round($currentpulse * $TPC);
+				if ($CurrentPulseText !~ /-s$/) { -- no duration on grace notes
+					my $duration = round($CurrentPulse * $TPC);
 					push @xml_cache, "$t4<duration>$duration</duration>\n";
 					if (!$i_note) { Xml{backup} += $duration; }
 				end
-				if ($note_ref->{endtie}) {
+				if (noteref['endtie}) {
 					push @xml_cache, "$t4<tie type=\"stop\"/>\n";
 				end
-				if ($note_ref->{starttie}) {
+				if (noteref['starttie}) {
 					push @xml_cache, "$t4<tie type=\"start\"/>\n";
 				end
 				-- fermata is a muscript option, and an xml notation
@@ -3108,34 +4393,34 @@ local function xml_event {
 				push @xml_cache, "$t4<instrument id=\"cha$cha_p1\"/>\n";
 				$i_note++;
 				push @xml_cache, "$t4<voice>Xml{voice}</voice>\n";
-				push @xml_cache, "$t4$XmlDuration[currentpulsetext}\n";
-				if ($note_ref->{accidental}) {  -- must be after <type>
-					my $a = $XmlAccidental{$note_ref->{accidental}};
+				push @xml_cache, "$t4$XmlDuration[CurrentPulseText}\n";
+				if (noteref['accidental}) {  -- must be after <type>
+					my $a = $XmlAccidental{noteref['accidental}};
 					if ($a) {
 						push @xml_cache,"$t4<accidental>$a</accidental>\n";
 					end
 				end
-				if ($currentpulsetext =~ /3/) {  -- triplet 
+				if ($CurrentPulseText =~ /3/) {  -- triplet 
 					push @xml_cache,
 					 "$t4<time-modification><actual-notes>3</actual-notes>"
 					 . "<normal-notes>2</normal-notes></time-modification>\n";
 				end
-				my $stemup = &is_stemup($note_ref->{stem},$note_ref->{pitch});
+				my $stemup = &is_stemup(noteref['stem},noteref['pitch});
 				push @xml_cache, "$t4<stem>".($stemup?'up':'down')."</stem>\n";
 				push @xml_cache, "$t4<staff>$istave</staff>\n";
 				my $nbeams = "1";
-				if      ($currentpulsetext =~ /^smq/) { $nbeams = "2";
-				elseif ($currentpulsetext =~ /^dsq/) { $nbeams = "3";
-				elseif ($currentpulsetext =~ /^hds/) { $nbeams = "4";
+				if      ($CurrentPulseText =~ /^smq/) { $nbeams = "2";
+				elseif ($CurrentPulseText =~ /^dsq/) { $nbeams = "3";
+				elseif ($CurrentPulseText =~ /^hds/) { $nbeams = "4";
 				end
-				if ($note_ref->{startbeam}) {
+				if (noteref['startbeam}) {
 					for my $ibeam (1..$nbeams) { push @xml_cache,
 						"$t4<beam number=\"$ibeam\">begin</beam>\n";
 					end
 					if ($stemup) { $StartBeamUp = 1;
 					else     $StartBeamDown = 1;
 					end
-				elseif ($note_ref->{endbeam}) {
+				elseif (noteref['endbeam}) {
 					for my $ibeam (1..$nbeams) { push @xml_cache,
 						"$t4<beam number=\"$ibeam\">end</beam>\n";
 					end
@@ -3171,8 +4456,8 @@ local function xml_event {
 			end
 		elseif ($symbol =~ /^rest/) {
 			-- must handle fermata
-			my $clef = $clef[Istave];
-			my $move = 0;  my $display = q{};
+			my $clef = Stave2clef[Istave];
+			my $move = 0;  my $display = '';
 			if ($symbol =~ /('+)/)    { $move = length $1;
 			elseif ($symbol =~ /(,+)/)    { $move = 0 - length $1;
 			end
@@ -3185,15 +4470,15 @@ local function xml_event {
 				 . "<display-octave>$octave</display-octave>";
 			end
 			push @xml_cache, "$t3<note>\n$t4<rest>$display</rest>\n";
-			my $duration = round($currentpulse * $TPC);
+			my $duration = round($CurrentPulse * $TPC);
 			push @xml_cache, "$t4<duration>$duration</duration>\n";
 			push @xml_cache, "$t4<voice>Xml{voice}</voice>\n";
 			Xml{backup} += $duration;
-			push @xml_cache, "$t4$XmlDuration[currentpulsetext}\n";
+			push @xml_cache, "$t4$XmlDuration[CurrentPulseText}\n";
 			push @xml_cache, "$t4<staff>$istave</staff>\n";
 			push @xml_cache, "$t3</note>\n";
 		elseif ($symbol =~ /^blank/) {
-			my $duration = round($currentpulse * $TPC);
+			my $duration = round($CurrentPulse * $TPC);
 			Xml{backup} += $duration;
 			push @xml_cache,
 			 "$t3<forward><duration>$duration</duration></forward>\n";
@@ -3214,7 +4499,7 @@ local function xml_barline { return unless XmlOpt;  my (bartype) = @_;
 		push @elements, '<repeat direction="backward"/>';
 	end
 	if (@elements) { return "\t\t\t<barline>",@elements,"</barline>\n";
-	else return q{};
+	else return '';
 	end
 end
 local function xml_transpose { my $c = 0 + $_[$[];
@@ -3323,10 +4608,10 @@ local function xml_pitch { my $pitch = shift; my $accidental = shift;
 	my $step = $pitch;  $step =~ tr/[a-g]/[A-G]/d;
 	my $octave;
 	if ($pitch =~ tr/[A-G]/[a-g]/) { $octave = 3; else $octave = 4; }
-	if ($clef[Istave] == 'treble8va')     { $octave += 2;
-	elseif ($clef[Istave] == 'treble')   { $octave += 1;
-	elseif ($clef[Istave] == 'bass')     { $octave -= 1;
-	elseif ($clef[Istave] == 'bass8vab') { $octave -= 2;
+	if (Stave2clef[Istave] == 'treble8va')     { $octave += 2;
+	elseif (Stave2clef[Istave] == 'treble')   { $octave += 1;
+	elseif (Stave2clef[Istave] == 'bass')     { $octave -= 1;
+	elseif (Stave2clef[Istave] == 'bass8vab') { $octave -= 2;
 	end
 	$octave += ($step =~ tr/~//d);
 	$octave -= ($step =~ tr/_//d);
@@ -3338,7 +4623,7 @@ local function xml_pitch { my $pitch = shift; my $accidental = shift;
 	else
 		$alter = $Accidental2alter[Accidentalled[pitch}};
 	end
-	if ($alter) { $alter = "<alter>$alter</alter>"; else $alter = q{}; }
+	if ($alter) { $alter = "<alter>$alter</alter>"; else $alter = ''; }
 	return "<pitch><step>$step</step>$alter<octave>$octave</octave></pitch>";
 end
 
@@ -3349,7 +4634,7 @@ local function xml_clef_attribute  { my $clef = $_[$[];
 	elseif ($clef =~ /^bass/)  { $sign = q{F}; $line = q{4};
 	elseif ($clef =~ /^tenor/) { $line = q{4};
 	end
-	my $clef_octave_change = q{};
+	my $clef_octave_change = '';
 	if ($clef =~ /8vab$/)     { $clef_octave_change = q{-1};
 	elseif ($clef =~ /8va$/) { $clef_octave_change = q{1};
 	end
@@ -3416,289 +4701,7 @@ end
 
 -- ------------------------ MIDI stuff -------------------------------
 
-local function midi_event_option { my ($option, $starttime, $cha) = @_;   -- 3.1i
--- warn "option=$option starttime=$starttime cha=$cha\n";
-	if ($option == '*')  {   -- 3.0b
-		push @MidiScore, ['control_change',$starttime+1,$cha,0x40,0x00];
-		delete $MidiPedal[cha};
-	elseif ($option == 'P')  {    -- 3.0b
-		if ($MidiPedal[cha}) {
-			push @MidiScore, ['control_change',$starttime+1,$cha,0x40,0x00];
-		end
-		push @MidiScore, ['control_change',$starttime+3,$cha,0x40,0x7F];
-		$MidiPedal[cha} = 1;
-	elseif ($option == '*Sos')  {
-		push @MidiScore, ['control_change',$starttime+1,$cha,0x42,0x00]; -- 3.0g
-		delete $MidiSosPed[cha};
-	elseif ($option == 'Sos')  {  -- 3.0g
-		if ($MidiSosPed[cha}) {
-			push @MidiScore, ['control_change',$starttime+1,$cha,0x42,0x00];
-		end
-		push @MidiScore, ['control_change',$starttime+3,$cha,0x42,0x7F];
-		$MidiSosPed[cha} = 1;
-	elseif ($option == 'Una')  {  -- 3.1n
-		push @MidiScore, ['control_change',$starttime-2,$cha,0x43,0x7F];
-		$MidiUnaPed[cha} = 1;
-	elseif ($option == 'Tre')  {  -- 3.1n
-		push @MidiScore, ['control_change',$starttime-2,$cha,0x43,0x00];
-		delete $MidiUnaPed[cha};
-	end
-end
 
-local function midi_event {
-	if (!MIDI) { die "BUG midi_event called without MIDI set\n"; }
-	my @symbols = @_;
-	my $shortest = 99;
-	-- Here also, we'll need a measurement loop, to get $total_chord_options
-	foreach my $symbol (@symbols) {
-		$is_a_note = &is_a_note($symbol);
-		if ($is_a_note or $symbol =~ /^rest|^blank/) {
-			if ($currentpulse < $shortest) { $shortest = $currentpulse; }
-		end
-		if (defined Nbeats[symbol}) {  -- it's smb min cro qua smq dsq etc
-			-- we need to measure separately shortest stem-up and stem-down !
-			if (Nbeats[symbol}<$shortest) { $shortest=Nbeats[symbol}; }
-			$currentpulse = Nbeats[symbol};
-			$currentpulsetext = $symbol;
-		elseif ($symbol =~ /^(rest|blank)[,']*(-(\S+))?/) {  -- 3.1i 3.1n 3.1q
-			if ($3) {
-				my $options = $3;
-				my $starttime    = $TicksAtBarStart + CrosSoFar*$TicksPerCro;
-				foreach my $cha (@{ Stave2channels[Istave] }) {   -- 3.1v
-					$options =~ s{'}{\\'}g;
-					foreach $option (&parse_line('-', 0, $options)) {
-						$option =~ s{\\'}{'}g;
-						$option =~ s{[,']$}{};
-						midi_event_option($option, $starttime, $cha);
-					end
-				end
-			end
-		elseif ($is_a_note) {
-			my $note_ref     = &parse_note($symbol);
-			my $pitch        = $note_ref->{pitch};
-			my $accidental   = $note_ref->{accidental};
-			my $options      = $note_ref->{options};
-			-- 3.1s:
-			my $starttime = round($TicksAtBarStart + CrosSoFar*$TicksPerCro);
-			my $fullduration = round($currentpulse * $TicksPerCro);
-			my $duration     = $fullduration;
-			my $legato = Stave2legato[Istave} or $DefaultLegato;
-			if ($duration > $TPC) { $duration -= round((1.0-$legato) * $TPC);
-			else $duration = round($legato * $duration);
-			end
-			foreach my $cha (@{ Stave2channels[Istave] }) {   -- 3.1v
-				my $note = &midi_pitch("$pitch$accidental")
-				 + Stave2transpose[Istave}
-				 + $cha2transpose[cha};   -- 3.1u
-				if ($accidental) {
-					$Accidentalled[pitch} = $accidental;
-				else
-					my $a = $Accidentalled[pitch};
-					if ($a == '#')       { $note++;
-					elseif ($a == 'b')  { $note--;
-					elseif ($a == '##') { $note+=2;
-					elseif ($a == 'bb') { $note-=2;
-					end
-				end
-				my $velocity = current_volume();
-				$options =~ s{'}{\\'}g;
-				my @midiexpressions; -- array of cre and dim commands
--- if ($options) { warn "options=$options\n"; }
-				foreach $option (&parse_line('-', 0, $options)) {
-					$option =~ s{\\'}{'}g;
-					$option =~ s{[,']$}{};
-					if ($option == 'fermata') { -- change tempo down & up again
-		  			elseif ($option == 'mordent') {
-		  			elseif ($option == 'tr') {  -- trill about 10 notes/sec XXX
-		  			elseif ($option == 'tr#') {
-		  			elseif ($option == 'trb') {
-		  			elseif ($option == 'trn') {
-		  			elseif ($option == 'turn') {
-		  			elseif ($option == '.' or $option =~ /stacc?/) {
-						$duration = round(0.55 * $currentpulse * $TicksPerCro);
-		  			elseif ($option == 'ten') {
-						$starttime  -= 3;
-						$duration = $currentpulse*$TicksPerCro + 3;
-						$velocity = round(1.15 * $velocity);
-						if ($velocity > 127) { $velocity = 127; }
-		  			elseif ($option == 'emph') {
-						$velocity = round(1.3 * $velocity);
-						if ($velocity > 127) { $velocity = 127; }
-		  			elseif ($option =~ /^cre(\d+)$/)    {
-						push @midiexpressions, 0+$1;
-		  			elseif ($option =~ /^dim(\d+)$/)    {
-						push @midiexpressions, 0-$1;
-					else  -- pedal options that are also needed by rests...
-						midi_event_option($option, $starttime, $cha);
-					end
-				end
-				my $stemup = &is_stemup($note_ref->{stem}, $note_ref->{pitch});
-				my $B = $starttime;
-				my $D = $duration;
-				my $startslur = $note_ref->{startslur};
-				my $starttie  = $note_ref->{starttie};
-				my $endslur   = $note_ref->{endslur};
-				my $endtie    = $note_ref->{endtie};
-				#if ($startslur) { $StartedSlurs{"$istave $stemup"} = 1; }
-				if ($startslur) { $StartedSlurs[Istave] = 1; }
-				-- XXX BUG what has stemup got to do with it ? <a{1 A,}2>
-				-- but we can't do $StartedSlurs{"$istave $startslur"} because
-				-- intermediate notes lying under a slur; they don't know 1 or 2
-				if ($endtie) {
-					if ($StartedTies{"$istave $endtie $cha"}) {
-						my $beg_ref = $StartedTies{"$istave $endtie $cha"};
-						my $begn =   $beg_ref->[$[+4];
-						if (!$accidental and ($pitch == $beg_ref->[$[+6])) {
-							$note = $begn;  -- accidental tied from prev bar
-						end
-						if ($begn == $note) {
-							my $begtime = $beg_ref->[$[+1];
-							if ($starttie) { -- prolong the remembered note
-								$beg_ref->[$[+2]=$starttime+$duration-$begtime;
-								if ($starttie != $endtie) {
-								-- the tie-number might have changed, eg )1(2
-									$StartedTies{"$istave $starttie $cha"}
-									 = $StartedTies{"$istave $endtie $cha"};
-									delete $StartedTies{"$istave $endtie $cha"};
-								end
-							else -- output the full-length combined note
-								delete $StartedTies{"$istave $endtie $cha"};
-								$B = $begtime;
-								$D = $starttime+$duration-$begtime;
-							end
-						else
-							warn " line $LineNum at $symbol: deprecated use"
-							. " of ( for slur. Use { instead\n";
-							$#{$beg_ref} = $[+5;   -- pop old $pitch off end
-							push @MidiScore, $beg_ref;
-							delete $StartedTies{"$istave $endtie $cha"};
-							$startslur = $starttie;
-						end
-					else
-						warn " line $LineNum: tie )$endtie has no "
-						. "corresponding (\n";
-					end
-				elseif ($MidiExpression[cha} != 100) {
-					-- we're already within a loop over channels
-					midi_expression($B, $cha, 100);
-				end
-				if ($StartedSlurs[Istave]) {
-					if ($endslur) {
-						delete $StartedSlurs[Istave];
-					else
-						$D += $fullduration - $duration;
-					end
-				end
-				if (@midiexpressions) { -- 2.7a cre and dim
-					-- could also pan+50, 20141118 could also bend
-					my $n = scalar @midiexpressions;
-					my $begin_section = $B;
-					my $duration = $D;
-					if ($starttie) { $duration = $fullduration; }
-					my $ticks_per_section = round($duration / $n);
-					my $expression = 100;
-					foreach my $expr (@midiexpressions) {
-						if ($expression+$expr > 127)  { $expr=127-$expression;
-						elseif ($expression+$expr < 0) { $expr=0-$expression;
-						end
--- 20141104  should leave at least, say, 5ms  between each cc-change !
-						my $step = int(1.01 + 5*abs($expr)/$ticks_per_section);
--- 20141104  $step should correspond to at least, say, 5ms !
--- $MidiTempo = uSec-per-cro ;    $TPC = ticks-per-cro
--- ticks_per_5000uS = int(1.01 + 5000 * $TPC / $MidiTempo)
-						if ($expr < 0) { $step = 0 - $step; }
-						my $nsteps = round($expr / $step);
-						if (! $nsteps) {
-							$begin_section += $ticks_per_section; next;
-						end
-						my $i = 1; while (1) {
-							$expression += $step;
-							$ticks = round($begin_section
-							 + $i * $ticks_per_section/(1+$nsteps) );
-							midi_expression($ticks, $cha, $expression);
-							$i++; if ($i > $nsteps) { last; }
-						end
-						$begin_section += $ticks_per_section;
-					end
-				end
-				if ($starttie) {
-					if (! $endtie) {  -- 2.4e
-						$StartedTies{"$istave $starttie $cha"} = ['note',
-						  $B,$fullduration,$cha,$note,$velocity,$pitch];
-					end
-				else
-					-- Difficult bug here if a voice crosses through a tied note
-					-- in the other voice on the same stave it terminates it :-(
-					push @MidiScore, ['note',$B,$D,$cha,$note,$velocity];
-				end
-			} 
-		end
-	end
-	CrosSoFar += $shortest;
-	return;
-end
-
-local function midi_pitch (pitch)  -- middleC = 60
-	local p = NoteTable[pitch]
-	if   clef[Istave] == 'treble8va'  then p = p + 24
-	elseif clef[Istave] == 'treble'   then p = p + 12
-	elseif clef[Istave] == 'bass'     then p = p - 12
-	elseif clef[Istave] == 'bass8vab' then p = p - 24
-	end
-	return P
-end
-
-local function midi_timesig { return unless MIDI; my $str = $_[$[];
-	-- should return here if !$str and midi_timesig has already been called.
-	my ($timesig, $parts) = split (' ', $str, 2); my $cc;
-	if (!$timesig) {
-		$timesig = $MidiTimesig;
-	elseif ($timesig !~ m{^(\d+)/(\d+)$}) {
-		if ($timesig =~ /^[.\d]+$/) { $parts = "$timesig $parts"; -- put back
-		else warn " line $LineNum: strange timesig $timesig\n"; return false
-		end
-	elseif ($timesig ne $MidiTimesig) {
-		-- time signature ...  could be in a sub
-		my ($nn,$bottom) = (0+$1,0+$2);
-		my $dd=0; while (1) { if (1<<$dd >= $bottom) { last; } $dd++; }
-		if ($bottom==8) {
-			if ($nn%3==0) {$cc=int(0.5+$TPC*1.5);else {$cc=int(0.5+$TPC*0.5);}
-		elseif ($bottom == 16) {
-			if ($nn%3==0) {$cc=int(.5+$TPC*0.75);else {$cc=int(.5+$TPC*0.25);}
-		elseif ($bottom == 32) {
-			if ($nn%3==0) {$cc=int(.5+$TPC*.375);else {$cc=int(.5+$TPC*.125);}
-		else $cc = $TPC * 4.0 / $bottom;
-		end
-		-- tweak the following globals ...
-		push @MidiScore, ['time_signature',$TicksAtBarStart, $nn,$dd,$cc,8];
-		$MidiTimesig = $timesig;
-		$TicksPerMidiBeat = $cc;
-		$TicksThisBar = round(384 * $nn / $bottom);
-	end
-	if ($MidiBarlines) { comment("barline $MidiTimesig"); }   -- 3.1f
-	$TicksThisBar ||= $TPC * 4 ;
-	-- tempo changes ...
-	-- return if $parts == $midibarparts;
-	if (!$parts) { $parts = $midibarparts;
-	else $midibarparts = $parts;
-	end
-	my @parts = split ' ',$parts;
-	my $i = 0; my $n = scalar @parts; my $ticksperpart = $TicksThisBar/$n;
-	while (1) {
-		my $starttime = round($TicksAtBarStart + $ticksperpart*$i);
-		my $part = shift @parts;
-		if ($part < 10) { -- secs per part -> uSec per cro
-			$MidiTempo = round($TPC * 1000000 * $part / $ticksperpart);
-		else -- beats per minute -> uSec per cro
-			$MidiTempo = round(60000000 * $TPC / ($TicksPerMidiBeat*$part));
-		end
-		if ($MidiTempo != $OldMidiTempo) {
-			push @MidiScore, ['set_tempo', $starttime, $MidiTempo];
-			$OldMidiTempo = $MidiTempo;
-		end
-		$i++; last if $i >= $n;
-	end
-end
 
 
 local function midi_x2ticks (crossofar,crosperpart)  -- 2.9c
@@ -3730,323 +4733,8 @@ end
 --EOT
 --}
 
-local function ps_event {
-	my @symbols = @_;
-	-- print one thing, or multiple simultaneous things, on one stave ...
-	if (MIDI) { die "BUG: ps_event called with MIDI set\n"; }
-	if (XmlOpt)  { die "BUG: ps_event called with XmlOpt set\n"; }
 
-	-- will be right-adjusted later if there is an r in one of the notes ...
-	my $X = &ps_beat2x(CrosSoFar,$CrosPerPart);
 
-	-- measure shortest, highest and lowest stemup and stemdown notes ...
-	local ($higheststemup, $loweststemup, $higheststemdown, $loweststemdown)
-		= (0, 1000, 0, 1000);  -- used by ps_y_above_note ps_y_below_note
-	local ($highestnostem, $lowestnostem) = (0, 1000);  -- ditto
-	my ($Y, $symbol, $notebit, $endbeamup, $endbeamdown);
-	my ($startcrossbeam, $endcrossbeamm, $total_chord_options);
-	my ($shortest, $shortestup, $shortestdown) = (99, 99, 99);
-	my ($stemup_rightshift,$stemdown_rightshift,$smb_rightshift) = (0,0,0);
-	my %height2cross = ();  -- 2.8p
-
-	foreach my $symbol (@symbols) {
-
-		if ($symbol =~ /^blank/) {
-			$Y = $Ystv - 0.5*$StvHgt;
-			if ($Y > $highestnostem) { $highestnostem = $Y; }
-			if ($Y < $lowestnostem)  { $lowestnostem  = $Y; }
-			my ($notebit, $this_notes_options) = split(/-/, $symbol, 2);
-			$total_chord_options
-			 = append_options($total_chord_options,$this_notes_options);
-		elseif ($symbol =~ /^rest([,']*)/) {
-			my $n = 0.5 * length $1;  -- 3.0a
-			if ($1 =~ /,/)      { $Y = $Ystv - (0.65+$n)*$StvHgt;
-			elseif ($1 =~ /'/) { $Y = $Ystv + ($n-0.35)*$StvHgt;
-			else $Y = $Ystv - 0.5*$StvHgt;
-			end
-			if ($Y > $highestnostem) { $highestnostem = $Y; }
-			if ($Y < $lowestnostem)  { $lowestnostem  = $Y; }
-			my ($notebit, $this_notes_options) = split(/-/, $symbol, 2);
-			$total_chord_options
-			 = append_options($total_chord_options,$this_notes_options);
-		elseif (&is_a_note($symbol)) {
-			my $note_ref = &parse_note($symbol);
-			$symbol = $note_ref;  -- 2.5m handle note as hashref
-			my $notebit .= $note_ref->{notebit};  -- XXX why .= ?
-			$total_chord_options
-			 = append_options($total_chord_options,$note_ref->{options});
-			$Y = &ps_ypitch($note_ref->{pitch});
-			$stemup = &is_stemup($note_ref->{stem},$note_ref->{pitch});
-			if (&ps_is_stemless()) {
-				if ($Y > $highestnostem)   { $highestnostem = $Y; }
-				if ($Y < $lowestnostem)    { $lowestnostem  = $Y; }
-				if ($note_ref->{rightshift}) {
-					$smb_rightshift = $note_ref->{rightshift};
-				end
-			else
-				my $startbeam = $note_ref->{startbeam};
-				my $endbeam   = $note_ref->{endbeam};
-				if ($stemup) {	-- stem up note ...
-					if ($Y > $higheststemup)	{
-						$higheststemup = $Y;
-						$accidentalup = $note_ref->{accidental} or '-';
-					end
-					if ($Y < $loweststemup)      { $loweststemup = $Y; }
-					if ($startbeam == '[')       { $startbeamup = 1;
-					elseif ($startbeam == '[X') {
-						$Startcrossbeam = $startbeam;
-					end
-					if ($endbeam == ']')       { $endbeamup = 1;
-					elseif ($endbeam == ']X') { $endcrossbeam = $endbeam;
-					end
-					if ($note_ref->{rightshift}) {
-						$stemup_rightshift = $note_ref->{rightshift};
-					end
-					if ($currentpulse < $shortestup) {
-						$shortestup = $currentpulse;
-						$shortestuptext = $currentpulsetext;
-					end
-				else -- stem down note ...
-					if ($Y > $higheststemdown) { $higheststemdown = $Y; }
-					if ($Y < $loweststemdown)  {
-						$loweststemdown = $Y;
-						$accidentaldown = $note_ref->{accidental} or '-';
-					end
-					if ($startbeam == '[')       { $startbeamdown = 1;
-					elseif ($startbeam == '[X') {
-						$startcrossbeam = $startbeam;
-					end
-					if ($endbeam == ']')       { $endbeamdown   = 1;
-					elseif ($endbeam == ']X') { $endcrossbeam = $endbeam;
-					end
-					if ($note_ref->{rightshift}) {
-						$stemdown_rightshift = $note_ref->{rightshift};
-					end
-					if ($note_ref->{cross}) {   -- 2.8p, 3.1j
-						my $height = round(8*$Ytable{$note_ref->{pitch}});
-						$height2cross[height} = 1;
-					end
-					if ($currentpulse < $shortestdown) {
-						$shortestdown = $currentpulse;
-						$shortestdowntext = $currentpulsetext;
-					end
-				end
-			end
-		elseif (defined Nbeats[symbol}) {  -- it's smb min. min// cro etc
-			$currentpulse = Nbeats[symbol};   -- BUG XXX fails smb <C cro G>
-			$currentpulsetext = $symbol;
-		} -- it could also be other stuff, which we ignore here
-	end
-	-- here ends the measurement loop
-
-	-- now begins the printing loop; print each vertically aligned symbol ...
-	my $note_shift             = $NoteShift * $StvHgt;
-	my $stem_from_blob_centre  = $StemFromBlobCentre * $StvHgt;
-	foreach my $symbol (@symbols) {
-		my $is_a_note = ref($symbol) == "HASH";  -- chached in previous loop
-		if ($is_a_note or $symbol =~ /^rest|^blank/) {
-			if ($currentpulse < $shortest) { $shortest = $currentpulse; }
-		end
-		if (defined Nbeats[symbol}) {  -- it's smb min cro qua smq dsq etc
-			-- we should measure separately shortest stem-up and stem-down !
-			if (Nbeats[symbol} < $shortest) { $shortest=Nbeats[symbol}; }
-			$currentpulse = Nbeats[symbol};
-			$currentpulsetext = $symbol;
-		elseif ($symbol=~/^blank/){ &ps_blank($currentpulsetext,$symbol,$X);
-		elseif ($symbol=~/^rest/) { &ps_rest($currentpulsetext,$symbol,$X);
-		elseif (&is_a_clef($symbol))    { -- clef
-		elseif ($symbol == 'clefspace') { -- clefspace
-		elseif ($is_a_note) {             -- it's a note !
-			my $note_ref = $symbol;
-			my $stemup=&is_stemup($note_ref->{stem},$note_ref->{pitch});
-			my $shift;
-			if ($currentpulsetext =~ /-s$/) { $acc *= $SmallNoteRatio; }
-			if ($note_ref->{cross}) {
-				my $d = $stem_from_blob_centre * 2.0;
-				if ($currentpulsetext =~ /-s$/) { $d *= $SmallNoteRatio; }
-				if (&ps_is_stemless()) {
-					$shift = $smb_rightshift * $note_shift;
-					&ps_note($note_ref, $X+$d+$shift, \%height2cross);
-				elseif ($stemup) {
-					$shift = $stemup_rightshift * $note_shift;
-					&ps_note($note_ref, $X+$d+$shift, \%height2cross);
-				else
-					$shift = $stemdown_rightshift * $note_shift;
-					&ps_note($note_ref, $X-$d+$shift, \%height2cross);
-				end
-			else
-				$shift = 0;
-				if (&ps_is_stemless()) {
-					$shift = $smb_rightshift * $note_shift;
-				elseif ($stemup_rightshift and $stemup) {
-					$shift = $stemup_rightshift * $note_shift;
-				elseif ($stemdown_rightshift and !$stemup) {
-					$shift = $stemdown_rightshift * $note_shift;
-				end
-				&ps_note($note_ref, $X+$shift, \%height2cross);
-			end
-		end
-	end
-
-	-- print the notestems, if any ...
-	my ($ystemend, $halfstemlength);
-	if (&ps_is_stemless()) {   -- just print the tremolandi, if any
-		my $halfstemlength = 0.6*$StemLength * $StvHgt;
-		my $smb_x = $X + $smb_rightshift * $note_shift;
-		if ($stemup) {   -- XXX but $stemup has not been set :-(
-			if ($currentpulsetext =~ m{(/+)}) {   -- ZZZ check for startbeam min
-				printf "%d %g %g %g tremolando\n", length($1),
-				$smb_x, $highestnostem + $halfstemlength, $StvHgt;
-			end
-		else -- stemdown
-			if ($currentpulsetext =~ m{(/+)}) {   -- ZZZ check for startbeam min
-				printf "%d %g %g %g tremolando\n", length($1),
-				$smb_x, $lowestnostem - $halfstemlength,  $StvHgt;
-			end
-		end
-	else   -- stems and possibly also tremolandi needed
-		-- print the stem(s), if any ...
-		if ($higheststemup) {   -- if there are some stempup notes ...
-			$xstem = $X + $stem_from_blob_centre;
-			$xstem += $stemup_rightshift * $note_shift;
-			my $smallness = 1.0;
-			if ($shortestuptext =~ /-s$/) {
-				$xstem -=
-					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
-				$smallness = $SmallStemRatio;
-			end
-			$ystemend = $higheststemup + $StemLength*$StvHgt*$smallness;
-			if (ps_tails_or_beams($shortestuptext)) { -- tails or beams ?
-				if ($startbeamup) {
-					if (@BeamUp) {
-						warn " line $LineNum: nested stem-up beams\n";
-					end
-					@BeamUp =
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$loweststemup,$higheststemup,
-					 $accidentalup, $total_chord_options);
-				elseif ($Startcrossbeam) {
-					if (@crossbeam) {
-						warn " line $LineNum: nested crossbeams\n";
-					end
-					@crossbeam =
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$loweststemup, $higheststemup,
-					 $accidentalup, $total_chord_options);
---				elseif (defined @crossbeam) { -- mysterious -w warning here !
-				elseif (@crossbeam) { -- 3.1m
-					push (@crossbeam,
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$loweststemup,$higheststemup,
-					 $accidentalup, $total_chord_options));
---				elseif (defined @BeamUp) { -- mysterious -w warning here !
-				elseif (@BeamUp) { -- 3.1m
-					push (@BeamUp,
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$loweststemup,$higheststemup,
-					 $accidentalup, $total_chord_options));
-				else   -- an independent, non-beamed qua smq or dsq
-					if ($currentpulsetext =~ m{(/+)}) {   -- smallness?
-						printf "%g %g %g %g notestem\n",
-						 $xstem, $ystemend, $loweststemup, $StvHgt;
-						printf "%d %g %g %g tremolando\n", length($1),
-						 $xstem, 0.5*($ystemend+$higheststemup),$StvHgt;
-					else   -- 2.9v
-						my $nbeams = ps_tails_or_beams($shortestuptext);
-						my $shiftup = 0.0;
-						if ($nbeams>1) { $shiftup = 0.5 + 0.1*($nbeams-2); }
-						my $ybeam = $ystemend
-						 + $shiftup*$TailSpacing*$StvHgt*($nbeams-1);
-						my $dybeam = $TailSpacing*$StvHgt*$smallness;
-						my $ibeam = 1; while ($ibeam<=$nbeams) {
-							printf "%g %g %g %g quaverstemup\n", $xstem,
-							 $ybeam, $loweststemup, $StvHgt*$smallness;
-							$ybeam -= $dybeam;
-							$ibeam++;
-						end
-					end
-				end
-				if ($EndBeamUp) { &ps_beam(@BeamUp); }
-			else	-- crochets and minims ...
-				printf "%g %g %g %g notestem\n",
-				 $xstem, $ystemend, $loweststemup, $StvHgt;
-				-- print the tremolandi, if any
-				if ($currentpulsetext =~ m{(/+)}) {   -- ZZZ
-					printf "%d %g %g %g tremolando\n", length($1),
-					$xstem, 0.5 * ($ystemend+$higheststemup), $StvHgt;
-				end
-			end
-			undef $startbeamup;
-		end
-		if ($higheststemdown) {   -- also, if there are some stemdown notes ...
-			$xstem = $X - $stem_from_blob_centre;
-			$xstem += $stemdown_rightshift * $note_shift;
-			my $smallness = 1.0;
-			if ($shortestdowntext =~ /-s$/) {
-				$xstem +=
-					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
-				$smallness = $SmallStemRatio;
-			end
-			$ystemend = $loweststemdown - $StemLength*$StvHgt*$smallness;
-
-			if (ps_tails_or_beams($shortestdowntext)) { -- tails or beams ?
-				if ($startbeamdown) {
-					if (@beamdown) {
-						warn " line $LineNum: nested stem-down beams\n";
-					end
-					@beamdown = (
-					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
-					 $xstem,$loweststemdown,$higheststemdown,
-					 $accidentaldown, $total_chord_options));
-				elseif (@beamdown) {
-					push (@beamdown,
-					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
-					 $xstem,$loweststemdown,$higheststemdown,
-					 $accidentaldown, $total_chord_options));
-				else   -- an independent, non-beamed qua smq or dsq
-					if ($currentpulsetext =~ m{(/+)}) {   -- smallness?
-						printf "%g %g %g %g notestem\n",
-				 		$xstem, $higheststemdown, $ystemend, $StvHgt;
-						printf "%d %g %g %g tremolando\n", length($1),
-						 $xstem, 0.5*($ystemend+$loweststemdown),$StvHgt;
-					else   -- 2.9v
-						my $nbeams = ps_tails_or_beams($shortestdowntext);
-						my $shiftdown = 0.0;
-						if ($nbeams>1) { $shiftdown = 0.5 + 0.1*($nbeams-2); }
-						my $ybeam = $ystemend
-						 - $shiftdown*$TailSpacing*$StvHgt*($nbeams-1);
-						my $dybeam = $TailSpacing*$StvHgt*$smallness;
-						my $ibeam = 1; while ($ibeam<=$nbeams) {
-							printf "%g %g %g %g quaverstemdown\n", $xstem,
-							 $higheststemdown, $ybeam, $StvHgt*$smallness;
-							$ybeam += $dybeam;
-							$ibeam++;
-						end
-					end
-				end
-				if ($endbeamdown) { &ps_beam(@beamdown); }
-			else	-- crochets and minims ...
-				printf "%g %g %g %g notestem\n",
-				 $xstem, $higheststemdown, $ystemend, $StvHgt;
-				if ($currentpulsetext =~ m{(/+)}) {   -- ZZZ
-					printf "%d %g %g %g tremolando\n", length($1),
-					$xstem, 0.5 * ($ystemend+$loweststemdown), $StvHgt;
-				end
-			end
-			undef $Startbeamdown;
-		end
-	end
-
-	-- end of bracketed simultaneous notes, sub ps_event
-	undef $accidentalup; undef $accidentaldown;
-	CrosSoFar += $shortest;
-end
-
-local function append_options { my ($a,$b) = @_; -- 2.9h
-	if (! $b) { return $a; }
-	if (! $a) { return $b; }
-	return "$a-$b";
-end
 local function ps_tails_or_beams { my $text = $_[$[];
 	if ($text =~ /^qua/) { return 1; }
 	if ($text =~ /^smq/) { return 2; }
@@ -4058,383 +4746,7 @@ local function ps_tails_or_beams { my $text = $_[$[];
 	if ($text =~ /^min[^\/]*\//)     { return 1; } -- ZZZ
 	return false
 end
-local function ps_is_stemless {
-	if ($currentpulsetext =~ /^smb|^bre/) { return true else return false }
-end
-local function ps_note { local ($note_ref, $X, $height2cross_ref) = @_; -- $X needs local
-	-- all the stem, tail, beam and rightshift stuff is in sub ps_event
-	-- Inconsistency here of WhiteBlobHalfWidth with sub ps_beam ...
-	local $Y      = ps_ypitch($note_ref->{pitch});  -- $Y needs local
-	local $stemup = is_stemup($note_ref->{stem}, $note_ref->{pitch});
-	my $accidental = $note_ref->{accidental};  -- also used in line 3050
-	if (! defined $accidental) { $accidental = q{}; } -- defeat -w warning
-	my $acc_shift = $note_ref->{accidentalshift};
-	my $accidental_before_note = $AccidentalBeforeNote*$StvHgt; -- 2.9o
-	-- 20130124 do I need to calculate accidental_before_note if no accidental?
-	if (($stemup or &ps_is_stemless()) and $note_ref->{cross}) { -- 2.8p
-		$accidental_before_note += 0.37 * $StvHgt*$AccidentalShift;
-	elseif ($acc_shift and !$stemup and !$note_ref->{cross}) {
-		my $height = round(8*$Ytable{$note_ref->{pitch}});  -- 3.1j
-		if ($height2cross_ref->{$height-1} or $height2cross_ref->{$height+1}) {
-			$accidental_before_note += 0.42 * $StvHgt*$AccidentalShift;
-			-- 20130124 why .42 here but .37 in the stemup case ?!
-			-- Naturals are good at .42; flats need more space for $height+1
-			-- and a bit less for $height-1 . How fussy do I want to get ?
-			-- That calculation applies to both stemup and stemdown...
-		end
-	end
-	if ($acc_shift) {
-		$accidental_before_note += $acc_shift*$StvHgt*$AccidentalShift;
-	end
-	my $acc_size = $StvHgt;
-	if ($currentpulsetext =~ /-s$/) {
-		$accidental_before_note *= $SmallNoteRatio;   -- 2.9o
-		$acc_size *= $SmallNoteRatio;
-	end
-	my $Xacc = $X - $accidental_before_note;   -- 2.9o
-	-- print the accidental, if any
-	if ($accidental == '#') {
-		printf ("%g %g %g sharp\n", $Xacc, $Y, $acc_size);
-	elseif ($accidental == 'b') {
-		printf ("%g %g %g flat\n",  $Xacc, $Y, $acc_size);
-	elseif ($accidental == 'n') {
-		printf ("%g %g %g natural\n",  $Xacc, $Y, $acc_size);
-	elseif ($accidental == '##') {
-		printf ("%g %g %g doublesharp\n", $Xacc, $Y, $acc_size);
-	elseif ($accidental == 'bb') {
-		printf ("%g %g %g flat\n",  $Xacc, $Y, $acc_size*0.9);
-		printf "%g %g %g flat\n",
-			$Xacc - $DoubleFlatSpacing*$StvHgt, $Y, $acc_size*0.9;
-	elseif ($accidental) {
-		die "BUG! pitch = $pitch, wierd accidental $accidental\n";
-	end
 
-	-- print the blob, white or black
-	if ($currentpulsetext =~ /^bre/) {  -- 2.9a bre can now be small
-		printf ("%g %g %g breve\n", $X, $Y, $acc_size);
-	elseif ($currentpulsetext =~ /^min|^smb/) {
-		printf ("%g %g %g whiteblob\n", $X, $Y, $acc_size);
-	else
-		printf ("%g %g %g blackblob\n", $X, $Y, $acc_size);
-	end
-
-	-- print the ledger lines, if any
-	&ps_ledger_lines($X, &dypitch ($note_ref->{pitch}));
-
-	-- print the dot, if any
-	{
-		my $sh = $StvHgt;
-		if ($currentpulsetext =~ /-s$/) { $sh *= $SmallNoteRatio; }
-		-- should really only raise dot if note is on a line ...
-		if ($currentpulsetext =~ /\.\./) {
-			my $x_plus  = $X + $DotRightOfNote*$sh; 
-			my $y_minus = $Y + $DotAboveNote*$sh; 
-			printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $sh);
-		elseif ($currentpulsetext =~ /\./) {
-			my $x_plus  = $X + $DotRightOfNote*$sh; 
-			my $y_minus = $Y + $DotAboveNote*$sh; 
-			printf ("%g %g %g dot\n", $x_plus, $y_minus, $sh);
-		end
-	end
-
-	-- end the slur or tie, if any; here in PostScript they're the same.
-	-- XXX but if up {'1 then the x-adjustments could be dispensed with.
-	-- XXX we could have endslur AND endtie, or startslur AND starttie
-	if ($note_ref->{endtie}) {
-		&end_thing('tie', $note_ref->{endtie}, $note_ref->{endtieshift});
-	end
-	if ($note_ref->{endslur}) {
-		&end_thing('slur',$note_ref->{endslur},$note_ref->{endslurshift});
-	end
-	sub end_thing { my ($thing_type, $thing_num, $thing_shift) = @_;
-		my ($x_left, $y_left);
-		$x_left = $x_start[thing_type,$Isyst,$istave,$thing_num};
-		if (! $x_left) { -- detect the nearest :|| before using BOL ...
-			my $ib = $Ibar;
-			while (1) {
-				$ib--;
-				if (2&$BarType[Isyst,$ib}) {
-					$x_left = $Xbar[Isyst,$ib}; last;
-				end
-				if ($ib < 1) {
-					$x_left = $Lmargin[Isyst} + $SpaceForClef*$StvHgt;
-					last;
-				end
-			end
-		end
-		-- XXX if stemup & shiftup, 1st step is a notestem, else .5 StvHgt
-		-- BUT if up&up 1st step should be to just above the top-of-stem (beams)
-		my $updown = 1.0;
-		if ($thing_num % 2) {  -- end tie above (odd numbers)
-			my $above_note = $TieAboveNote + $thing_shift*$TieDy;
-			if ($stemup and $thing_shift>0) { $above_note += $TieShift; }
-			$y_right = $Y + $above_note*$StvHgt;
-			$x_right = $X;
-			$y_left=$y_start[thing_type,$Isyst,$istave,$thing_num} or $y_right;
-			if ($accidental == 'b' and !$thing_shift) {
-			  $y_right += 0.7*$TieAboveNote*$StvHgt;
-			end
-		else	-- end tie below
-			$updown = -1.0;
-			my $above_note = $thing_shift*$TieDy - $TieAboveNote;
-			if (!$stemup and $thing_shift<0) { $above_note -= $TieShift; }
-			$y_right = $Y + $above_note*$StvHgt;
-			$y_left=$y_start[thing_type,$Isyst,$istave,$thing_num} or $y_right;
-			if ($stemup or $thing_shift) { $x_right = $X;
-			else $x_right = $X - 1.6 * $BlackBlobHalfWidth * $StvHgt;
-			end
-		end
-		if (($x_right - $x_left) < $MustReallySquashTie*$StvHgt) {
-			$x_left  -= 0.75 * $BlackBlobHalfWidth * $StvHgt;  -- 2.4f
-			$x_right += 0.75 * $BlackBlobHalfWidth * $StvHgt;  -- 2.4f
-		elseif (($x_right - $x_left) < $MustSquashTie*$StvHgt) {
-			$x_left  -= 0.50 * $BlackBlobHalfWidth * $StvHgt;
-			$x_right += 0.50 * $BlackBlobHalfWidth * $StvHgt;
-		end
-		-- impose max tie gradient ...
-		my $max_delta_y = $MaxTieGradient * ($x_right-$x_left);
-		my $actual_delta_y = abs ($y_right-$y_left);
-		if ($actual_delta_y > $max_delta_y) {
-			if ($y_right > $y_left) {	-- positive gradient
-				if ($thing_num%2) { $y_left += $actual_delta_y-$max_delta_y;
-				else $y_right -= $actual_delta_y - $max_delta_y;
-				end
-			else	-- negative gradient
-				if ($thing_num%2) { $y_right += $actual_delta_y-$max_delta_y;
-				else $y_left -= $actual_delta_y - $max_delta_y;
-				end
-			end
-		end
-
-		printf "%g %g %g %g %g %g slur\n",
-			$x_left, $y_left, $x_right, $y_right, $updown, $StvHgt;
-
-		delete $x_start[thing_type,$Isyst,$istave,$thing_num};
-		delete $y_start[thing_type,$Isyst,$istave,$thing_num};
-	end
-
-	-- start a tie or slur, if any
-	if ($note_ref->{starttie}) {
-		&start_thing('tie', $note_ref->{starttie}, $note_ref->{starttieshift});
-	end
-	if ($note_ref->{startslur}) {
-		&start_thing('slur',$note_ref->{startslur},$note_ref->{startslurshift});
-	end
-	sub start_thing { my ($thing_type, $thing_num, $thing_shift) = @_;
-		if ($thing_num % 2) {  -- start tie above (odd numbers)
-			my $above_note = $thing_shift*$TieDy + $TieAboveNote;
-			if ($stemup and $thing_shift>0) { $above_note += $TieShift; }
-			$y_right = $Y + $above_note*$StvHgt;
-			$y_start[thing_type,$Isyst,$istave,$thing_num}
-			 = $Y + $above_note*$StvHgt;
-			if ($thing_shift) {
-				$x_start[thing_type,$Isyst,$istave,$thing_num}
-					= $X + 0.5 * $BlackBlobHalfWidth * $StvHgt;
-			elseif ($stemup) {
-				$x_start[thing_type,$Isyst,$istave,$thing_num}
-					= $X + 1.6 * $BlackBlobHalfWidth * $StvHgt; -- too far?
-				if ((!@BeamUp) and ($currentpulsetext=~/^smq|^qua|^dsq|^hds/)) {
-					$x_start[thing_type,$Isyst,$istave,$thing_num} += 
-						$BlackBlobHalfWidth * $StvHgt;
-				end
-			else
-				$x_start[thing_type,$Isyst,$istave,$thing_num} = $X;
-			end
-		else	-- start tie below (even numbers)
-			my $above_note = $thing_shift*$TieDy - $TieAboveNote;
-			if (!$stemup and $thing_shift<0) { $above_note -= $TieShift; }
-			$y_start[thing_type,$Isyst,$istave,$thing_num} =
-			 $Y + $above_note*$StvHgt;
-			$x_start[thing_type,$Isyst,$istave,$thing_num}=$X;
-		end
-	end
-
-	my $options = $note_ref->{'options'};
-	if ($options and (!ps_tails_or_beams($currentpulsetext)
---	  or  (! defined @BeamUp and ! $StartBeamUp
---	  and ! defined @BeamDown and ! $StartBeamDown))) { -- 2.9z
-	  or  (! @BeamUp and ! $StartBeamUp
-	  and ! @BeamDown and ! $StartBeamDown))) { -- 2.9z, 3.1m
-		my $stem = 'none';   -- 2.8z
-		if (! ps_is_stemless()) {
-			if ($stemup) { $stem = 'up'; else $stem = 'down'; }
-		end
-		ps_note_options($X, ps_y_below_note(), ps_y_above_note(),
-		 $stem, $options);
-	end
-end
-local function ps_beat2x { my ($crossofar,$crosperpart) = @_;
-	my $ipart = 1 + int($crossofar/$crosperpart - Epsilon);
-	return (Xpart[ipart} + (Xpart[ipart + 1} - Xpart[ipart}) *
-		($crossofar - $crosperpart * ($ipart - 1)) / $crosperpart);
-end
-local function ps_note_options { my ($X,$ybot,$ytop,$stem,$options) = @_;
-	-- ensure the option clears the stave lines ...
-	my $ystop = $Ystave[Isyst,$istave} + $OptionClearance*$StvHgt;
-	if ($ytop < $ystop) { $ytop = $ystop; }
-	my $ysbot = $Ystave[Isyst,$istave} - ($OptionClearance+1)*$StvHgt;
-	if ($ybot > $ysbot) { $ybot = $ysbot; }
-
-	my $y;
-	my $dytop = 0.0;   -- to space multiple options above the note
-	my $dybot = 0.0;   -- to space multiple options beneath the note
-	$options =~ s{'}{\\'}g;
-	$Opt_Cache[options} ||= [ parse_line('-',1,$options) ];  -- 0->1 2.7m
-	foreach (@{$Opt_Cache[options}}) {
-		my $option = $_;   -- don't clobber the cache
-		$option =~ s{\\'}{'}g;
-		my $option_is_above = 1;
-		if ($option =~ s/,$//g or $OptionMustGoBelow[option}) { #3.1d,e,n
-			$option_is_above=0;
-		end
-		my $x = $X;
-		if ($option_is_above and $stem == 'up') {  -- 2.8z
-			$x += $BlobQuarterWidth * $StvHgt;
-		elseif (!$option_is_above and $stem == 'down') {
-			$x -= $BlobQuarterWidth * $StvHgt;
-		end
-		my $text = q{}; my $shortoption = q{};
-		if ($option ==  'blank' or $option ==  q{}) {
-			$shortoption = 'blank';
-		elseif ($option =~  /^([Ibir]s?)(.+)$/) {  -- text option
-			$shortoption = $1; $text = $2;
-		elseif ($option =~  /^s(.+)$/) {
-			$shortoption = 'rs'; $text = $1;
-		elseif ($option =~  /^gs(\d+)$/) {
-			$shortoption = 'gs'; $text = $1;
-		elseif ($option =~  /^dim/) {
-			$shortoption = 'dim';
-		elseif ($option =~  /^cre/) {
-			$shortoption = 'cre';
-		else
-			$shortoption = $option;
-			$shortoption =~ tr /,'//d;
-			$shortoption = $Options[shortoption} or $shortoption;
-		end
-
-		my $optiondy = $StvHgt;
-		if (defined $OptionDy[shortoption}) {
-			$optiondy *= $OptionDy[shortoption};
-		else
-			$optiondy *= $OptionDy;
-		end
-		if ($text =~ /^[aceimnorsuvwxz]+$/) { $optiondy *= 0.85; }
-		if ($option_is_above) {
-			$option =~ s{'$}{}g;
-			$y = $ytop + $dytop + 0.5*$optiondy;
-			$dytop += $optiondy;
-		else
-			$y = $ybot - $dybot - 0.5*$optiondy;
-			$dybot += $optiondy;
-		end
-
-		if ($shortoption == 'fermata') {
-			if ($option_is_above) {
-				printf "%g %g %g fermata\n",  $x, $y, $StvHgt;
-			else
-				printf "%g %g %g fermata\n",  $x, $y, 0.0-$StvHgt;
-			end
-		elseif ($shortoption == 'gs') {
-			printf "$text %g %g %g guitar_string\n", $x, $y, $StvHgt;
-		elseif ($Options[option}) {
-			printf "%g %g %g $Options[option}\n", $x, $y, $StvHgt;
-		elseif ($option == 'blank' or $option == q{}) {
-		elseif (length $text) {  -- text option
-			my $font;  my $fontsize=$TextSize*$StvHgt;
-			if      ($shortoption =~ /^I/) { $font = $BoldItalicFont;
-			elseif ($shortoption =~ /^i/) { $font = $ItalicFont;
-			elseif ($shortoption =~ /^b/) { $font = $BoldFont;
-			else $font = $RegularFont;
-			end
-			if ($shortoption =~ /s/) { $fontsize *= $SmallFontRatio; }
-			if ($text =~ /[(){}][',]*\d$/) { -- 3.0d
-				warn "\nline $LineNum: dubious text-option $text "
-				 . "(slurs and ties must precede options!)\n";
-			end
-			if ($text =~ /^"(.*)"$/) { $text = $1; }   -- 2.7m
-			printf "%g %g /$font %g (%s) centreshow\n",
-			 $x, $y, $fontsize, escape_and_utf2iso($text);
-		elseif ($option =~ /^cre/ or $option =~ /^dim/) {
-		elseif ($option =~ /^P(ed)?$/) {   -- 3.0b
-			-- should be a more consistent distance beneath the stave
-			my $fontsize=$TextSize*$StvHgt;
-			printf "%g %g /$PedalFont %g (%s) centreshow\n",
-				$x, $y, $fontsize, "Ped";
-		elseif ($option == '*') {   -- 3.1d,n
-			-- as text, * is too off-centre; it needs a PS routine.
-			my $fontsize=2.0*$TextSize*$StvHgt;
-			printf "%g %g /$PedalFont %g (%s) centreshow\n",
-				$x-0.2*$fontsize, $y-0.37*$fontsize, $fontsize, '*';
-		elseif ($OptionMustGoBelow[option}) {   -- 3.1n
-			if ($option == 'Una') { $option = 'Una Corda';  -- 3.1p
-			elseif ($option == 'Tre') { $option = 'Tre Corde';
-			end
-			my $fontsize=$TextSize*$StvHgt;
-			printf "%g %g /$PedalFont %g (%s) centreshow\n",
-				$x, $y, $fontsize, $option;
-		else
-			warn " line $LineNum: unrecognised option $option\n";
-		end
-	end
-end
-
-
-local function ps_text {  my ($fonttype, $fontsize, $vertpos, $text) = @_;
-	if (MIDI) { warn "bug: ps_text called with MIDI set\n"; return; }
-	if (XmlOpt)  { warn "bug: ps_text called with XmlOpt set\n";  return; }
-
-	my $font = $RegularFont;
-	if      ($fonttype == 'b') { $font = $BoldFont;
-	elseif ($fonttype == 'i') { $font = $ItalicFont;
-	elseif ($fonttype == 'I') { $font = $BoldItalicFont;
-	end
-
-	my ($ytext, $size);
-	-- remember &text can be called before the first =1 line ...
-	my $staveheight = $StvHgt -- can be locally changed
-	$vertpos = $TextBelowStave unless $vertpos;
-	if ($istave == 0) {   -- above the top stave in the system
-		$staveheight = $StaveHeight[Isyst,1};
-		$ytext = $Ystave[Isyst,1} + $vertpos*$staveheight;
-		$size = $TextSize * $staveheight;
-	elseif ($istave < $nstaves[Isyst}) {   -- text lies between staves
-		$netgap = $GapHeight[Isyst,$istave} - $TextSize*$staveheight;
-		$size = 0.5*$TextSize * ($staveheight+$StaveHeight[Isyst,$istave+1});
-		$ytext = $vertpos*$netgap + $Ystave[Isyst, $istave+1} + 0.33*$size;
-	else   -- below the bottom stave in the system
-		-- XXX just TextSize too clumsy: could be lowercase, could be small...
-		$ytext = $Ystave[Isyst,$istave}-($TextSize+1.0+$vertpos)*$staveheight;
-		$size = $TextSize * $staveheight;
-	end
-	if ($fontsize == 's') { $size *= $SmallFontRatio;
-	elseif ($fontsize == 'l') { $size /= $SmallFontRatio;
-	end
-
-	-- interpret ".48 some text" horizontal spacing
-	my %str_by_pos; my $pos = 0.0;
-	while ($text =~ /^(.*? )??(\.\d{1,3}) (.*)$/) {
-		$str_by_pos[pos} = $1; $pos = $2; $text = $3;
-	end
-	$str_by_pos[pos} = $text;
-	my ($left, $right);
-	foreach $pos (keys %str_by_pos) {  -- order doesn't matter !
-		-- should maybe handle $SpaceRightOfClef,$SpaceForClef,$SpaceForTimeSig,
-		-- $SpaceAfterKeySig, $SpaceForStartRepeat, $SpaceForEndRepeat,
-		-- $SpaceAtEndOfBar ?
-		if ($pos > Epsilon and $Ibar == 1) {
-			$left = $Xbar[Isyst,0} +
-			($SpaceForClef+$WhiteBlobHalfWidth)*$staveheight;
-		else
-			$left = $Xbar[Isyst,$Ibar-1} + $WhiteBlobHalfWidth*$staveheight;
-		end
-		$right = $Xbar[Isyst,$Ibar} - $WhiteBlobHalfWidth*$staveheight;
-		$text = $str_by_pos[pos};
-		next unless $text =~ /\S/;
-		printf("%g %g /$font %g (%s) leftshow\n",
-			(1.0-$pos)*$left + $pos*$right, $ytext,
-			$size, escape_and_utf2iso($text));
-	end
-end
 local function ps_beam { -- usage: &ps_beam(@BeamUp)
 	-- Draws a beam across, and stems up or down from, a list of events.
 	-- Each event is expressed by seven TAB-separated items in a string:
@@ -4481,7 +4793,7 @@ local function ps_beam { -- usage: &ps_beam(@BeamUp)
 		push (@ylowblob, $ylowblob);
 		push (@yhighblob, $yhighblob);
 		push (@duration, $duration);
-		push (@accidental, $accidental);  -- $note_ref->{accidental} ?
+		push (@accidental, $accidental);  -- noteref['accidental} ?
 		push (@options, $options);
 	end
 	my $smallstaveheight = $StvHgt * $smallness;   -- for speed
@@ -4759,48 +5071,7 @@ local function ps_beam { -- usage: &ps_beam(@BeamUp)
 		undef @BeamDown;  undef $StartBeamDown;
 	end
 end
-local function ps_keysig { my ($num, $sign, $x) = @_;
-	die if MIDI or XmlOpt;
-	my ($y, $dx, @pitches, $ikey, $pitch, $accidental);
-	$dx = $AccidentalDxInKeysig * $MaxStaveHeight[Isyst};
-	$x += 0.5 * $dx;
-	if ($num < 0)          {
-		$accidental = 'natural';
-		$num = 0-$num;  -- 2.8b
-		Stave2nullkeysigDx[Istave]
-		 = $dx*$num + $SpaceAfterKeySig*$StvHgt;  -- 2.9y
-	elseif ($sign == '#') { $accidental = 'sharp';
-	elseif ($sign == 'b') { $accidental = 'flat';
-	else return false
-	end
-	if ($clef[Istave] =~ /^treble/) {
-		if ($sign == '#') {      @pitches = ('f','c','g','d','A','e','B');
-		elseif ($sign == 'b') { @pitches = ('B','e','A','d','G','c','F');
-		end
-	elseif ($clef[Istave] == 'alto') {
-		if ($sign == '#') {      @pitches = ('f','c','g','d','A','e','B');
-		elseif ($sign == 'b') { @pitches = ('B','e','A','d','G','c','F');
-		end
-	elseif ($clef[Istave] == 'tenor') {
-		if ($sign == '#') {      @pitches = ('f','c','g','d','A','e','B');
-		elseif ($sign == 'b') { @pitches = ('B','e','A','d','g','c','f');
-		end
-	elseif ($clef[Istave] =~ /^bass/) {
-		if ($sign == '#') {      @pitches = ('f','c','g','d','A','e','B');
-		elseif ($sign == 'b') { @pitches = ('B','e','A','d','G','c','F');
-		end
-	end
-	$ikey = 0;
-	while (1) {
-		$pitch = shift @pitches;
-		printf("%g %g %g %s\n",$x,&ps_ypitch($pitch),$StvHgt,$accidental);
-		$x += $dx;
-		$ikey++;
-		last if $ikey >= $num;
-	end
-	Xpart{1} += $dx * $num;   -- XXX
-	Xpart{1} += $SpaceAfterKeySig * $StvHgt;
-end
+
 
 
 local function ps_finish_ties { my $right = $_[$[];
@@ -4808,28 +5079,28 @@ local function ps_finish_ties { my $right = $_[$[];
 	return unless defined $nstaves[Isyst}; -- defeat -w warning
 	foreach $istave (1 .. $nstaves[Isyst}) {
 		my ($x_left, $y_left, $x_right, $y_right);
-		foreach $itie (1,3,5,7,9) {  -- first, ties above
-			foreach $thing_type ('slur','tie') {   -- 2.7j
-				$x_left = $x_start[thing_type,$Isyst,$istave,$itie};
-				$y_left = $y_start[thing_type,$Isyst,$istave,$itie};
-				if ($x_left and $y_left) {
-					$y_right = $y_left;
-					$x_right = $right;
+		for itie = 1,9,2 do  -- first, ties above
+			foreach $th_type ('slur','tie') {   -- 2.7j
+				x_left = Xstart[concat({th_type,Isyst,Istave,itie},' ')]
+				y_left = Ystart[concat({th_type,Isyst,Istave,itie},' ')]
+				if x_left and y_left then
+					y_right = y_left
+					x_right = $right;
 					if (($x_right - $x_left) > $StvHgt) {
 						$x_left  += 0.75 * $BlackBlobHalfWidth*$StvHgt;
 						$x_right -= $TieAfterNote*$StvHgt;
 					end
 					printf "%g %g %g %g %g 1.0 slur\n", $x_left, $y_left,
 					$x_right, $y_right, $StvHgt;
-					delete $x_start[thing_type,$Isyst,$istave,$itie};
-					delete $y_start[thing_type,$Isyst,$istave,$itie};
+					delete $Xstart[th_type,$Isyst,$istave,$itie};
+					delete $Ystart[th_type,$Isyst,$istave,$itie};
 				end
 			end
 		end
-		foreach $itie (2,4,6,8) {    -- then, ties below
-			foreach $thing_type ('slur','tie') {   -- 2.7j
-				$x_left = $x_start[thing_type,$Isyst,$istave,$itie};
-				$y_left = $y_start[thing_type,$Isyst,$istave,$itie};
+		foreach $itie 2,8,2 {    -- then, ties below
+			foreach $th_type ('slur','tie') {   -- 2.7j
+				$x_left = $Xstart[th_type,$Isyst,$istave,$itie};
+				$y_left = $Ystart[th_type,$Isyst,$istave,$itie};
 				if ($x_left and $y_left) {
 					$y_right = $y_left;
 					$x_right = $right;
@@ -4839,135 +5110,17 @@ local function ps_finish_ties { my $right = $_[$[];
 					end
 					printf "%g %g %g %g %g -1.0 slur\n", $x_left, $y_left,
 					$x_right, $y_right, $StvHgt;
-					delete $x_start[thing_type,$Isyst,$istave,$itie};
-					delete $y_start[thing_type,$Isyst,$istave,$itie};
+					delete $Xstart[th_type,$Isyst,$istave,$itie};
+					delete $Ystart[th_type,$Isyst,$istave,$itie};
 				end
 			end
 		end
 	end
 end
-local function ps_ypitch (pitch)
-	-- returns the Y coord of the pitch (eg Eb_, c#, f~) on the current stave
-	return $Ystv + &dypitch($pitch) * $StvHgt;
-end
-
-local function ps_y_above_note { -- finds the y for options above the note ...
-	my ($y, $ysmb, $fc);
-	$fc = ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt;
-	if ($higheststemup) {
-		$y = $higheststemup + ($StemLength+$OptionClearance) * $StvHgt;
-	elseif ($higheststemdown) {
-		$y = $higheststemdown + $fc;
-	end
-	$ysmb = $highestnostem + $fc;   if ($y < $ysmb) { $y = $ysmb; }
-	return $y;
-end
-local function ps_y_below_note { -- finds the y for options below the note ...
-	my ($y, $ysmb, $fc);
-	$fc = ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt;
-	if ($loweststemdown < 999) {   -- magic number; was set to 1000 initially
-		$y = $loweststemdown - ($StemLength+$OptionClearance) * $StvHgt;
-	elseif ($loweststemup < 999) {
-		$y = $loweststemup - $fc;
-	else
-		-- if loweststemdown & loweststemup = 1000, lowestnostem should be set
-		$y = 1000;
-	end
-	$ysmb = $lowestnostem - $fc;   if ($y > $ysmb) { $y = $ysmb; }
-	return $y;
-end
 
 
-local function ps_rest { my ($currentpulse, $symbol, $X) = @_;
-	-- currentpulse is (dsq|smq|qua|cro|min|smb|bre)3?\.?\.?
-	-- symbol is rest|rest,|rest,,|rest,,,|rest'|rest''|rest'''
-	my $options;
-	($symbol,$options) = split(/-/, $symbol, 2);  -- for rest-fermata etc
 
-	my $dy = -0.5;  -- default middle stave-line
 
-	$symbol =~ /^rest([,']*)/;
-	my $n = 0.5 * length $1;  -- 3.0a
-	if ($1 =~ /,/)      { $dy -= $n;
-	elseif ($1 =~ /'/) { $dy += $n;
-	end
-	my $Y = $Ystv + $dy*$StvHgt;
-	my $smallstaveheight = $StvHgt;   -- 3.1o
-	if ($currentpulse =~ /-s$/) { $smallstaveheight *= $SmallStemRatio; }
-	if ($currentpulse =~ /^smb/) {
-		$Y += 0.25 * $StvHgt; $dy += 0.25;  -- 4th stave-line
-		printf "%g %g %g smbrest\n",     $X, $Y, $StvHgt;
-		if ($dy>0.2 or $dy <-1.2) {  -- 2.7t
-			printf "%g %g %g ledger\n",  $X, $Y, $StvHgt;
-		end
-	elseif ($currentpulse =~ /^min/) {
-		printf "%g %g %g minimrest\n",   $X, $Y, $StvHgt;
-		if ($dy>0.2 or $dy <-1.2) {  -- 2.7t
-			printf "%g %g %g ledger\n",  $X, $Y, $StvHgt;
-		end
-	elseif ($currentpulse =~ /^cro/) {
-		printf "%g %g %g crochetrest\n", $X, $Y, $smallstaveheight;
-	elseif ($currentpulse =~ /^qua/) {
-		printf "%g %g %g quaverrest\n",  $X, $Y, $smallstaveheight;
-	elseif ($currentpulse =~ /^bre/) {
-		printf "%g %g %g breverest\n",   $X, $Y, $StvHgt;
-	elseif ($currentpulse =~ /^dsq/) {
-		printf "%g %g %g demisemiquaverrest\n", $X, $Y, $smallstaveheight;
-	elseif ($currentpulse =~ /^hds/) {
-		printf "%g %g %g hemidemisemiquaverrest\n", $X, $Y, $smallstaveheight;
-	else
-		printf "%g %g %g semiquaverrest\n", $X, $Y, $smallstaveheight;   -- 3.1o
-	end
-	-- print the dot, if any
-	if ($currentpulse =~ /\.\.$/) {
-		my $x_plus  = $X + $DotRightOfNote * $StvHgt; 
-		-- should only raise dot if note on line ...
-		my $y_minus = $Y + $DotAboveNote * $StvHgt; 
-		printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $StvHgt);
-	elseif ($currentpulse =~ /\.$/) {
-		my $x_plus  = $X + $DotRightOfNote * $StvHgt; 
-		-- should only raise dot if note on line ...
-		my $y_minus = $Y + $DotAboveNote * $StvHgt; 
-		printf ("%g %g %g dot\n", $x_plus, $y_minus, $StvHgt);
-	end
-	if ($options) {
-		ps_note_options($X,&ps_y_below_note(),&ps_y_above_note(),
-		 'none',$options);
-	end
-end
-local function ps_blank { my ($currentpulse, $symbol, $X) = @_;
-	my $options;
-	($symbol,$options) = split(/-/, $symbol, 2);  -- for blank-fermata etc
-	if ($options) {
-		ps_note_options($X,&ps_y_below_note(),&ps_y_above_note(),
-		 'none',$options);
-	end
-end
-
-local function ps_ledger_lines { my ($X, $dy) = @_;
-	-- draws ledger lines if $dy > 0.2 above top of stave, or <-1.2 below top
-	if (! defined $X) { print "% BUG: ps_ledger_lines: \$X undef\n"; return; }
-	if (! defined $dy) {print "% BUG: ps_ledger_lines \$dy undef\n"; return; }
-	my $yl;  -- the height of the ledger line, rather than the note
-	my $Y;   -- the absolute height of the ledger line on the page
-	if ($dy > 0.2) {	-- ledger line(s) above stave
-		$yl = 0.25;
-		while (1) {
-			$Y = $Ystv + $StvHgt * $yl;
-			printf "%g %g %g ledger\n", $X, $Y, $StvHgt;
-			$yl += 0.25;
-			last if $yl > ($dy + 0.1);
-		end
-	elseif ($dy < -1.2) {	-- ledger line(s) below stave
-		$yl = -1.25;
-		while (1) {
-			$Y = $Ystv + $StvHgt * $yl;
-			printf "%g %g %g ledger\n", $X, $Y, $StvHgt;
-			$yl -= 0.25;
-			last if $yl < ($dy - 0.1);
-		end
-	end
-end
 
 local function ps_best_fit_gradient { my ($x_ref, $y_ref) = @_;
 	my ($sigma_x, $sigma_y, $sigma_xy, $sigma_xsquared);
