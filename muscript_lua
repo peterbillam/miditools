@@ -1453,8 +1453,6 @@ local function comment (s)
 	end
 end
 
-local function ps_finish_ties() end
-
 local function ps_repeatmark (isyst, istave, x)
 	if MIDI or  XmlOpt then die('BUG: ps_repeatmark called with MIDI or Xml') end
 	printf("%g %g %g repeatmark",
@@ -1522,11 +1520,11 @@ local function parse_note (s)
 	local r = {}    -- will return this
 	local find  = string.find ;  local  gsub  = string.gsub
 	local match = string.match ; local gmatch = string.gmatch
-	if find(s,']$') then r['endbeam']=']'; s=gsub(s,']$','') end
-	if find(s,'>$') then r['endchord']='>'; s=gsub(s,'>$','') end
+	if find(s,']$')  then r['endbeam']=']';    s=gsub(s,']$','') end
+	if find(s,'>$')  then r['endchord']='>';   s=gsub(s,'>$','') end
 	-- local len = 1 + string.len(notebit)
-	if find(s,'^%[') then r['startbeam']=']'; s=gsub(s,'%[','') end
-	if find(s,'^<') then r['startchord']='>'; s=gsub(s,'^<','') end
+	if find(s,'^%[') then r['startbeam']='[';  s=gsub(s,'%[','') end
+	if find(s,'^<')  then r['startchord']='<'; s=gsub(s,'^<','') end
 	local notebit,options = table.unpack(split(s,'-', 2))
 	r['notebit'] = notebit
 	r['options'] = options
@@ -1579,7 +1577,7 @@ local function parse_note (s)
 end
 
 local function append_options (a,b)
-	if not n or b=='' then return a end
+	if not b or b=='' then return a end
 	if not a or a=='' then return b end
 	return a..'-'..b
 end
@@ -1598,7 +1596,8 @@ local function ps_ypitch (pitch)
 	return Ystv + dypitch(pitch) * StvHgt
 end
 
-local function is_stemup (stem, pitch)
+local function is_stemup (noteref)
+	local stem = noteref['stem'] ; local pitch = noteref['pitch']
 	local stemup = false
 	if     stem and string.find(stem, "'") then stemup = true
 	elseif stem and string.find(stem, ",") then stemup = false
@@ -1625,7 +1624,7 @@ end
 local function ps_y_above_note () -- finds the y for options above the note ...
 	local y = 0 ; local ysmb
 	local fc = (OptionClearance+WhiteBlobHalfHeight) * StvHgt
-	if HighestStemUp then    -- from the calling context
+	if HighestStemUp > 0 then    -- from the calling context
 		y = HighestStemUp + (StemLength+OptionClearance) * StvHgt
 	elseif HighestStemDown then
 		y = HighestStemDown + fc
@@ -1847,12 +1846,29 @@ local function ps_ledger_lines (x, dy)
 	end
 end
 
+local function ps_tails_or_beams (text)
+	local find = string.find
+	if not text then
+		warn_ln('ps_tails_or_beams: BUG: text=nil CrosSoFar=',CrosSoFar)
+		print(_G.debug.traceback())
+		return 0
+	end
+	if find(text,'^qua') then return 1; end
+	if find(text,'^smq') then return 2; end
+	if find(text,'^dsq') then return 3; end
+	if find(text,'^hds') then return 4; end
+	if find(text,'^min[^/]*///') then return 3; end -- ZZZ
+	if find(text,'^min[^/]*//')  then return 2; end -- ZZZ
+	if find(text,'^min[^/]*/')   then return 1; end -- ZZZ
+	return 0
+end
+
 local function ps_note (noteref, X, height2cross)
 	-- $X,$Y need local in Perl, thus should be global or an upvalue in Lua
 	-- all the stem, tail, beam and rightshift stuff is in sub ps_event
 	-- Inconsistency here of WhiteBlobHalfWidth with sub ps_beam ...
 	local Y      = ps_ypitch(noteref['pitch'])  -- $Y needs local
-	local stemup = is_stemup(noteref['stem'], noteref['pitch'])
+	local stemup = is_stemup(noteref)
 	local accidental = noteref['accidental']  -- also used in line 3050
 	if not accidental then accidental = '' end
 	local acc_shift = noteref['accidentalshift']
@@ -2040,22 +2056,342 @@ local function ps_note (noteref, X, height2cross)
 	if (noteref['startslur']) then
 		start_thing('slur',noteref['startslur'],noteref['startslurshift'] or 0)
 	end
--- frontier
---[[
-	local options = noteref[''options'};
-	if ($options and (!ps_tails_or_beams($CurrentPulseText)
---	  or  (! defined @BeamUp and ! $StartBeamUp
---	  and ! defined @BeamDown and ! $StartBeamDown))) { -- 2.9z
-	  or  (! @BeamUp and ! $StartBeamUp
-	  and ! @BeamDown and ! $StartBeamDown))) { -- 2.9z, 3.1m
-		local stem = 'none';   -- 2.8z
-		if (! ps_is_stemless()) {
-			if ($stemup) { $stem = 'up'; else $stem = 'down'; }
+	local options = noteref['options']
+	if options and (ps_tails_or_beams(CurrentPulseText) == 0
+	  or (#BeamUp == 0 and not StartBeamUp
+	  and #BeamDown==0 and not StartBeamDown)) then
+		local stem = 'none'
+		if not ps_is_stemless() then
+			if stemup then stem = 'up' else stem = 'down' end
 		end
-		ps_note_options($X, ps_y_below_note(), ps_y_above_note(),
-		 $stem, $options);
+		ps_note_options(X,ps_y_below_note(),ps_y_above_note(),stem,options)
 	end
-]]
+end
+
+local function ps_best_fit_gradient (x_ref, y_ref)
+	local sigma_x=0  ; local sigma_y=0
+	local sigma_xy=0 ; local sigma_xsquared=0
+	for i,x in ipairs(x_ref) do
+		local y = y_ref[i]
+		sigma_x  = sigma_x  + x ;   sigma_y  = sigma_y + y
+		sigma_xy = sigma_xy + x*y ; sigma_xsquared = sigma_xsquared + x*x
+	end
+	local n = #x_ref
+	local denominator = n*sigma_xsquared - sigma_x*sigma_x
+	if math.abs(denominator) < Epsilon then denominator = Epsilon end
+	return (n*sigma_xy - sigma_x*sigma_y) / denominator
+end
+
+local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
+	-- Draws a beam across, and stems up or down from, a list of events.
+	-- Each event is expressed by seven TAB-separated items in a string:
+	-- xstem, ylowblob, yhighblob, qua smq or dsq, up or down,
+	-- accidental on top (if up) or bottom (if down) note, $options eg tr-ff-.
+	-- pre-multiply some frequently-used stuff
+	local accidental_before_note =
+	  (AccidentalBeforeNote + WhiteBlobHalfWidth) * StvHgt -- small?
+	local min_beam_clearance = MinBeamClearance   * StvHgt
+	local sharp_half_height  = SharpHalfHeight    * StvHgt
+	local flat_half_height   = FlatHalfHeight     * StvHgt
+	local Direction, x,ylowblob,yhighblob,duration,direction,accidental
+	local durations={}; local xes={};  local ylowblobs={}; local yhighblobs={}
+	local accidentals={}; local optionses={}
+	if #beamupordown == 0 then return false end
+	local n = #beamupordown ; if n<2 then
+		warn(' ps_beam: only ',n,' stems at bar ',Ibar,' stave ',istave)
+		return false
+	end
+	local smallness = SmallStemRatio
+	for i,str in ipairs(beamupordown) do
+		x,ylowblob,yhighblob,duration,direction,accidental,options =
+		  table.unpack(split(str,"\t"))
+		duration = string.gsub(duration, '%.+$', '') -- ignore dots for beam
+		if ps_tails_or_beams(duration) == 0 then  -- ZZZ
+			warn(' ps_beam: ',str,': unknown duration ',duration)
+			return false
+		end
+		if not string.find(duration,'-s$') then
+			smallness = 1.0 -- only small if ALL notes under beam are small
+		end
+		if not string.find(direction,'^up') and
+		   not string.find(direction,'^down') then
+			warn(' ps_beam: ',str,': unknown direction ',direction)
+			return false
+		end
+		if Direction then
+			if direction ~= Direction then
+				die(" ps_beam can't mix ",Direction," and ",direction)
+			end
+		else
+			Direction = direction
+		end
+		table.insert(xes, x)
+		table.insert(ylowblobs,   ylowblob)
+		table.insert(yhighblobs,  yhighblob)
+		table.insert(durations,   duration)
+		table.insert(accidentals, accidental)
+		table.insert(optionses,   options)
+	end
+	local smallstaveheight = StvHgt * smallness;   -- for speed
+	local stem_length   = StemLength*smallstaveheight;
+	local max_beam_stub = MaxBeamStub*smallstaveheight;
+	local x1,xn, ylowblob1,ylowblobn, yhighblob1,yhighblobn, y1,yn
+	x1         = xes[1];        xn         = xes[n]
+	ylowblob1  = ylowblobs[1] ;  ylowblobn  = ylowblobs[n]
+	yhighblob1 = yhighblobs[1] ; yhighblobn = yhighblobs[n]
+	if string.find(Direction,'^up') then
+		y1 = yhighblob1 + stem_length
+		yn = yhighblobn + stem_length
+		-- check the beams don't sink into ledger lines ... 2.7v,2.7x,2.8x,2.9u
+		local gap   = BeamSpacing * smallstaveheight
+		local ymin1 = Ystave[Isyst][Istave] - StvHgt
+		local yminn = ymin1
+		ymin1 = ymin1 + gap * (ps_tails_or_beams(durations[1]) - 1) -- 2.9u
+		if y1 < ymin1 then y1 = ymin1 end
+		yminn = yminn + gap * (ps_tails_or_beams(durations[n]) - 1)  -- 2.9u
+		if yn < yminn then yn = yminn end
+		-- XXX if both ends needed adjusting, should impose a residual
+		-- gradient of half the original $yhighblobn-$yhighblob1
+		-- impose max beam gradient ...
+		local ymin   -- BUG if $xn == $x1
+		if yn > y1 then  -- positive gradient
+			ymin = yn - MaxBeamGradient * (xn-x1)
+			if y1 < ymin then y1 = ymin end
+		else	-- negative gradient
+			ymin = y1 - MaxBeamGradient * (xn-x1)
+			if yn < ymin then yn = ymin end
+		end
+		-- check if any intermediate notes are too high ...
+		local x, y, dx, dy, dydx, too_high
+		dy = yn - y1
+		dx = xn - x1 ;  if dx<1.0 then dx=1.0 end
+		dydx = dy / dx
+		too_high = false
+		for i = 2,n-1 do
+			x    = xes[i] ; y = y1 + dydx * (x-x1)
+			ymin = yhighblobs[i] + min_beam_clearance +
+			  BeamGapMult * gap * (ps_tails_or_beams(durations[i])-1)
+			if y < ymin then too_high = true; break end
+			if accidentals[i] ~= '-' then
+				x = xes[i] - accidental_before_note
+				y = y1 + dydx * (x-x1)
+				ymin = yhighblobs[i]+min_beam_clearance+sharp_half_height
+				if y < ymin then too_high = true; break end
+			end
+		end
+		if too_high and n>2 then
+			local best_fit_gradient = ps_best_fit_gradient(xes,yhighblobs)
+			if math.abs(best_fit_gradient) < MaxBeamGradient then
+				if best_fit_gradient > 0.0 then  -- positive gradient
+					ymin = yn - best_fit_gradient * (xn-x1)
+					if y1 < ymin then y1 = ymin end
+				else  -- negative gradient
+					ymin = y1 + best_fit_gradient * (xn-x1)
+					if yn < ymin then yn = ymin end
+				end
+			end
+		end
+		-- raise beam if any notes are too high ... 2.9v
+		dy = yn - y1 ;  dydx = dy / dx
+		for i = 1,n do
+			x = xes[i]; y = y1 + dydx * (x-x1)
+			ymin = yhighblobs[i] + min_beam_clearance +
+			  BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1)
+			if y < ymin then y1 = y1 + ymin - y ; yn = yn + ymin - y end
+			if accidentals[i] ~= '-' then
+				x = xes[i] - accidental_before_note
+				y = y1 + dydx * (x-x1)
+				-- 2.9z should detect if accidental is flat or sharp...
+				ymin = yhighblobs[i] + min_beam_clearance + flat_half_height
+				if y < ymin then y1 = y1 + ymin - y ;  yn = yn + ymin - y end
+			end
+		end
+		-- print the first (qua) beam anyway ...
+		printf("%g %g %g %g %g beam", x1, y1, xn, yn, smallstaveheight)
+		-- then print the smq,dsq,hds beams (up) where they are needed ...
+		for ibeam = 2,4 do  -- 2.9v
+			local ibeamm1 = ibeam - 1
+			local gaps = gap * ibeamm1
+			for i = 1,n do
+				if ps_tails_or_beams(durations[i]) > ibeamm1 then
+					if i==1 and ps_tails_or_beams(durations[i+1])<ibeam then
+						local stublength = (xes[i+1] - xes[i]) * 0.5
+						if stublength > max_beam_stub then
+							stublength = max_beam_stub
+						end
+						printf("%g %g %g %g %g beam",
+						  xes[i], y1-gaps, xes[i]+stublength,
+						  y1 -gaps + dydx*(xes[i]+stublength-x1),
+						  smallstaveheight)
+					elseif i > 1 and
+					  ps_tails_or_beams(durations[i-1]) > ibeamm1 then
+						printf("%g %g %g %g %g beam",
+						  xes[i-1], y1 - gaps + dydx*(xes[i-1]-x1),
+						  xes[i],   y1 - gaps + dydx*(xes[i]-x1),
+						  smallstaveheight)
+					elseif i==n or
+					  (i<n and ps_tails_or_beams(durations[i+1])<ibeam) then
+						local stublength = (xes[i]-xes[i-1]) * 0.5
+						if stublength > max_beam_stub then
+							stublength = max_beam_stub
+						end
+						printf("%g %g %g %g %g beam",
+						  xes[i] - stublength,
+						  y1 - gaps + dydx*(xes[i]- stublength-x1),
+						  xes[i], y1-gaps+dydx*(xes[i]-x1),
+						  smallstaveheight)
+					end
+				end
+			end
+		end
+		-- print stems ...
+		printf("%g %g %g %g notestem", x1, y1, ylowblob1, StvHgt)
+		ps_note_options(x1 - BlackBlobHalfWidth*StvHgt,
+			ylowblob1 - (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			y1 + (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			'up', optionses[1]);   -- 2.9d
+		-- intermediate stems ...
+		for i = 2,n-1 do
+			x = xes[i]; y = y1 + dy*(x-x1) / dx
+			printf("%g %g %g %g notestem", x, y, ylowblobs[i], StvHgt)
+			ps_note_options(x - BlackBlobHalfWidth*StvHgt,
+			  ylowblobs[i] - (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			  y + (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			 'up', optionses[i])   -- 2.9d
+		end
+		printf("%g %g %g %g notestem", xn, yn, ylowblobn, StvHgt)
+		ps_note_options(xn - BlackBlobHalfWidth*StvHgt,
+		  ylowblobn - (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			yn + (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			'up', optionses[n])   -- 2.9d
+		BeamUp = {} ;  StartBeamUp = false
+	else	-- Direction is down ...
+		local gap = BeamSpacing * smallstaveheight
+		y1 = ylowblob1 - stem_length
+		yn = ylowblobn - stem_length
+		-- check beams don't rise into ledger lines ... 2.7v,2.7x,2.8x,2.9u
+		local ymax1 = Ystave[Isyst][Istave]
+		local ymaxn = ymax1
+		ymax1 = ymax1 - gap * (ps_tails_or_beams(durations[1]) - 1)  -- 2.9u
+		if y1 > ymax1 then y1 = ymax1 end
+		ymaxn = ymaxn - gap * (ps_tails_or_beams(durations[n]) - 1)  -- 2.9u
+		if yn > ymaxn then yn = ymaxn end
+		-- XXX if both ends needed adjusting, should impose a residual
+		-- gradient of half the original $ylowblobn-$ylowblob1
+		-- impose max beam gradient ...
+		local ymax
+		if yn > y1 then -- positive gradient
+			ymax = y1 + MaxBeamGradient * (xn-x1)
+			if yn > ymax then yn = ymax end
+		else  -- negative gradient
+			ymax = yn + MaxBeamGradient * (xn-x1)
+			if y1 > ymax then y1 = ymax end
+		end
+		-- check if any intermediate notes are too low ...
+		local x, y, dx, dy, dydx, too_low
+		dy = yn - y1
+		dx = xn - x1 ;  if dx<1.0 then dx=1.0 end
+		dydx = dy / dx
+		too_low = false
+		for i = 2,n-1 do
+			x = xes[i]; y = y1 + dy * (x-x1) / dx
+			ymax = ylowblobs[i] - min_beam_clearance -
+			  BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1)
+			if y > ymax then too_low = true ; break end
+			if accidentals[i] ~= '-' then
+				x = xes[i] - accidental_before_note
+				y = y1 + dydx * (x-x1)
+				ymax = ylowblobs[i] - min_beam_clearance + sharp_half_height
+				if y > ymax then too_low = true ; break end
+			end
+		end
+		if too_low and n>2 then
+			local best_fit_gradient = ps_best_fit_gradient(xes,ylowblobs)
+			if math.abs(best_fit_gradient) < MaxBeamGradient then
+				if best_fit_gradient > 0.0 then -- positive gradient
+					ymax = y1 + best_fit_gradient * (xn-x1)
+					if yn > ymax then yn = ymax end
+				else  -- negative gradient
+					ymax = yn - best_fit_gradient * (xn-x1)
+					if y1 > ymax then y1 = ymax end
+				end
+			end
+		end
+		-- lower beam if any notes are too low ...  2.9v
+		dy = yn - y1 ; dydx = dy / dx
+		for i = 1,n do
+			x = xes[i] ; y = y1 + dydx*(x-x1)
+			ymax = ylowblobs[i] - min_beam_clearance -
+			 BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1)
+			if y > ymax then y1 = y1 - (y-ymax) ; yn = yn - (y-ymax) end
+			if accidentals[i] ~= '-' then
+				x = xes[i] - accidental_before_note
+				y = y1 + dydx * (x-x1)
+				ymax = ylowblobs[i] - min_beam_clearance + sharp_half_height
+				if y > ymax then y1 = y1 - (y-ymax) ; yn = yn - (y-ymax) end
+			end
+		end
+		-- print the first (qua) beam anyway ...
+		printf("%g %g %g %g %g beam", x1, y1, xn, yn, smallstaveheight)
+		-- local gap = $BeamSpacing*$smallstaveheight;   -- 2.7u
+		-- then print the smq,dsq,hds beams (down) where they are needed ...
+		for ibeam = 2,4 do  -- 2.9v
+			local ibeamm1 = ibeam - 1
+			local gaps = gap * ibeamm1
+			for i = 1,n do
+				if ps_tails_or_beams(durations[i]) > ibeamm1 then
+					if i==1 and ps_tails_or_beams(durations[i+1])<ibeam then
+						local stublength = (xes[i+1] - xes[i]) * 0.5
+						if stublength > max_beam_stub then
+							stublength = max_beam_stub
+						end
+						printf("%g %g %g %g %g beam",
+						  xes[i], y1+gaps, xes[i]+stublength,
+						  y1+gaps+dydx*(xes[i]+stublength-x1),
+						  smallstaveheight)
+					elseif i > 1
+					 and ps_tails_or_beams(durations[i-1]) > ibeamm1 then
+						printf("%g %g %g %g %g beam",
+						  xes[i-1], y1+gaps+dydx*(xes[i-1]-x1),
+						  xes[i],   y1+gaps+dydx*(xes[i]-x1),
+						  smallstaveheight)
+					elseif i==n or
+					  (i<n and ps_tails_or_beams(durations[i+1])<ibeam) then
+						local stublength = (xes[i] - xes[i-1]) * 0.5
+						if stublength > max_beam_stub then
+							stublength = max_beam_stub
+						end
+						printf("%g %g %g %g %g beam",
+						  xes[i] - stublength,
+						  y1 + gaps + dydx*(xes[i]-stublength-x1),
+						  xes[i], y1 + gaps + dydx*(xes[i]-x1),
+						  smallstaveheight)
+					end
+				end
+			end
+		end
+		-- print stems ... hmm, this double-prints the options ...
+		printf("%g %g %g %g notestem", x1, y1, yhighblob1, StvHgt)
+		ps_note_options(x1 + BlackBlobHalfWidth*StvHgt,
+		  y1 - (OptionClearance+WhiteBlobHalfHeight) * StvHgt,
+		  yhighblob1 + (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+		  'down', optionses[1]);   -- 2.9d
+		-- intermediate stems ...  also print -xxx options in this loop ...
+		for i = 2,n-1 do
+			x = xes[i]; y = y1 + dy * (x-x1) / dx
+			printf("%g %g %g %g notestem", x, y, yhighblobs[i], StvHgt)
+			ps_note_options(x + BlackBlobHalfWidth*StvHgt,
+			  y - (OptionClearance+WhiteBlobHalfHeight) * StvHgt,
+		 	  yhighblobs[i]+(OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+			  'down', optionses[i])   -- 2.9d
+		end
+		printf("%g %g %g %g notestem", xn, yn, yhighblobn, StvHgt)
+		ps_note_options(xn + BlackBlobHalfWidth*StvHgt,
+		  yn - (OptionClearance+WhiteBlobHalfHeight) * StvHgt,
+		  yhighblobn + (OptionClearance+WhiteBlobHalfHeight)*StvHgt,
+		  'down', optionses[n])   -- 2.9d
+		BeamDown = {} ;  StartBeamDown = false
+	end
 end
 
 local function ps_event (symbols)
@@ -2071,6 +2407,7 @@ local function ps_event (symbols)
 	HighestStemDown = 0 ; LowestStemDown = 1000 --  and by ps_y_below_note
 	HighestNoStem   = 0 ; LowestNoStem   = 1000
 	local shortest = 99 ; local shortestup = 99 ; local shortestdown = 99
+	local shortestdowntext = '' ; local shortestuptext = ''
 	local stemup_rightshift = 0 ; local stemdown_rightshift = 0
 	local smb_rightshift    = 0
 	local notebit = '' ; local endbeamup = false ; local endbeamdown = false
@@ -2103,7 +2440,7 @@ local function ps_event (symbols)
 			total_chord_options
 			 = append_options(total_chord_options,noteref['options'])
 			Y = ps_ypitch(noteref['pitch'])
-			stemup = is_stemup(noteref['stem'],noteref['pitch'])
+			stemup = is_stemup(noteref)
 			if ps_is_stemless() then
 				if Y > HighestNoStem  then HighestNoStem = Y end
 				if Y < LowestNoStem   then LowestNoStem  = Y end
@@ -2119,7 +2456,7 @@ local function ps_event (symbols)
 						accidentalup = noteref['accidental'] or '-'
 					end
 					if Y < LowestStemUp    then LowestStemUp = Y end
-					if startbeam == '['    then StartBeamUp = 1
+					if startbeam == '['    then StartBeamUp = true
 					elseif startbeam == '[X' then
 						startcrossbeam = startbeam
 					end
@@ -2139,7 +2476,7 @@ local function ps_event (symbols)
 						LowestStemDown = Y
 						accidentaldown = noteref['accidental'] or '-'
 					end
-					if startbeam == '['      then startbeamdown = true
+					if startbeam == '['      then StartBeamDown = true
 					elseif startbeam == '[X' then
 						startcrossbeam = startbeam
 					end
@@ -2192,8 +2529,8 @@ local function ps_event (symbols)
 			end
 		else               -- it's a note !
 			local noteref = symbol  -- why ?
-			local stemup = is_stemup(noteref['stem'],noteref['pitch'])
-			local shift;
+			local stemup = is_stemup(noteref)
+			local shift = 0
 			if string.find(CurrentPulseText,'-s$') then
 				acc = acc*SmallNoteRatio
 			end
@@ -2213,7 +2550,7 @@ local function ps_event (symbols)
 					ps_note(noteref, X-d+shift, height2cross)
 				end
 			else
-				shift = 0;
+--				shift = 0
 				if ps_is_stemless() then
 					shift = smb_rightshift * note_shift
 				elseif stemup_rightshift and stemup then
@@ -2226,157 +2563,148 @@ local function ps_event (symbols)
 		end
 	end
 
--- frontier in ps_event
---[[
 	-- print the notestems, if any ...
-	my ($ystemend, $halfstemlength);
-	if (&ps_is_stemless()) {   -- just print the tremolandi, if any
-		local halfstemlength = 0.6*$StemLength * $StvHgt;
-		local smb_x = $X + $smb_rightshift * $note_shift;
-		if ($stemup) {   -- XXX but $stemup has not been set :-(
-			if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ check for startbeam min
-				printf "%d %g %g %g tremolando\n", length($1),
-				$smb_x, $HighestNoStem + $halfstemlength, $StvHgt;
-			end
-		else -- stemdown
-			if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ check for startbeam min
-				printf "%d %g %g %g tremolando\n", length($1),
-				$smb_x, $LowestNoStem - $halfstemlength,  $StvHgt;
-			end
+	local ystemend, halfstemlength
+	if ps_is_stemless() then -- just print the tremolandi, if any
+		local halfstemlength = 0.6 * StemLength * StvHgt
+		local smb_x = X + smb_rightshift * note_shift
+--		local stemup = is_stemup(noteref)
+--warn('ps_event printing-loop 2: stemup=',stemup)
+		if string.find(CurrentPulseText,'/+') then
+			s1 = string.match(CurrentPulseText,'(/+)')
+--			if stemup then -- XXX but $stemup has not been set ?! :-(
+				printf("%d %g %g %g tremolando", string.len(s1),
+				  smb_x, HighestNoStem+halfstemlength, StvHgt)
+--			else -- stemdown
+--				s1 = string.match(CurrentPulseText,'(/+)')
+--				printf("%d %g %g %g tremolando", string.len(s1),
+--				  smb_x, LowestNoStem-halfstemlength,  StvHgt)
+--			end
 		end
 	else   -- stems and possibly also tremolandi needed
 		-- print the stem(s), if any ...
-		if ($HighestStemUp) {   -- if there are some stempup notes ...
-			$xstem = $X + $stem_from_blob_centre;
-			$xstem += $stemup_rightshift * $note_shift;
-			local smallness = 1.0;
-			if ($shortestuptext =~ /-s$/) {
-				$xstem -=
-					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
-				$smallness = $SmallStemRatio;
+		if HighestStemUp > 0 then   -- if there are some stempup notes ...
+			xstem = X + stem_from_blob_centre
+			xstem = xstem + stemup_rightshift*note_shift
+			local smallness = 1.0
+			if string.find(shortestuptext,'-s$') then
+				xstem = xstem-BlackBlobHalfWidth*(1.0-SmallNoteRatio)*StvHgt
+				smallness = SmallStemRatio
 			end
-			$ystemend = $HighestStemUp + $StemLength*$StvHgt*$smallness;
-			if (ps_tails_or_beams($shortestuptext)) { -- tails or beams ?
-				if ($StartBeamUp) {
-					if (@BeamUp) {
-						warn " line $LineNum: nested stem-up beams\n";
-					end
-					@BeamUp =
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$LowestStemUp,$HighestStemUp,
-					 $accidentalup, $total_chord_options);
+			ystemend = HighestStemUp + StemLength*StvHgt*smallness
+			if ps_tails_or_beams(shortestuptext) > 0.5 then -- tails or beams ?
+				if StartBeamUp then
+					if #BeamUp>0.5 then warn_ln("nested stem-up beams") end
+					BeamUp = { string.format("%g\t%g\t%g\t%s\tup\t%s\t%s",
+					  xstem,LowestStemUp,HighestStemUp, shortestuptext,
+					  accidentalup, total_chord_options), }
+--[[
 				elseif ($startcrossbeam) {
 					if (@crossbeam) {
 						warn " line $LineNum: nested crossbeams\n";
 					end
 					@crossbeam =
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 string.format("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
 					 $xstem,$LowestStemUp, $HighestStemUp,
 					 $accidentalup, $total_chord_options);
---				elseif (defined @crossbeam) { -- mysterious -w warning here !
 				elseif (@crossbeam) { -- 3.1m
 					push (@crossbeam,
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
+					 string.format("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
 					 $xstem,$LowestStemUp,$HighestStemUp,
 					 $accidentalup, $total_chord_options));
---				elseif (defined @BeamUp) { -- mysterious -w warning here !
-				elseif (@BeamUp) { -- 3.1m
-					push (@BeamUp,
-					 sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
-					 $xstem,$LowestStemUp,$HighestStemUp,
-					 $accidentalup, $total_chord_options));
+]]
+				elseif #BeamUp>0.5 then -- 3.1m
+					BeamUp[#BeamUp+1] =
+					 string.format("%g\t%g\t%g\t%s\tup\t%s\t%s",
+					 xstem,LowestStemUp,HighestStemUp, shortestuptext,
+					 accidentalup, total_chord_options);
 				else   -- an independent, non-beamed qua smq or dsq
-					if ($CurrentPulseText =~ m{(/+)}) {   -- smallness?
-						printf "%g %g %g %g notestem\n",
-						 $xstem, $ystemend, $LowestStemUp, $StvHgt;
-						printf "%d %g %g %g tremolando\n", length($1),
-						 $xstem, 0.5*($ystemend+$HighestStemUp),$StvHgt;
+					if string.find(CurrentPulseText,'/+') then   -- smallness?
+						s1 = string.match(CurrentPulseText,'(/+)')
+						printf("%g %g %g %g notestem",
+						 xstem, ystemend, LowestStemUp, StvHgt)
+						printf("%d %g %g %g tremolando\n", string.len(s1),
+						 xstem, 0.5*(ystemend+HighestStemUp), StvHgt)
 					else   -- 2.9v
-						local nbeams = ps_tails_or_beams($shortestuptext);
-						local shiftup = 0.0;
-						if ($nbeams>1) { $shiftup = 0.5 + 0.1*($nbeams-2); }
-						local ybeam = $ystemend
-						 + $shiftup*$TailSpacing*$StvHgt*($nbeams-1);
-						local dybeam = $TailSpacing*$StvHgt*$smallness;
-						local ibeam = 1; while ($ibeam<=$nbeams) {
-							printf "%g %g %g %g quaverstemup\n", $xstem,
-							 $ybeam, $LowestStemUp, $StvHgt*$smallness;
-							$ybeam -= $dybeam;
-							$ibeam++;
+						local nbeams = ps_tails_or_beams(shortestuptext)
+						local shiftup = 0.0
+						if nbeams>1 then shiftup = 0.5 + 0.1*(nbeams-2) end
+						local ybeam = ystemend +
+						  shiftup*TailSpacing*StvHgt*(nbeams-1)
+						local dybeam = TailSpacing*StvHgt*smallness
+						for ibeam = 1,nbeams do
+							printf("%g %g %g %g quaverstemup", xstem,
+							  ybeam, LowestStemUp, StvHgt*smallness)
+							ybeam = ybeam - dybeam
 						end
 					end
 				end
-				if endbeamup then ps_beam(@BeamUp) end
+				if endbeamup then ps_beam(BeamUp) end
 			else	-- crochets and minims ...
-				printf "%g %g %g %g notestem\n",
-				 $xstem, $ystemend, $LowestStemUp, $StvHgt;
+				printf("%g %g %g %g notestem",
+				 xstem, ystemend, LowestStemUp, StvHgt)
 				-- print the tremolandi, if any
-				if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ
-					printf "%d %g %g %g tremolando\n", length($1),
-					$xstem, 0.5 * ($ystemend+$HighestStemUp), $StvHgt;
+				if string.find(CurrentPulseText,'/+') then   -- ZZZ
+					s1 = string.match(CurrentPulseText, '(/+)')
+					printf("%d %g %g %g tremolando", string.len(s1),
+					  xstem, 0.5 * (ystemend+HighestStemUp), StvHgt)
 				end
 			end
-			undef $StartBeamUp;
+			StartBeamUp = false
 		end
-		if ($HighestStemDown) {   -- also, if there are some stemdown notes ...
-			$xstem = $X - $stem_from_blob_centre;
-			$xstem += $stemdown_rightshift * $note_shift;
-			local smallness = 1.0;
-			if ($shortestdowntext =~ /-s$/) {
-				$xstem +=
-					($BlackBlobHalfWidth*(1.0-$SmallNoteRatio))*$StvHgt;
-				$smallness = $SmallStemRatio;
+		if HighestStemDown > 0 then   -- and if there are some stemdown notes
+			xstem = X - stem_from_blob_centre
+			local smallness = 1.0
+			if string.find(shortestdowntext, '-s$') then
+				xstem = xstem + BlackBlobHalfWidth*(1.0-SmallNoteRatio)*StvHgt
+				smallness = SmallStemRatio
 			end
-			$ystemend = $LowestStemDown - $StemLength*$StvHgt*$smallness;
-
-			if (ps_tails_or_beams($shortestdowntext)) { -- tails or beams ?
-				if ($startbeamdown) {
-					if (@beamdown) {
-						warn " line $LineNum: nested stem-down beams\n";
-					end
-					@beamdown = (
-					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
-					 $xstem,$LowestStemDown,$HighestStemDown,
-					 $accidentaldown, $total_chord_options));
-				elseif (@beamdown) {
-					push (@beamdown,
-					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
-					 $xstem,$LowestStemDown,$HighestStemDown,
-					 $accidentaldown, $total_chord_options));
+			ystemend = LowestStemDown - StemLength*StvHgt*smallness
+			if ps_tails_or_beams(shortestdowntext) > 0.5 then
+				if StartBeamDown then
+					if #BeamDown>0.5 then warn_ln("nested stem-down beams") end
+					BeamDown = {string.format("%g\t%g\t%g\t%s\tdown\t%s\t%s",
+					 xstem,LowestStemDown,HighestStemDown, shortestdowntext,
+					 accidentaldown, total_chord_options), }
+				elseif #BeamDown>0.5 then
+					BeamDown[#BeamDown+1] =
+					 string.format("%g\t%g\t%g\t%s\tdown\t%s\t%s",
+					 xstem,LowestStemDown,HighestStemDown, shortestdowntext,
+					 accidentaldown, total_chord_options)
 				else   -- an independent, non-beamed qua smq or dsq
-					if ($CurrentPulseText =~ m{(/+)}) {   -- smallness?
-						printf "%g %g %g %g notestem\n",
-				 		$xstem, $HighestStemDown, $ystemend, $StvHgt;
-						printf "%d %g %g %g tremolando\n", length($1),
-						 $xstem, 0.5*($ystemend+$LowestStemDown),$StvHgt;
+					if string.find(CurrentPulseText,'/+') then   -- smallness?
+						s1 = string.match(CurrentPulseText,'(/+)')
+						printf("%g %g %g %g notestem",
+				 		  xstem, HighestStemDown, ystemend, StvHgt)
+						printf("%d %g %g %g tremolando\n", string.len(s1),
+						 xstem, 0.5*(ystemend+LowestStemDown), StvHgt)
 					else   -- 2.9v
-						local nbeams = ps_tails_or_beams($shortestdowntext);
-						local shiftdown = 0.0;
-						if ($nbeams>1) { $shiftdown = 0.5 + 0.1*($nbeams-2); }
-						local ybeam = $ystemend
-						 - $shiftdown*$TailSpacing*$StvHgt*($nbeams-1);
-						local dybeam = $TailSpacing*$StvHgt*$smallness;
-						local ibeam = 1; while ($ibeam<=$nbeams) {
-							printf "%g %g %g %g quaverstemdown\n", $xstem,
-							 $HighestStemDown, $ybeam, $StvHgt*$smallness;
-							$ybeam += $dybeam;
-							$ibeam++;
+						local nbeams = ps_tails_or_beams(shortestdowntext)
+						local shiftdown = 0.0
+						if nbeams>1 then shiftdown = 0.5 + 0.1*(nbeams-2) end
+						local ybeam = ystemend -
+						  shiftdown*TailSpacing*StvHgt*(nbeams-1)
+						local dybeam = TailSpacing*StvHgt*smallness;
+						for ibeam = 1,nbeams do
+							printf("%g %g %g %g quaverstemdown", xstem,
+							  HighestStemDown, ybeam, StvHgt*smallness)
+							ybeam = ybeam + dybeam
 						end
 					end
 				end
-				if ($endbeamdown) { &ps_beam(@beamdown); }
+				if endbeamdown then ps_beam(BeamDown) end
 			else	-- crochets and minims ...
-				printf "%g %g %g %g notestem\n",
-				 $xstem, $HighestStemDown, $ystemend, $StvHgt;
-				if ($CurrentPulseText =~ m{(/+)}) {   -- ZZZ
-					printf "%d %g %g %g tremolando\n", length($1),
-					$xstem, 0.5 * ($ystemend+$LowestStemDown), $StvHgt;
+				printf("%g %g %g %g notestem",
+				 xstem, HighestStemDown, ystemend, StvHgt)
+				if string.find(CurrentPulseText,'/+') then   -- ZZZ
+					s1 = string.match(CurrentPulseText,'(/+)')
+					printf("%d %g %g %g tremolando", string.len(s1),
+					  xstem, 0.5 * (ystemend+LowestStemDown), StvHgt)
 				end
 			end
-			undef $Startbeamdown;
+			StartBeamDown = false
 		end
 	end
-]]
 
 	-- end of bracketed simultaneous notes, sub ps_event
 	-- accidentalup = '' ;  accidentaldown = ''  -- these should be local!
@@ -2503,13 +2831,10 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	while ibar < #bars do
 		ibar = ibar + 1
 		local tokens = split( bars[ibar],'%s+');
-		local terminator = terminators[ibar]
+		local terminator = terminators[ibar+1]
 		BarType[Isyst][ibar] = 0
 		spaceatstart[ibar] = SpaceAtBeginningOfBar*maxstvhgt; -- 2.4c
-		if not terminator          then
-			BarType[Isyst][ibar] = 16
-			terminator = ''
-		end
+		if not terminator then BarType[Isyst][ibar]=16; terminator='' end
 		if string.find(terminator,'||') then
 			BarType[Isyst][ibar] = BarType[Isyst][ibar] + 1 end
 		if string.find(terminator,'^:') then
@@ -2535,8 +2860,8 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 			table.remove(tokens, 1)
 		end
 		if string.find(tokens[1], '%d+/%d+') then	-- timesig
-			local topnum, botnum = split (tokens[1], '/', 2);
-			if topnum>9 or botnum>9 then  -- 2.0z
+			local topnum, botnum = table.unpack(split(tokens[1],'/',2))
+			if tonumber(topnum)>9 or tonumber(botnum)>9 then  -- 2.0z
 				spaceatstart[ibar] = spaceatstart[ibar] +
 				  SpaceForFatTimeSig * maxstvhgt;
 			else
@@ -2719,7 +3044,7 @@ local function newbar (line)
 			print "\t\t</measure>\n";
 		end
 		Xml{measure_number}++;
-		$Ibar++; $istave = 0;   -- globals.
+		$Ibar++; $Istave = 0;   -- globals.
 		if ($Ibar > Nbars[Isyst}) { &newsystem('/'); &bars(); $Ibar=1; }
 		print "\t\t<measure number=\"Xml{measure_number}\">\n";
 		Xml{backup} = 0;
@@ -2774,7 +3099,7 @@ local function midi_global (s)
 		if (defined $cha) {
 			local pan = '';
 			if (defined $str{pan}) {
-				$pan = sprintf " pan=\"%d\"", int (($str{pan}-50)*1.8);
+				$pan = string.format " pan=\"%d\"", int (($str{pan}-50)*1.8);
 			}
 			$cha++;
 			push @xml_cache,
@@ -3201,7 +3526,7 @@ local function midi_event (symbols)
 						midi_event_option(option, starttime, cha)
 					end
 				end
-				local stemup = is_stemup(noteref['stem'], noteref['pitch'])
+				local stemup = is_stemup(noteref)
 				local B = starttime
 				local D = duration
 				local startslur = noteref['startslur']
@@ -3535,7 +3860,7 @@ local function newstave (line)
 					Xpart[1] = Xpart[1] + Stave2nullkeysigDx[Istave]  -- 2.9y
 				end
 			else
-				s1,s2 = string.gmatch(array[i], '^([1-7])([#bn])$')
+				s1,s2 = string.match(array[i], '^([1-7])([#bn])$')
 				ps_keysig(s1, s2, x)
 			end
 		end
@@ -3545,7 +3870,7 @@ local function newstave (line)
 	  string.find(Keysig[Istave],'^([1-7])([#bn])$') then
 		must_null_the_keysig = false   -- 2.8o
 		if not MIDI and not XmlOpt then
-			s1,s2 = string.gmatch(Keysig[Istave], '^([1-7])([#bn])$')
+			s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
 			ps_keysig(s1, s2, Xbar[Isyst][Ibar-1] + SpaceForClef*maxstvhgt)
 		end
 	end
@@ -3558,9 +3883,9 @@ local function newstave (line)
 		if MIDI then
 --[[
 		elseif XmlOpt then
-			if (Xml{"timesig $istave"} ne $array[$i]) then
+			if (Xml{"timesig $Istave"} ne $array[$i]) then
 				$attributes{time} = &xml_time_attribute($array[$i]);
-				Xml{"timesig $istave"} = $array[$i];
+				Xml{"timesig $Istave"} = $array[$i];
 			end
 ]]
 		else
@@ -3578,7 +3903,7 @@ local function newstave (line)
 	end
 	if not MIDI and not XmlOpt then
 		if Ibar==1 and bit32.band(BarType[Isyst][0],4)>0.5 then --repeat at BOL
-			ps_repeatmark(Isyst, istave, Xpart[1]-SpaceForStartRepeat*StvHgt)
+			ps_repeatmark(Isyst, Istave, Xpart[1]-SpaceForStartRepeat*StvHgt)
 			Xpart[1] = Xpart[1] + SpaceForStartRepeat * maxstvhgt
 		end
 		-- calculate the length of bar available for music, = end - beginning
@@ -3596,9 +3921,9 @@ end
 		if ($xmlkeysig) {
 			$attributes{key} = $xmlkeysig;
 		else  -- musicxml2ly insists on a key even when there isn't one :-(
-			if (! Xml{"keysig $istave"}) {  -- XXX 2.5u
+			if (! Xml{"keysig $Istave"}) {  -- XXX 2.5u
 				$attributes{key} = &xml_keysig('');
-				Xml{"keysig $istave"} = 'Cmaj';
+				Xml{"keysig $Istave"} = 'Cmaj';
 			}
 		}
 		if (! Xml{specified_divisions}) {
@@ -3963,7 +4288,7 @@ local function set_var { my ($stackref, $infinite_depth) = @_;
 	elseif ($val =~
 		 /^(cycle|morse_thue|thue_morse|leibnitz|rabbit|fibonacci|random|aaba)
 		  \?\s*(.*\S)\s*\?/x) {
-		my $f = $1;   my @rhs = $2;
+		local f = $1;   my @rhs = $2;
 		if ($substitute_now or $infinite_depth) {   -- 3.1i
 			@rhs = substitute($2, $infinite_depth);  -- 3.1i
 		end
@@ -3972,7 +4297,7 @@ local function set_var { my ($stackref, $infinite_depth) = @_;
 		end
 		my @a = split(/\s*:\s*/,$rhs[$[]);
 		if (! @a) {warn "line $LineNum: empty argument list in $val\n"; last;}
-		my $e = '$Vars[var} = '.$f.'(@a);';
+		local e = '$Vars[var} = '.$f.'(@a);';
 		eval $e; if ($@) { warn "line $LineNum: can't eval $e: $@\n"; }
 	else
 		if ($substitute_now or $infinite_depth) {
@@ -4010,7 +4335,7 @@ local function set_array { my ($base, $digit1, $digit2, $equals, $values) = @_; 
 	if ($digit1 >= $digit2) {
 		warn " line $LineNum: $digit1-$digit2 is not a valid range\n"; return;
 	end
-	my $n = $digit2 - $digit1 + 1;
+	local n = $digit2 - $digit1 + 1;
 	my @vals = split /\s*:\s*/, $values;
 	if ($n > scalar @vals) {
 		@vals = split /\s+/, $values;
@@ -4166,7 +4491,7 @@ end
 -- ------------------------ XML stuff -------------------------------
 local function xml_header {  my $line = $_[$[];
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime;
-	my $date = sprintf ('%4.4d-%2.2d-%2.2d', $year+1900, $mon+1, $mday);
+	my $date = string.format ('%4.4d-%2.2d-%2.2d', $year+1900, $mon+1, $mday);
 	my $dtd = "http://www.musicxml.org/dtds/partwise.dtd";
 	my $devel_dtd ="/home/pjb/musicxml/dtds/partwise.dtd";
 	-- if (-f $devel_dtd) { $dtd = $devel_dtd; }   -- must comment out...
@@ -4405,9 +4730,9 @@ local function xml_event {
 					 "$t4<time-modification><actual-notes>3</actual-notes>"
 					 . "<normal-notes>2</normal-notes></time-modification>\n";
 				end
-				my $stemup = &is_stemup(noteref['stem},noteref['pitch});
+				my $stemup = &is_stemup(noteref);
 				push @xml_cache, "$t4<stem>".($stemup?'up':'down')."</stem>\n";
-				push @xml_cache, "$t4<staff>$istave</staff>\n";
+				push @xml_cache, "$t4<staff>$Istave</staff>\n";
 				my $nbeams = "1";
 				if      ($CurrentPulseText =~ /^smq/) { $nbeams = "2";
 				elseif ($CurrentPulseText =~ /^dsq/) { $nbeams = "3";
@@ -4417,15 +4742,15 @@ local function xml_event {
 					for my $ibeam (1..$nbeams) { push @xml_cache,
 						"$t4<beam number=\"$ibeam\">begin</beam>\n";
 					end
-					if ($stemup) { $StartBeamUp = 1;
-					else     $StartBeamDown = 1;
+					if ($stemup) { $StartBeamUp = true
+					else     $StartBeamDown = true
 					end
 				elseif (noteref['endbeam}) {
 					for my $ibeam (1..$nbeams) { push @xml_cache,
 						"$t4<beam number=\"$ibeam\">end</beam>\n";
 					end
-					if ($stemup) { $StartBeamUp = 0;
-					else     $StartBeamDown = 0;
+					if ($stemup) { $StartBeamUp = false
+					else     $StartBeamDown = false
 					end
 				elseif ($StartBeamUp   and $stemup) {
 					for my $ibeam (1..$nbeams) { push @xml_cache,
@@ -4475,7 +4800,7 @@ local function xml_event {
 			push @xml_cache, "$t4<voice>Xml{voice}</voice>\n";
 			Xml{backup} += $duration;
 			push @xml_cache, "$t4$XmlDuration[CurrentPulseText}\n";
-			push @xml_cache, "$t4<staff>$istave</staff>\n";
+			push @xml_cache, "$t4<staff>$Istave</staff>\n";
 			push @xml_cache, "$t3</note>\n";
 		elseif ($symbol =~ /^blank/) {
 			my $duration = round($CurrentPulse * $TPC);
@@ -4523,10 +4848,10 @@ local function xml_text { return unless XmlOpt;
 
 	$vertpos = $TextBelowStave unless $vertpos;
 	my $ytext = 40.0 * $vertpos - 80.0;  -- should measure gap, like &ps_text
-	if ($istave == 0) {   -- above the top stave in the system
+	if ($Istave == 0) {   -- above the top stave in the system
 		$ytext = 40.0 * $vertpos;
-	elseif ($istave < $Nstaves[Isyst}) {   -- text lies between staves
-		$netgap = $GapHeight[Isyst,$istave} - $TextSize*$StvHgt;
+	elseif ($Istave < $Nstaves[Isyst}) {   -- text lies between staves
+		$netgap = $GapHeight[Isyst,$Istave} - $TextSize*$StvHgt;
 		$ytext = -40.0 - (1.0-$vertpos) * $netgap * 40.0 / $StvHgt;
 	else   -- below the bottom stave in the system
 		$ytext = -40.0 -  40.0 * $vertpos;
@@ -4539,12 +4864,12 @@ local function xml_text { return unless XmlOpt;
 	push @xml_cache, "$t3<direction>\n";
 	push @xml_cache, "$t4<direction-type>\n$t5<words halign=\"left\" ";
 	if (0.1 < abs $ytext) {
-		push @xml_cache, sprintf('default-y="%g" ', $ytext);
+		push @xml_cache, string.format('default-y="%g" ', $ytext);
 	end
 	push @xml_cache, "font-style=\"$font_style\" ";
 	push @xml_cache, "font-size=\"$font_size\" font-weight=\"$font_weight\">";
 	push @xml_cache, "$text</words>\n$t4</direction-type>\n";
-	if ($istave) {
+	if ($Istave) {
 		push @xml_cache, "$t4<staff>$istave</staff>\n$t3</direction>\n";
 	else       {
 		push @xml_cache, "$t4<staff>1</staff>\n$t3</direction>\n";
@@ -4591,7 +4916,7 @@ local function xml_timesig { return unless XmlOpt; my $str = $_[$[];
 		end
 		my $tempo_this_part = 60 * $cro_per_part / $secs_this_part;
 		push @xml_cache,
-		 sprintf "\t\t\t<sound tempo=\"%g\"/>\n", $tempo_this_part;
+		 string.format "\t\t\t<sound tempo=\"%g\"/>\n", $tempo_this_part;
 		if ($ipart >= $nparts) { last; }
 		my $new_ticks_so_far = round($ipart * $ticks_per_part);
 		my $ticks_this_part = $new_ticks_so_far - $ticks_so_far;
@@ -4735,342 +5060,7 @@ end
 
 
 
-local function ps_tails_or_beams { my $text = $_[$[];
-	if ($text =~ /^qua/) { return 1; }
-	if ($text =~ /^smq/) { return 2; }
-	if ($text =~ /^dsq/) { return 3; }
-	if ($text =~ /^hds/) { return 4; }
-	-- if ($text =~ /^min.*(\/)*/) { return length($1); } -- ZZZ
-	if ($text =~ /^min[^\/]*\/\/\//) { return 3; } -- ZZZ
-	if ($text =~ /^min[^\/]*\/\//)   { return 2; } -- ZZZ
-	if ($text =~ /^min[^\/]*\//)     { return 1; } -- ZZZ
-	return false
-end
 
-local function ps_beam { -- usage: &ps_beam(@BeamUp)
-	-- Draws a beam across, and stems up or down from, a list of events.
-	-- Each event is expressed by seven TAB-separated items in a string:
-	-- xstem, ylowblob, yhighblob, qua smq or dsq, up or down,
-	-- accidental on top (if up) or bottom (if down) note, $options eg tr-ff-.
-
-	-- pre-multiply some frequently-used stuff
-	my $accidental_before_note
-	 = ($AccidentalBeforeNote+$WhiteBlobHalfWidth) * $StvHgt; -- small?
-	my $min_beam_clearance = $MinBeamClearance * $StvHgt;
-	my $sharp_half_height  = $SharpHalfHeight  * $StvHgt;
-	my $flat_half_height   = $FlatHalfHeight   * $StvHgt;
-
-	my ($x,$ylowblob,$yhighblob,$duration,$direction,$accidental,$options);
-	my (@duration, $Direction, @x, @ylowblob, @yhighblob, @accidental, $n);
-	my (@options);
-	$n = scalar @_; return unless $n;
-	if ($n < 2) {
-	 warn " ps_beam: only $n stems at bar $Ibar stave $istave\n"; return false
-	end
-	my $smallness = $SmallStemRatio;
-	foreach $string (@_) {
-		($x,$ylowblob,$yhighblob,$duration,$direction,$accidental,$options)
-		= split("\t",$string);
-		$duration =~ s{\.+$}{};	-- ignore dotted for beam-drawing purposes
-		if (! ps_tails_or_beams($duration)) {  -- ZZZ
-			warn " ps_beam: $string: unknown duration $duration\n"; return false
-		end
-		if ($duration !~ /-s$/) {
-			$smallness = 1.0; -- only small if all notes under beam are small
-		end
-		if ($direction !~ /^up|^down/) {
-			warn " ps_beam: $string: unknown direction $direction\n";
-			return false
-		end
-		if ($Direction) {
-			if ($direction ne $Direction) { warn
-				" ps_beam can't mix $Direction and $direction\n"; exit 0;
-			end
-		else
-			$Direction = $direction;
-		end
-		push (@x, $x);
-		push (@ylowblob, $ylowblob);
-		push (@yhighblob, $yhighblob);
-		push (@duration, $duration);
-		push (@accidental, $accidental);  -- noteref['accidental} ?
-		push (@options, $options);
-	end
-	my $smallstaveheight = $StvHgt * $smallness;   -- for speed
-	my $stem_length   = $StemLength*$smallstaveheight;
-	my $max_beam_stub = $MaxBeamStub*$smallstaveheight;
-	my ($x1,$xn, $ylowblob1,$ylowblobn, $yhighblob1,$yhighblobn, $y1,$yn);
-	$x1         = $x[$[];         $xn         = $x[$[+$n-1];
-	$ylowblob1  = $ylowblob[$[];  $ylowblobn  = $ylowblob[$[+$n-1];
-	$yhighblob1 = $yhighblob[$[]; $yhighblobn = $yhighblob[$[+$n-1];
-
-	if ($Direction =~ /^up/) {
-		$y1 = $yhighblob1 + $stem_length;
-		$yn = $yhighblobn + $stem_length;
-
-		-- check the beams don't sink into ledger lines ... 2.7v,2.7x,2.8x,2.9u
-		my $gap = $BeamSpacing*$smallstaveheight;
-		my $ymin1 = $Ystave[Isyst, $istave} - $StvHgt;
-		my $yminn = $ymin1;
-		$ymin1 += $gap * (ps_tails_or_beams($duration[$[])-1);  -- 2.9u
-		if ($y1 < $ymin1) { $y1 = $ymin1; }
-		$yminn += $gap * (ps_tails_or_beams($duration[$[+$n-1])-1);  -- 2.9u
-		if ($yn < $yminn) { $yn = $yminn; }
-		-- XXX if both ends needed adjusting, should impose a residual
-		-- gradient of half the original $yhighblobn-$yhighblob1
-
-		-- impose max beam gradient ...
-		my $ymin;   -- BUG if $xn == $x1
-		if ($yn > $y1) {	-- positive gradient
-			$ymin = $yn - $MaxBeamGradient * ($xn-$x1);
-			if ($y1 < $ymin) { $y1 = $ymin; }
-		else	-- negative gradient
-			$ymin = $y1 - $MaxBeamGradient * ($xn-$x1);
-			if ($yn < $ymin) { $yn = $ymin; }
-		end
-
-		-- check if any intermediate notes are too high ...
-		my ($x, $y, $dx, $dy, $dydx, $too_high);
-		$dy = $yn - $y1;
-		$dx = $xn - $x1;	if ($dx<1.0) { $dx=1.0; }
-		$dydx = $dy / $dx;
-		$too_high = 0;
-		foreach $i (($[+1) .. ($[+$n-2)) {
-			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymin = $yhighblob[$i] + $min_beam_clearance
-			 + $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
-			if ($y < $ymin) { $too_high = 1; last; }
-			if ($accidental[$i] ne '-') {
-				$x = $x[$i] - $accidental_before_note;
-				$y = $y1 + $dydx * ($x-$x1);
-				$ymin = $yhighblob[$i]+$min_beam_clearance+$sharp_half_height;
-				if ($y < $ymin) { $too_high = 1; last; }
-			end
-		end
-		if ($too_high and $n>2) {
-			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@yhighblob);
-			if ((abs $best_fit_gradient) < $MaxBeamGradient) {
-				if ($best_fit_gradient > 0.0) {	-- positive gradient
-					$ymin = $yn - $best_fit_gradient * ($xn-$x1);
-					if ($y1 < $ymin) { $y1 = $ymin; }
-				else	-- negative gradient
-					$ymin = $y1 + $best_fit_gradient * ($xn-$x1);
-					if ($yn < $ymin) { $yn = $ymin; }
-				end
-			end
-		end
-
-		-- raise beam if any notes are too high ... 2.9v
-		$dy = $yn - $y1; $dydx = $dy / $dx;
-		foreach $i ($[ .. ($[+$n-1)) {
-			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymin = $yhighblob[$i] + $min_beam_clearance
-			 + $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
-			if ($y < $ymin) { $y1 += $ymin-$y; $yn += $ymin-$y; }
-			if ($accidental[$i] ne '-') {
-				$x = $x[$i] - $accidental_before_note;
-				$y = $y1 + $dydx * ($x-$x1);
-				-- 2.9z should detect if accidental is flat or sharp...
-				$ymin = $yhighblob[$i]+$min_beam_clearance+$flat_half_height;
-				if ($y < $ymin) { $y1 += $ymin-$y; $yn += $ymin-$y; }
-			end
-		end
-
-		-- print the first (qua) beam anyway ...
-		printf "%g %g %g %g %g beam\n", $x1, $y1, $xn, $yn, $smallstaveheight;
-
-		-- then print the smq,dsq,hds beams (up) where they are needed ...
-		foreach my $ibeam (2..4) {  -- 2.9v
-			my $ibeamm1 = $ibeam - 1;
-			my $gaps = $gap * $ibeamm1;
-			foreach $i ($[ .. ($[+$n-1)) {  -- ugly... 2.7x $[+1?
-				if (ps_tails_or_beams($duration[$i]) > $ibeamm1) {
-					if ($i==$[ and ps_tails_or_beams($duration[$i+1])<$ibeam) {
-						my $stublength = ($x[$i+1] - $x[$i]) * 0.5;
-						if ($stublength > $max_beam_stub) {
-							$stublength = $max_beam_stub;
-						end
-						printf "%g %g %g %g %g beam\n",
-						$x[$i], $y1-$gaps, $x[$i]+$stublength,
-						$y1-$gaps+$dydx*($x[$i]+$stublength-$x1),
-						$smallstaveheight;
-					elseif ($i > $[
-					 and ps_tails_or_beams($duration[$i-1]) > $ibeamm1) {
-						printf "%g %g %g %g %g beam\n",
-						$x[$i-1], $y1-$gaps+$dydx*($x[$i-1]-$x1),
-						$x[$i], $y1-$gaps+$dydx*($x[$i]-$x1),
-						$smallstaveheight;
-					elseif (ps_tails_or_beams($duration[$i+1]) < $ibeam) {
-						my $stublength = ($x[$i] - $x[$i-1]) * 0.5;
-						if ($stublength > $max_beam_stub) {
-							$stublength = $max_beam_stub;
-						end
-						printf "%g %g %g %g %g beam\n",
-						$x[$i] - $stublength,
-						$y1-$gaps+$dydx*($x[$i]- $stublength-$x1),
-						$x[$i], $y1-$gaps+$dydx*($x[$i]-$x1),
-						$smallstaveheight;
-					end
-				end
-			end
-		end
-		-- print stems ...
-		printf "%g %g %g %g notestem\n", $x1, $y1, $ylowblob1, $StvHgt;
-		ps_note_options($x1 - $BlackBlobHalfWidth*$StvHgt,
-			$ylowblob1 - ($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			$y1 + ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-			'up', $options[$[]);   -- 2.9d
-		-- intermediate stems ...
-		foreach $i (($[+1) .. ($[+$n-2)) {
-			$x = $x[$i]; $y = $y1 + $dy * ($x-$x1) / $dx;
-			printf "%g %g %g %g notestem\n",
-			 $x, $y, $ylowblob[$i], $StvHgt;
-			ps_note_options($x - $BlackBlobHalfWidth*$StvHgt,
-			 $ylowblob[$i]-($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			 $y + ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-			 'up', $options[$i]);   -- 2.9d
-		end
-		printf "%g %g %g %g notestem\n", $xn, $yn, $ylowblobn, $StvHgt;
-		ps_note_options($xn - $BlackBlobHalfWidth*$StvHgt,
-			$ylowblobn - ($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			$yn + ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-			'up', $options[$[+$n-1]);   -- 2.9d
-		undef @BeamUp;  undef $StartBeamUp;
-
-	else	-- Direction is down ...
-		my $gap = $BeamSpacing*$smallstaveheight;
-		$y1 = $ylowblob1 - $stem_length;
-		$yn = $ylowblobn - $stem_length;
-
-		-- check the beams don't rise into ledger lines ... 2.7v,2.7x,2.8x,2.9u
-		my $ymax1 = $Ystave[Isyst, $istave};
-		my $ymaxn = $ymax1;
-		$ymax1 -= $gap * (ps_tails_or_beams($duration[$[])-1);  -- 2.9u
-		if ($y1 > $ymax1) { $y1 = $ymax1; }
-		$ymaxn -= $gap * (ps_tails_or_beams($duration[$[+$n-1])-1);  -- 2.9u
-		if ($yn > $ymaxn) { $yn = $ymaxn; }
-		-- XXX if both ends needed adjusting, should impose a residual
-		-- gradient of half the original $ylowblobn-$ylowblob1
-
-		-- impose max beam gradient ...
-		my $ymax;
-		if ($yn > $y1) {	-- positive gradient
-			$ymax = $y1 + $MaxBeamGradient * ($xn-$x1);
-			if ($yn > $ymax) { $yn = $ymax; }
-		else	-- negative gradient
-			$ymax = $yn + $MaxBeamGradient * ($xn-$x1);
-			if ($y1 > $ymax) { $y1 = $ymax; }
-		end
-
-		-- check if any intermediate notes are too low ...
-		my ($x, $y, $dx, $dy, $dydx, $too_low);
-		$dy = $yn - $y1;
-		$dx = $xn - $x1;	if ($dx<1.0) { $dx=1.0; }
-		$dydx = $dy / $dx;
-		$too_low = 0;
-		foreach $i (($[+1) .. ($[+$n-2)) {
-			$x = $x[$i]; $y = $y1 + $dy * ($x-$x1) / $dx;
-			$ymax = $ylowblob[$i] - $min_beam_clearance
-			 - $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
-			if ($y > $ymax) { $too_low = 1; last; }
-			if ($accidental[$i] ne '-') {
-				$x = $x[$i] - $accidental_before_note;
-				$y = $y1 + $dydx * ($x-$x1);
-				$ymax = $ylowblob[$i]-$min_beam_clearance+$sharp_half_height;
-				if ($y > $ymax) { $too_low = 1; last; }
-			end
-		end
-		if ($too_low and $n>2) {
-			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@ylowblob);
-			if ((abs $best_fit_gradient) < $MaxBeamGradient) {
-				if ($best_fit_gradient > 0.0) {	-- positive gradient
-					$ymax = $y1 + $best_fit_gradient * ($xn-$x1);
-					if ($yn > $ymax) { $yn = $ymax; }
-				else	-- negative gradient
-					$ymax = $yn - $best_fit_gradient * ($xn-$x1);
-					if ($y1 > $ymax) { $y1 = $ymax; }
-				end
-			end
-		end
-
-		-- lower beam if any notes are too low ...  2.9v
-		$dy = $yn - $y1; $dydx = $dy / $dx;
-		foreach $i ($[ .. ($[+$n-1)) {
-			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymax = $ylowblob[$i] - $min_beam_clearance
-			 - $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
-			if ($y > $ymax) { $y1 -= $y-$ymax; $yn -= $y-$ymax; }
-			if ($accidental[$i] ne '-') {
-				$x = $x[$i] - $accidental_before_note;
-				$y = $y1 + $dydx * ($x-$x1);
-				$ymax = $ylowblob[$i]-$min_beam_clearance+$sharp_half_height;
-				if ($y > $ymax) { $y1 -= $y-$ymax; $yn -= $y-$ymax; }
-			end
-		end
-
-		-- print the first (qua) beam anyway ...
-		printf "%g %g %g %g %g beam\n", $x1, $y1, $xn, $yn, $smallstaveheight;
-
-		-- my $gap = $BeamSpacing*$smallstaveheight;   -- 2.7u
-		-- then print the smq,dsq,hds beams (down) where they are needed ...
-		foreach my $ibeam (2..4) {  -- 2.9v
-			my $ibeamm1 = $ibeam - 1;
-			my $gaps = $gap * $ibeamm1;
-			foreach $i ($[ .. ($[+$n-1)) {
-				if (ps_tails_or_beams($duration[$i]) > $ibeamm1) {
-					if ($i==$[ and ps_tails_or_beams($duration[$i+1])<$ibeam) {
-						my $stublength = ($x[$i+1] - $x[$i]) * 0.5;
-						if ($stublength > $max_beam_stub) {
-							$stublength = $max_beam_stub;
-						end
-						printf "%g %g %g %g %g beam\n",
-						$x[$i], $y1+$gaps, $x[$i]+$stublength,
-						$y1+$gaps+$dydx*($x[$i]+$stublength-$x1),
-						$smallstaveheight;
-					elseif ($i > $[
-					 and ps_tails_or_beams($duration[$i-1]) > $ibeamm1) {
-						printf "%g %g %g %g %g beam\n",
-						$x[$i-1], $y1+$gaps+$dydx*($x[$i-1]-$x1),
-						$x[$i], $y1+$gaps+$dydx*($x[$i]-$x1),
-						$smallstaveheight;
-					elseif (ps_tails_or_beams($duration[$i+1]) < $ibeam) {
-						my $stublength = ($x[$i] - $x[$i-1]) * 0.5;
-						if ($stublength > $max_beam_stub) {
-							$stublength = $max_beam_stub;
-						end
-						printf "%g %g %g %g %g beam\n",
-						$x[$i] - $stublength,
-						$y1+$gaps+$dydx*($x[$i]- $stublength-$x1),
-						$x[$i], $y1+$gaps+$dydx*($x[$i]-$x1),
-						$smallstaveheight;
-					end
-				end
-			end
-		end
-		-- print stems ... hmm, this double-prints the options ...
-		printf "%g %g %g %g notestem\n", $x1, $y1, $yhighblob1, $StvHgt;
-		ps_note_options($x1 + $BlackBlobHalfWidth*$StvHgt,
-			$y1 - ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-			$yhighblob1 + ($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			'down', $options[$[]);   -- 2.9d
-		-- intermediate stems ...  also print -xxx options in this loop ...
-		foreach $i (($[+1) .. ($[+$n-2)) {
-			$x = $x[$i]; $y = $y1 + $dy * ($x - $x1) / $dx;
-			printf "%g %g %g %g notestem\n",
-			 $x, $y, $yhighblob[$i], $StvHgt;
-			ps_note_options($x + $BlackBlobHalfWidth*$StvHgt,
-			 $y - ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-		 $yhighblob[$i]+($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			 'down', $options[$i]);   -- 2.9d
-		end
-		printf "%g %g %g %g notestem\n", $xn, $yn, $yhighblobn, $StvHgt;
-		ps_note_options($xn + $BlackBlobHalfWidth*$StvHgt,
-			$yn - ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-			$yhighblobn + ($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
-			'down', $options[$[+$n-1]);   -- 2.9d
-		undef @BeamDown;  undef $StartBeamDown;
-	end
-end
 
 
 
@@ -5122,19 +5112,6 @@ end
 
 
 
-local function ps_best_fit_gradient { my ($x_ref, $y_ref) = @_;
-	my ($sigma_x, $sigma_y, $sigma_xy, $sigma_xsquared);
-	my $i = $[; my $n = scalar @{$x_ref};
-	foreach my $x (@{$x_ref}) {
-		my $y = $y_ref->[$i];
-		$sigma_x  += $x;    $sigma_y  += $y;
-		$sigma_xy += $x*$y; $sigma_xsquared += $x*$x;
-		$i++;
-	end
-	my $denominator = $n*$sigma_xsquared-$sigma_x*$sigma_x;
-	if (abs $denominator < Epsilon) { $denominator = Epsilon; }
-	return ($n*$sigma_xy-$sigma_x*$sigma_y)/$denominator;
-end
 
 ]==]
 
