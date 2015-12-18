@@ -1074,7 +1074,6 @@ end
 -------------------- stubs for debugging purposes ----------------------
 local function substitute (line,n) return {line} end
 local function xml_print_cache() return end
-local function ps_finish_ties() return end
 
 ---------------------------- PostScript stuff --------------------------
 
@@ -1115,6 +1114,47 @@ local function ps_prolog ()
 	PS_prologAlready = true
 end
 
+local function ps_finish_ties (right)
+	if not right then right = rmar + TieOverhang*StvHgt end
+	if not Nstaves[Isyst] then return end
+	for istave = 1,Nstaves[Isyst] do
+		local x_left, y_left, x_right, y_right
+		for itie = 1,9,2 do  -- first, ties above
+			for i,th_type in ipairs({'slur','tie'}) do   -- 2.7j
+				local key = concat({th_type,Isyst,istave,itie},' ')
+				x_left = Xstart[key] ; y_left = Ystart[key]
+				if x_left and y_left then
+					y_right = y_left
+					x_right = right
+					if (x_right - x_left) > StvHgt then
+						x_left  = x_left + 0.75*BlackBlobHalfWidth*StvHgt
+						x_right = x_right - TieAfterNote*StvHgt
+					end
+					printf("%g %g %g %g %g 1.0 slur",
+					  x_left, y_left, x_right, y_right, StvHgt)
+					Xstart[key] = nil ; Ystart[key] = nil
+				end
+			end
+		end
+		for itie = 2,8,2 do    -- then, ties below
+			for i,th_type in ipairs({'slur','tie'}) do   -- 2.7j
+				local key = concat({th_type,Isyst,istave,itie},' ')
+				x_left = Xstart[key] ; y_left = Ystart[key]
+				if x_left and y_left then
+					y_right = y_left
+					x_right = right
+					if (x_right - x_left) > StvHgt then
+						x_left  = x_left + 0.75*BlackBlobHalfWidth*StvHgt
+						x_right = x_right - TieAfterNote*StvHgt
+					end
+					printf("%g %g %g %g %g -1.0 slur",
+					  x_left, y_left, x_right, y_right, StvHgt)
+					Xstart[key] = nil ; Ystart[key] = nil
+				end
+			end
+		end
+	end
+end
 
 local function systems (nsystems, sizes)
 	-- sets globals: Lmargin, Rmargin, nstaves, Ystave, StaveHeight, StvHgt,
@@ -1317,7 +1357,7 @@ local function systems (nsystems, sizes)
 		end
 		Y = Y - systemgap
 	end
-	isyst = 0
+	Isyst = 0
 end
 
 local function escape_and_utf2iso (s)   -- 2.9b
@@ -1510,8 +1550,13 @@ local function ps_beat2x (crossofar,crosperpart)
 	local ipart = 1 + math.floor(crossofar/crosperpart + Epsilon)
 -- why -Epsilon ? 
 --warn('ps_beat2x: ipart=',ipart,' Xpart[ipart]=',Xpart[ipart],' Xpart[ipart+1]=',Xpart[ipart+1])
-	return (Xpart[ipart] + (Xpart[ipart+1] - Xpart[ipart]) *
-		(crossofar - crosperpart*(ipart-1)) / crosperpart)
+	if ipart < #Xpart then
+		return (Xpart[ipart] + (Xpart[ipart+1] - Xpart[ipart]) *
+		  (crossofar - crosperpart*(ipart-1)) / crosperpart)
+	else
+		return (Xpart[ipart] - Xpart[ipart] *
+		  (crossofar - crosperpart*(ipart-1)) / crosperpart)
+	end
 end
 
 local function parse_note (s)
@@ -1556,19 +1601,19 @@ local function parse_note (s)
 --	end
 	s1,s2 = match(notebit,"%(([',]*)(%d+)"); if s2 then
 		r['starttie'] = s2
-		if s1 and s1 ~= '' then r['starttieshift'] = SlurOrTieShift[s2] end
+		if s1 and s1 ~= '' then r['starttieshift'] = SlurOrTieShift[s1] end
 	end
 	s1,s2 = match(notebit,"%)([',]*)(%d+)"); if s2 then
 		r['endtie'] = s2
-		if s1 and s1 ~= '' then r['endtieshift'] = SlurOrTieShift[s2] end
+		if s1 and s1 ~= '' then r['endtieshift'] = SlurOrTieShift[s1] end
 	end
 	s1,s2 = match(notebit,"{([',]*)(%d+)"); if s2 then
 		r['startslur'] = s2
-		if s1 and s1 ~= '' then r['startslurshift'] = SlurOrTieShift[s2] end
+		if s1 and s1 ~= '' then r['startslurshift'] = SlurOrTieShift[s1] end
 	end
 	s1,s2 = match(notebit,"}([',]*)(%d+)"); if s2 then
 		r['endslur'] = s2
-		if s1 and s1 ~= '' then r['endslurshift'] = SlurOrTieShift[s2] end
+		if s1 and s1 ~= '' then r['endslurshift'] = SlurOrTieShift[s1] end
 	end
 	notebit = gsub(notebit, "[{}%(%)][',]?%d+", "")
 	if notebit == '' then return r end
@@ -1832,7 +1877,7 @@ local function ps_ledger_lines (x, dy)
 		while true do
 			y = Ystv + StvHgt * yl
 			printf("%g %g %g ledger", x, y, StvHgt)
-			yl = y + 0.25
+			yl = yl + 0.25
 			if yl > (dy+0.1) then break end
 		end
 	elseif dy < -1.2 then -- ledger line(s) below stave
@@ -1916,7 +1961,6 @@ local function ps_note (noteref, X, height2cross)
 	-- print the blob, white or black
 	if string.find(CurrentPulseText,'^bre') then -- 2.9a bre can now be small
 		printf ("%g %g %g breve", X, Y, acc_size)
-	-- elseif ($CurrentPulseText =~ /^min|^smb/) {
 	elseif string.find(CurrentPulseText,'^min') or
 	  string.find(CurrentPulseText,'^smb') then
 		printf ("%g %g %g whiteblob", X, Y, acc_size)
@@ -1925,8 +1969,7 @@ local function ps_note (noteref, X, height2cross)
 	end
 	-- print the ledger lines, if any
 	ps_ledger_lines(X, dypitch(noteref['pitch']))
-	-- print the dot, if any
-	do
+	do -- print the dot, if any
 		local sh = StvHgt
 		if string.find(CurrentPulseText,'-s$') then
 			sh = sh * SmallNoteRatio
@@ -1951,12 +1994,12 @@ local function ps_note (noteref, X, height2cross)
 		if not x_left then -- detect the nearest :|| before using BOL ...
 			local ib = Ibar
 			while true do
-				ib = ib -1
-				if bit32.band(BarType[Isyst][ib], 2) then
-					x_left = Xbar[Isyst][ib] ; break
-				end
+				ib = ib - 1
 				if ib < 1 then
 					x_left = Lmargin[Isyst] + SpaceForClef*StvHgt ; break
+				end
+				if bit32.band(BarType[Isyst][ib], 2) then
+					x_left = Xbar[Isyst][ib] ; break
 				end
 			end
 		end
@@ -1978,8 +2021,8 @@ local function ps_note (noteref, X, height2cross)
 			if not stemup and th_shift<0 then above_note=above_note-TieShift end
 			y_right = Y + above_note*StvHgt
 			y_left=Ystart[concat({th_type,Isyst,Istave,th_num},' ')] or y_right
-			if stemup or th_shift then x_right = X
-			else x_right = X - 1.6 * BlackBlobHalfWidth * StvHgt;
+			if stemup or th_shift>0 then x_right = X
+			else x_right = X - 1.6 * BlackBlobHalfWidth * StvHgt
 			end
 		end
 		if (x_right-x_left) < MustReallySquashTie*StvHgt then
@@ -2024,7 +2067,7 @@ local function ps_note (noteref, X, height2cross)
 			y_right = Y + above_note*StvHgt
 			Ystart[concat({th_type,Isyst,Istave,th_num},' ')]
 			 = Y + above_note*StvHgt
-			if th_shift then
+			if th_shift>0 then
 				Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
 					= X + 0.5*BlackBlobHalfWidth*StvHgt
 			elseif stemup then
@@ -2550,12 +2593,12 @@ local function ps_event (symbols)
 					ps_note(noteref, X-d+shift, height2cross)
 				end
 			else
---				shift = 0
+				shift = 0
 				if ps_is_stemless() then
 					shift = smb_rightshift * note_shift
-				elseif stemup_rightshift and stemup then
+				elseif stemup_rightshift>0 and stemup then
 					shift = stemup_rightshift * note_shift;
-				elseif stemdown_rightshift and not stemup then
+				elseif stemdown_rightshift>0 and not stemup then
 					shift = stemdown_rightshift * note_shift
 				end
 				ps_note(noteref, X+shift, height2cross)
@@ -2652,8 +2695,8 @@ local function ps_event (symbols)
 			end
 			StartBeamUp = false
 		end
-		if HighestStemDown > 0 then   -- and if there are some stemdown notes
-			xstem = X - stem_from_blob_centre
+		if HighestStemDown > 0 then  -- also, if there are some stemdown notes
+			xstem = X - stem_from_blob_centre + stemdown_rightshift*note_shift
 			local smallness = 1.0
 			if string.find(shortestdowntext, '-s$') then
 				xstem = xstem + BlackBlobHalfWidth*(1.0-SmallNoteRatio)*StvHgt
@@ -2718,7 +2761,7 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 	local font = RegularFont
 	if     fonttype == 'b' then font = BoldFont
 	elseif fonttype == 'i' then font = ItalicFont
-	elseif fonttype == 'I' then font = BoldItalicFon;
+	elseif fonttype == 'I' then font = BoldItalicFont
 	end
 	local ytext ; local size
 	-- remember ps_text() can be called before the first =1 line ...
@@ -2742,21 +2785,20 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 	end
 	-- interpret ".48 some text" horizontal spacing
 	local str_by_pos = {} ; local pos = '0.0'
-	--while ($text =~ /^(.*? )??(\.\d{1,3}) (.*)$/) do
-	--	str_by_pos[pos] = s1; pos = s2; text = s3
-	--end
 	while true do
-		local n = string.find(text, '%s%.%d+%s.-$')
+		local n = string.find(text, '%s%.%d+%s')
 		if not n then
-			n = string.find(text, '^%.%d+%s.-$')
-			if not n then break end
+			if pos == '0.0' then str_by_pos[pos] = string.sub(text, 2, -1)
+			else                 str_by_pos[pos] = text
+			end
+			break
 		end
-		s1   = string.sub(text, n, -1)
-		text = string.sub(text, 1, n-1)
-		s1,s2 = string.match(s1, '^%s?(%.%d+)%s(.+)$')
-		str_by_pos[s1] = s2
+		if pos == '0.0' then str_by_pos[pos] = string.sub(text, 2, n-1)
+		else                 str_by_pos[pos] = string.sub(text, 1, n-1)
+		end
+		pos = string.match(text, '%s(%.%d+)%s')
+		text=string.sub(text,n+string.len(string.match(text,'(%s%.%d+%s)')),-1)
 	end
-	if string.find(text, '%S') then str_by_pos['0.0'] = text end
 	local left ; local right
 	for pos,text in pairs(str_by_pos) do  -- order doesn't matter !
 		-- should maybe handle $SpaceRightOfClef,$SpaceForClef,$SpaceForTimeSig,
@@ -2818,10 +2860,14 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		-- here we have omitted the mandatory space before and after :-(
 		table.insert(terminators, w)
 	end
-	while true do
-		if #bars >= nbars then break end
-		table.insert(bars, bars[#bars])
-		table.insert(terminators, terminators[#terminators])
+	if #bars > nbars then
+		nbars = #bars
+	else
+		while true do
+			if #bars >= nbars then break end
+			table.insert(bars, bars[#bars])
+			table.insert(terminators, terminators[#terminators])
+		end
 	end
 	-- in Perl (see perldoc -f split) if the PATTERN contains capturing
 	-- groups, then for each separator, an additional field is produced
@@ -2833,7 +2879,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		local tokens = split( bars[ibar],'%s+');
 		local terminator = terminators[ibar+1]
 		BarType[Isyst][ibar] = 0
-		spaceatstart[ibar] = SpaceAtBeginningOfBar*maxstvhgt; -- 2.4c
+		spaceatstart[ibar] = SpaceAtBeginningOfBar*maxstvhgt -- 2.4c
 		if not terminator then BarType[Isyst][ibar]=16; terminator='' end
 		if string.find(terminator,'||') then
 			BarType[Isyst][ibar] = BarType[Isyst][ibar] + 1 end
@@ -3030,6 +3076,35 @@ local function midi_timesig (str)
 	end
 end
 
+local function newsystem ()
+	if MIDI then return end
+	if XmlOpt then Isyst = Isyst + 1; xml['staves'] = 1 return end
+	  -- could also add <print new-system="yes"/>
+	  -- See Mario Lang in ~/Mail/musicxml ...
+	ps_finish_ties()	-- first put in any unfinished ties ...
+	-- 20100424 In order to carry beams over barline, we'll need to
+	-- remember a separate @BeamUp etc per stavenum :-(
+	BeamUp = {}; BeamDown = {}
+	StartBeamUp = false; StartBeamDown = false   -- 2.9z
+	if Isyst >= Nsystems then -- in Perl, nsystems is global, set by systems()
+		systems()
+		-- regurgitate remembered header lines (except for title) ...
+		if RememberHeader['pagenum'] then
+			ps_pagenum()
+			ps_innerhead('')
+		else
+			ps_lefthead('')
+			ps_righthead('')
+		end
+		ps_leftfoot('')
+		ps_rightfoot('')
+	end
+	Isyst = Isyst + 1        -- then move on to next system ...
+	JustDidNewsystem = true  -- so if no bars cmd follows, barlines get drawn
+	print_tty(' '..tostring(Isyst))
+	print_sp("% system ",Isyst)
+end
+
 local function newbar (line)
 	-- warn('newbar: line = ',line)
 	if MIDI then
@@ -3053,11 +3128,11 @@ local function newbar (line)
 		&xml_timesig($_[$[]);
 ]]
 	else 
-		if bit32.band(BarType[Isyst][Ibar],2) > 0.5 then  -- is :|| or :||:
-			ps_finish_ties(Xbar[syst][Ibar])
+		if Isyst>0.5 and bit32.band(BarType[Isyst][Ibar],2)>0.5 then
+			ps_finish_ties(Xbar[Isyst][Ibar])  -- is :|| or :||:
 		end
 		Ibar = Ibar + 1 ; Istave = 0;   -- globals.
-		if Ibar > Nbars[Isyst] then
+		if Ibar > (Nbars[Isyst] or 0) then
 			if not JustDidNewsystem then newsystem('/') end
 			bars(); Ibar = 1  --XXXX
 		end
@@ -3067,8 +3142,6 @@ local function newbar (line)
 		  ", bar "..tostring(Ibar)..":")
 	end
 end
-
-
 
 -------------------------- MIDI stuff -------------------------------
 
@@ -3229,6 +3302,7 @@ local function current_bend ()   -- 3.2  cha2bend ? for incremental bend+2 ?
 end
 
 function midi_in_stave (str)
+	if not str then return end
 	local s1
 	if string.find(str,'^vol') then
 		-- warn('midi_in_stave: Istave = ',Istave,' str = "',str,'"')
@@ -3827,7 +3901,8 @@ local function newstave (line)
 
 	if midi_in_stave(array[i]) then i = i + 1 end
 	local xmlkeysig = ''
-	if string.find(array[i],'^[1-7][#bn]$') or array[i] == '0' then  -- keysig
+	if array[i] and
+	 (string.find(array[i],'^[1-7][#bn]$') or array[i] == '0') then -- keysig
 		must_null_the_keysig = false   -- 2.8o
 		if MIDI then
 			reset_accidentalled(array[i])
@@ -3879,7 +3954,7 @@ local function newstave (line)
 	-- if new timesig, print it and adjust beginning of bar, xpart{1}
 	-- BUG: should actually adjust all the bars in the whole line ...
 	if midi_in_stave(array[i]) then i = i + 1 end
-	if string.find(array[i], '%d+/%d+') then -- new timesig, eg 6/4 or 15/8
+	if array[i] and string.find(array[i], '%d+/%d+') then -- new timesig
 		if MIDI then
 --[[
 		elseif XmlOpt then
@@ -3936,6 +4011,7 @@ end
 ]]
 	while i <= #array do
 		symbol = array[i]
+		if symbol == '' then break end
 		if string.find(symbol, '<') then   -- 2.7w
 			symbol = string.gsub(symbol, '<', '')
 			-- start of bracketed simultaneous notes
@@ -3994,7 +4070,7 @@ end
 				else ps_event({symbol})
 				end
 			else
-				warn_ln("not a note: @",symbol,"@")
+				warn_ln("not a note: ",symbol)
 			end
 		end
 		::nextsymbol::
@@ -4003,34 +4079,6 @@ end
 end
 
 
-local function newsystem ()
-	if MIDI then return end
-	if XmlOpt then Isyst = Isyst + 1; xml['staves'] = 1 return end
-	  -- could also add <print new-system="yes"/>
-	  -- See Mario Lang in ~/Mail/musicxml ...
-	ps_finish_ties()	-- first put in any unfinished ties ...
-	-- 20100424 In order to carry beams over barline, we'll need to
-	-- remember a separate @BeamUp etc per stavenum :-(
-	BeamUp = {}; BeamDown = {}
-	StartBeamUp = false; StartBeamDown = false   -- 2.9z
-	if Isyst >= Nsystems then -- in Perl, nsystems is global, set by systems()
-		systems()
-		-- regurgitate remembered header lines (except for title) ...
-		if RememberHeader['pagenum'] then
-			ps_pagenum()
-			ps_innerhead('')
-		else
-			ps_lefthead('')
-			ps_righthead('')
-		end
-		ps_leftfoot('')
-		ps_rightfoot('')
-	end
-	Isyst = Isyst + 1        -- then move on to next system ...
-	JustDidNewsystem = true  -- so if no bars cmd follows, barlines get drawn
-	print_tty(' '..tostring(Isyst))
-	print_sp("% system ",Isyst)
-end
 
 local function interpret_syntax (line)
 	::redo::
@@ -4093,7 +4141,7 @@ local function interpret_syntax (line)
 	end
 	s1 = string.match(line, '^(|%s*[^=]*)$')
 	if s1 then newbar(string.gsub(s1, '^|%s*', '')) ; return end
-	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)%s(.*)$')
+	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)(%s.*)$')
 	if s4 then
 		-- if XmlOpt then xml_text(s1,s2,s3,s4) ; return end
 		if MIDI then return end
@@ -5026,9 +5074,6 @@ end
 
 -- ------------------------ MIDI stuff -------------------------------
 
-
-
-
 local function midi_x2ticks (crossofar,crosperpart)  -- 2.9c
 	-- called by ps_text etc ?! but will need all the xpart stuff
 	local ipart = 1 + int(crossofar/crosperpart - Epsilon);
@@ -5036,82 +5081,12 @@ local function midi_x2ticks (crossofar,crosperpart)  -- 2.9c
 		($crossofar - $crosperpart * ($ipart - 1)) / $crosperpart);
 end
 
-
-
 local function midi_play_wav { my $cmd = $_[$[];  -- 3.2e
 	my $ticks    = $TicksAtBarStart + CrosSoFar*$TicksPerCro;
 	push @MidiScore, ['sysex_f0', $TicksAtBarStart, '}!play '.$cmd."\xF7"];
 	$TicksAtBarStart += 1;
 	return true
 end
-
-
-
-
----------------------------- PostScript stuff --------------------------
-
---sub ps_events() {
---	warn <<'EOT';
---sub ps_events is not yet implemented.  If it ever is, it will scan
---%events_by_space and %inserts_by_space, working out the $X position
---of each event and calling &ps_event each time.
---EOT
---}
-
-
-
-
-
-
-
-local function ps_finish_ties { my $right = $_[$[];
-	if (! $right) { $right = $rmar + $TieOverhang*$StvHgt; }  -- 2.8s
-	return unless defined $nstaves[Isyst}; -- defeat -w warning
-	foreach $istave (1 .. $nstaves[Isyst}) {
-		my ($x_left, $y_left, $x_right, $y_right);
-		for itie = 1,9,2 do  -- first, ties above
-			foreach $th_type ('slur','tie') {   -- 2.7j
-				x_left = Xstart[concat({th_type,Isyst,Istave,itie},' ')]
-				y_left = Ystart[concat({th_type,Isyst,Istave,itie},' ')]
-				if x_left and y_left then
-					y_right = y_left
-					x_right = $right;
-					if (($x_right - $x_left) > $StvHgt) {
-						$x_left  += 0.75 * $BlackBlobHalfWidth*$StvHgt;
-						$x_right -= $TieAfterNote*$StvHgt;
-					end
-					printf "%g %g %g %g %g 1.0 slur\n", $x_left, $y_left,
-					$x_right, $y_right, $StvHgt;
-					delete $Xstart[th_type,$Isyst,$istave,$itie};
-					delete $Ystart[th_type,$Isyst,$istave,$itie};
-				end
-			end
-		end
-		foreach $itie 2,8,2 {    -- then, ties below
-			foreach $th_type ('slur','tie') {   -- 2.7j
-				$x_left = $Xstart[th_type,$Isyst,$istave,$itie};
-				$y_left = $Ystart[th_type,$Isyst,$istave,$itie};
-				if ($x_left and $y_left) {
-					$y_right = $y_left;
-					$x_right = $right;
-					if (($x_right - $x_left) > $StvHgt) {
-						$x_left  += 0.75 * $BlackBlobHalfWidth*$StvHgt;
-						$x_right -= $TieAfterNote*$StvHgt;
-					end
-					printf "%g %g %g %g %g -1.0 slur\n", $x_left, $y_left,
-					$x_right, $y_right, $StvHgt;
-					delete $Xstart[th_type,$Isyst,$istave,$itie};
-					delete $Ystart[th_type,$Isyst,$istave,$itie};
-				end
-			end
-		end
-	end
-end
-
-
-
-
-
 
 ]==]
 
