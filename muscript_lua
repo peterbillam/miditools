@@ -851,38 +851,15 @@ function parse_options(line, keep)  -- delimits by '-' respects quoting by "
 end
 
 function parse_line(line, keep)   -- only respects quoting by "
-	local words = {}
-	for w in string.gmatch(line, '[^"]+') do words[#words+1] = w end -- p.203
-	local a = {}
-	for i,w in ipairs(words) do
-		if i%2 > 0.5 then
-			a[#a+1] = w
-			if i < #words then a[#a+1] = ' ' end
-		else
-			a[#a+1] = string.gsub(w, '%s', '\a')
-			if i < #words then a[#a+1] = ' ' end
-		end
-	end
-	local quotedline = table.concat(a, '')
-	words = {}
-	for w in string.gmatch(quotedline, '(%S+)%s') do words[#words+1] = w end
-	words[#words+1] = string.gsub(quotedline,'^.*%s', '')
-	local a = {}
-	if keep then
-		local delims = {}
-		for d in string.gmatch(quotedline, '%s+') do delims[#delims+1] = d end
-		for i = 1,#words do
-			a[#a+1] =  string.gsub(words[i], 'X', ' ')
-			if delims[i] then a[#a+1] = delims[i] end
-		end
-	else
-		for i = 1,#words do a[#a+1] = string.gsub(words[i], '\a', ' ') end
+	local quotedline = string.gsub(line, '%a"[^"]-"%f[%s]', function(s)
+		return string.gsub(s, ' ', '\a')
+	end)
+	local a = split(quotedline, '%s+')
+	for i=1,#a do
+		a[i] = string.gsub( string.gsub(a[i],'\a',' '), '"', '')
 	end
 	return a
 end
-
-
-
 
 ------------------------- General muscript stuff -----------------------
 
@@ -1560,6 +1537,7 @@ local function ps_beat2x (crossofar,crosperpart)
 end
 
 local function parse_note (s)
+--warn('parse_note: s = ',s)
 	if not s then return end
 	local scopy = s -- just in case there's a warning-message
 	local r = {}    -- will return this
@@ -1706,6 +1684,7 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 		Opt_Cache[options] = parse_options(options,false) -- 2.7m
 	end
 	for i,option in ipairs(Opt_Cache[options]) do -- doesnt clobber the cache
+--warn('ps_note_options: i=',i,' option=',option)
 		local option_is_above = true
 		if OptionMustGoBelow[option] then option_is_above = false end
 		if string.find(option, ',$') then -- 3.1d,e,n
@@ -1990,7 +1969,8 @@ local function ps_note (noteref, X, height2cross)
 	-- XXX we could have endslur AND endtie, or startslur AND starttie
 	local function end_thing (th_type, th_num, th_shift)
 		local x_left, y_left
-		x_left = Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
+		local key = concat({th_type,Isyst,Istave,th_num},' ')
+		x_left = Xstart[key]
 		if not x_left then -- detect the nearest :|| before using BOL ...
 			local ib = Ibar
 			while true do
@@ -2008,11 +1988,11 @@ local function ps_note (noteref, X, height2cross)
 		local updown = 1.0
 		if (th_num % 2) > 0.5 then  -- end tie above (odd numbers)
 			local above_note = TieAboveNote + th_shift*TieDy
-			if stemup and th_shift>0 then above_note=above_note+TieShift end
+			if stemup and th_shift>0.1 then above_note = above_note+TieShift end
 			y_right = Y + above_note*StvHgt
 			x_right = X
-			y_left=Ystart[concat({th_type,Isyst,Istave,th_num},' ')] or y_right
-			if accidental == 'b' and not th_shift then
+			y_left=Ystart[key] or y_right
+			if accidental == 'b' and math.abs(th_shift)<Epsilon then
 			  y_right = y_right + 0.7*TieAboveNote*StvHgt
 			end
 		else	-- end tie below
@@ -2020,8 +2000,8 @@ local function ps_note (noteref, X, height2cross)
 			local above_note = th_shift*TieDy - TieAboveNote
 			if not stemup and th_shift<0 then above_note=above_note-TieShift end
 			y_right = Y + above_note*StvHgt
-			y_left=Ystart[concat({th_type,Isyst,Istave,th_num},' ')] or y_right
-			if stemup or th_shift>0 then x_right = X
+			y_left=Ystart[key] or y_right
+			if stemup or math.abs(th_shift)>Epsilon then x_right = X
 			else x_right = X - 1.6 * BlackBlobHalfWidth * StvHgt
 			end
 		end
@@ -2037,21 +2017,21 @@ local function ps_note (noteref, X, height2cross)
 		local actual_delta_y = math.abs(y_right-y_left)
 		if actual_delta_y > max_delta_y then
 			if y_right > y_left then  -- positive gradient
-				if bit32.band(th_num,2) > 0.5 then
-					 y_left  = y_left  + actual_delta_y - max_delta_y
-				else y_right = y_right - actual_delta_y - max_delta_y
+				if th_num%2 > 0.5 then
+					 y_left  = y_left  +  actual_delta_y - max_delta_y
+				else y_right = y_right - (actual_delta_y - max_delta_y)
 				end
 			else	-- negative gradient
-				if bit32.band(th_num,2) > 0.5 then
+				if th_num%2 > 0.5 then
 					 y_right = y_right + actual_delta_y - max_delta_y
-				else y_left  = y_left  - actual_delta_y - max_delta_y
+				else y_left  = y_left - (actual_delta_y - max_delta_y)
 				end
 			end
 		end
 		printf("%g %g %g %g %g %g slur",
 			x_left, y_left, x_right, y_right, updown, StvHgt)
-		Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = nil
-		Ystart[concat({th_type,Isyst,Istave,th_num},' ')] = nil
+		Xstart[key] = nil
+		Ystart[key] = nil
 	end
 	if noteref['endtie'] then
 		end_thing('tie', noteref['endtie'], noteref['endtieshift'] or 0)
@@ -2061,36 +2041,32 @@ local function ps_note (noteref, X, height2cross)
 	end
 	-- start a tie or slur, if any
 	local function start_thing (th_type, th_num, th_shift)
+		local key = concat({th_type,Isyst,Istave,th_num},' ')
 		if (th_num % 2) > 0.5 then  -- start tie above (odd numbers)
 			local above_note = th_shift*TieDy + TieAboveNote
 			if stemup and th_shift>0 then above_note=above_note+TieShift end
 			y_right = Y + above_note*StvHgt
-			Ystart[concat({th_type,Isyst,Istave,th_num},' ')]
-			 = Y + above_note*StvHgt
+			Ystart[key] = Y + above_note*StvHgt
 			if th_shift>0 then
-				Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
-					= X + 0.5*BlackBlobHalfWidth*StvHgt
+				Xstart[key] = X + 0.5*BlackBlobHalfWidth*StvHgt
 			elseif stemup then
-				Xstart[concat({th_type,Isyst,Istave,th_num},' ')]
-					= X + 1.6*BlackBlobHalfWidth*StvHgt -- too far?
+				Xstart[key] = X + 1.6*BlackBlobHalfWidth*StvHgt -- too far?
 				if #BeamUp==0 and (string.find(CurrentPulseText,'^smq')
 				  or string.find(CurrentPulseText,'^qua')
 				  or string.find(CurrentPulseText,'^dsq')
 				  or string.find(CurrentPulseText,'^hds')) then
-					local k = concat({th_type,Isyst,Istave,th_num},' ')
-					Xstart[k] = Xstart[k] + BlackBlobHalfWidth*StvHgt
+					Xstart[key] = Xstart[key] + BlackBlobHalfWidth*StvHgt
 				end
 			else
-				Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = X
+				Xstart[key] = X
 			end
 		else	-- start tie below (even numbers)
 			local above_note = th_shift*TieDy - TieAboveNote
 			if not stemup and th_shift<0 then
 				above_note = above_note - TieShift
 			end
-			Ystart[concat({th_type,Isyst,Istave,th_num},' ')] =
-			 Y + above_note*StvHgt
-			Xstart[concat({th_type,Isyst,Istave,th_num},' ')] = X
+			Ystart[key] = Y + above_note*StvHgt
+			Xstart[key] = X
 		end
 	end
 	if (noteref['starttie']) then
@@ -2496,7 +2472,10 @@ local function ps_event (symbols)
 				if stemup then  -- stem up note ...
 					if Y > HighestStemUp then
 						HighestStemUp = Y
-						accidentalup = noteref['accidental'] or '-'
+						accidentalup = noteref['accidental']
+						if not accidentalup or accidentalup=='' then
+							accidentalup = '-'
+						end
 					end
 					if Y < LowestStemUp    then LowestStemUp = Y end
 					if startbeam == '['    then StartBeamUp = true
@@ -2574,9 +2553,7 @@ local function ps_event (symbols)
 			local noteref = symbol  -- why ?
 			local stemup = is_stemup(noteref)
 			local shift = 0
-			if string.find(CurrentPulseText,'-s$') then
-				acc = acc*SmallNoteRatio
-			end
+-- if string.find(CurrentPulseText,'-s$') then acc=acc*SmallNoteRatio end
 			if noteref['cross'] then
 				local d = stem_from_blob_centre * 2.0
 				if string.find(CurrentPulseText, '-s$') then
@@ -2844,11 +2821,13 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	BarType[Isyst] = {}
 	Nparts[Isyst]  = {}
 	if string.find(str, '^|?|?:') then
+	-- if string.find(str, '^:') then
 		BarType[Isyst][0] = 4; last_terminator='|:'
+		-- str = string.gsub(str, '^|?|?:%s*', '')
+		str = string.gsub(str, '^:%s*', '')
 	else
 		BarType[Isyst][0] = 0; last_terminator = '|'
 	end
-	str = string.gsub(str, '^|?|?:%s*', '')
 	local maxstvhgt = MaxStaveHeight[Isyst]
 	local spaceatstart = {}  -- but the comment above say this is global
 	local sumofproportions   = 0.0  -- sum of  proportions  of all bars in line
@@ -3059,7 +3038,7 @@ local function midi_timesig (str)
 	else
 		MidiBarParts = parts
 	end
-	local parts_a = split(parts, ' ')
+	local parts_a = split(parts, ' +')
 	local ticksperpart = TicksThisBar / #parts_a
 	for i,part_str in ipairs(parts_a) do
 		local starttime = round(TicksAtBarStart + ticksperpart*(i-1))
@@ -3611,13 +3590,13 @@ local function midi_event (symbols)
 				if startslur then StartedSlurs[Istave] = true end
 				if endtie then
 --warn('endtie = ',endtie)
-					local begref = StartedTies[concat({Istave,endtie,cha},' ')]
+					local e = concat({Istave,endtie,cha},' ')
+					local begref = StartedTies[e]
 					if begref then
 						local begn =   begref[5]
 						if pitch == begref[7] and accidental == '' then
 							note = begn  -- accidental tied from prev bar
 						end
-						local e = concat({Istave,endtie,cha},' ')
 -- warn('begn = ',begn,' note = ',note)
 						if begn == note then
 							local begtime = begref[2]
@@ -3706,6 +3685,13 @@ local function midi_event (symbols)
 	return
 end
 
+local function midi_play_wav (cmd)  -- 3.2e
+	local ticks  = TicksAtBarStart + CrosSoFar*TicksPerCro
+	table.insert(MidiScore,{'sysex_f0',TicksAtBarStart,'}!play '..cmd.."\xF7"})
+	TicksAtBarStart = TicksAtBarStart + 1
+	return true
+end
+
 
 local function midi_write ()
 	if not MIDI then return end
@@ -3760,6 +3746,7 @@ local function newstave (line)
 	remainder = string.gsub(remainder, "^%s+", "")
 	remainder = string.gsub(remainder, "%s+$", "")
 	local array = parse_line(remainder,false)   -- true ?
+--warn('remainder=',remainder,' array=',DataDumper(array))
 	for i,v in ipairs(array) do array[i] = Intl2en[v] or v end
 	-- count up the total beats in this bar, and calculate spacings ...
 	CrosSoFar = 0  -- global
@@ -3932,7 +3919,7 @@ local function newstave (line)
 				if s2 then
 					ps_keysig('-'..s1, s2, x)
 				else
-					Xpart[1] = Xpart[1] + Stave2nullkeysigDx[Istave]  -- 2.9y
+					Xpart[1] = Xpart[1] + (Stave2nullkeysigDx[Istave] or 0)
 				end
 			else
 				s1,s2 = string.match(array[i], '^([1-7])([#bn])$')
@@ -4147,11 +4134,11 @@ local function interpret_syntax (line)
 		if MIDI then return end
 		ps_text(s1,s2,s3,s4) ; return
 	end
--- frontier
---[[
-	if ($line =~ /^play\s+(.*)$/) { if (MIDI) {midi_play_wav($1);} next; }
-end
-]]
+	if string.find(line,'^play%s+.*$') then
+		if  MIDI then
+			midi_play_wav(string.match(line,'^play%s+(.*)$')) ; return
+		end
+	end
 	warn_ln("not recognised: "..line)   -- 2.9j
 end
 
@@ -5081,12 +5068,6 @@ local function midi_x2ticks (crossofar,crosperpart)  -- 2.9c
 		($crossofar - $crosperpart * ($ipart - 1)) / $crosperpart);
 end
 
-local function midi_play_wav { my $cmd = $_[$[];  -- 3.2e
-	my $ticks    = $TicksAtBarStart + CrosSoFar*$TicksPerCro;
-	push @MidiScore, ['sysex_f0', $TicksAtBarStart, '}!play '.$cmd."\xF7"];
-	$TicksAtBarStart += 1;
-	return true
-end
 
 ]==]
 
