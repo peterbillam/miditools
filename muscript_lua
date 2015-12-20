@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2f for Lua5'
-VersionDate  = '23nov2015';
+Version = '3.2g for Lua5'
+VersionDate  = '19dec2015';
 
 debug = false
 -- if debug then $|=1;  -- so you can 'tail -f' on the output file
@@ -818,46 +818,22 @@ function sorted_keys(t, f)
 	return  a
 end
 
-function parse_options(line, keep)  -- delimits by '-' respects quoting by "
-	local words = {}
+function parse_options(line)  -- delimits by '-' respects quoting by "
 	if not line or line == '' then return {} end
-	for w in string.gmatch(line, '[^"]+') do words[#words+1] = w end -- p.203
-	local a = {}
-	for i,w in ipairs(words) do
-		if i%2 > 0.5 then  
-			a[#a+1] = w
-			if i < #words then a[#a+1] = '"' end
-		else
-			a[#a+1] = string.gsub(w, '-', '\a')
-			if i < #words then a[#a+1] = '"' end
-		end
-	end
-	local quotedline = table.concat(a, '')
-	words = {}
-	for w in string.gmatch(quotedline, '([^%-]*)-') do words[#words+1] = w end
-	words[#words+1] = string.gsub(quotedline,'^.*-', '')
-	local a = {}
-	if keep then 
-		local delims = {}
-		for d in string.gmatch(quotedline, '-') do delims[#delims+1] = d end
-		for i = 1,#words do
-			a[#a+1] = string.gsub(words[i], '\v', '-')
-			if delims[i] then a[#a+1] = delims[i] end
-		end
-	else
-        for i = 1,#words do a[#a+1] = string.gsub(words[i], '\a', ' ') end
-	end
+	local quotedline = string.gsub(line, '"[^"]-"', function(s)
+		return string.gsub(s, '-', '\a')
+	end)
+	local a = split(quotedline, '-')
+	for i=1,#a do a[i] = string.gsub( string.gsub(a[i],'\a','-'), '"','') end
 	return a
 end
 
 function parse_line(line, keep)   -- only respects quoting by "
-	local quotedline = string.gsub(line, '%a"[^"]-"%f[%s]', function(s)
-		return string.gsub(s, ' ', '\a')
+	local quotedline = string.gsub(line, '%a"[^"]-"', function(s)
+		return string.gsub(s, '[- ]', {[' ']='\a', ['-']='\b'})
 	end)
 	local a = split(quotedline, '%s+')
-	for i=1,#a do
-		a[i] = string.gsub( string.gsub(a[i],'\a',' '), '"', '')
-	end
+	for i=1,#a do a[i]=string.gsub(a[i],'[\a\b]',{['\a']=' ',['\b']='-'}) end
 	return a
 end
 
@@ -1025,8 +1001,8 @@ function initialise ()
 -- warn('Nbeats = ',DataDumper(Nbeats))
 end
 local function is_a_clef (s)
-	if s== 'treble' or s=='treble8va' or s=='treble8vab'  or s== 'alto' or
-	   s=='tenor'  or s=='bass' or s=='bass8va' or s=='bass8vab' then
+	if s== 'treble' or s=='treble8va' or s=='treble8vab' or s== 'alto' or
+	   s=='tenor'or s=='bass' or s=='bass8va' or s=='bass8vab' then
 		return true
 	end
 	return false
@@ -1154,7 +1130,7 @@ local function systems (nsystems, sizes)
 	else
 		Nsystems = tonumber(nsystems)
 		RememberSystemsSizes = sizes     -- global
-		RememberNsystems     = nsystems  -- global
+		RememberNsystems     = tonumber(nsystems)  -- global
 		RememberHeader       = {}        -- global
 	end
 	local systms = split(sizes, '%s*/%s*')
@@ -1352,7 +1328,7 @@ local function escape_and_utf2iso (s)   -- 2.9b
 	-- s = string.gsub(s, utf8.charpattern, function (c)
 	-- s =~ s/([\xC2\xC3])([\x80-\xBF])/chr(ord($1)<<6&0xC0|ord($2)&0x3F)/eg;
 	s = string.gsub(s, '[\xC2\xC3][\x80-\xBF]', function (c)
-		local iso_byte = 64
+		local iso_byte = 128
 		if string.sub(c,1,1) == '\xC3' then iso_byte = 192 end
 		iso_byte = iso_byte + bit32.band(string.byte(c,2),63)
 		return string.char(iso_byte)
@@ -1375,6 +1351,7 @@ local function ps_rightfoot (s)
 	end
   print_sp(rmar,FootMar,'/'..ItalicFont,HeaderFontSize,'('..str..') rightshow')
 end
+
 local function ps_leftfoot (s)
 	if MIDI or XmlOpt then die("ps_leftfoot called with MIDI or Xml set ") end
 	local str
@@ -1593,7 +1570,7 @@ local function parse_note (s)
 		r['endslur'] = s2
 		if s1 and s1 ~= '' then r['endslurshift'] = SlurOrTieShift[s1] end
 	end
-	notebit = gsub(notebit, "[{}%(%)][',]?%d+", "")
+	notebit = gsub(notebit, "[{}%(%)][',]*%d+", "")
 	if notebit == '' then return r end
 	warn_ln('bad note syntax in "',scopy,'" at "',s1,'"')
 	return r
@@ -1680,9 +1657,11 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 	local y
 	local dytop = 0.0   -- to space multiple options above the note
 	local dybot = 0.0   -- to space multiple options beneath the note
+--warn('options = X',options,'X')
 	if not Opt_Cache[options] then
-		Opt_Cache[options] = parse_options(options,false) -- 2.7m
+		Opt_Cache[options] = parse_options(options) -- 2.7m
 	end
+--warn('Opt_Cache[options] = ',DataDumper(Opt_Cache[options]))
 	for i,option in ipairs(Opt_Cache[options]) do -- doesnt clobber the cache
 --warn('ps_note_options: i=',i,' option=',option)
 		local option_is_above = true
@@ -1975,11 +1954,11 @@ local function ps_note (noteref, X, height2cross)
 			local ib = Ibar
 			while true do
 				ib = ib - 1
+				if bit32.band(BarType[Isyst][ib],2) > 0.5 then
+					x_left = Xbar[Isyst][ib] ; break
+				end
 				if ib < 1 then
 					x_left = Lmargin[Isyst] + SpaceForClef*StvHgt ; break
-				end
-				if bit32.band(BarType[Isyst][ib], 2) then
-					x_left = Xbar[Isyst][ib] ; break
 				end
 			end
 		end
@@ -2307,6 +2286,7 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 			if y1 > ymax then y1 = ymax end
 		end
 		-- check if any intermediate notes are too low ...
+-- there's a tiny difference here in 3duets page4 bar86  qua [f~ d~b g f]
 		local x, y, dx, dy, dydx, too_low
 		dy = yn - y1
 		dx = xn - x1 ;  if dx<1.0 then dx=1.0 end
@@ -2534,22 +2514,19 @@ local function ps_event (symbols)
 		  string.find(symbol,'^blank') then
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 		end
-		if not is_note then
-			if Nbeats[symbol] then  -- it's smb min cro qua smq dsq etc
-				-- should measure separately shortest stem-up and stem-down!
-				if Nbeats[symbol] < shortest then shortest=Nbeats[symbol] end
-				CurrentPulse = Nbeats[symbol]
-				CurrentPulseText = symbol
-			elseif not is_note and string.find(symbol,'^blank') then
-				if CurrentPulse < shortest then shortest = CurrentPulse end
-				ps_blank(CurrentPulseText,symbol,X)
-			elseif not is_note and string.find(symbol,'^rest') then
-				if CurrentPulse < shortest then shortest = CurrentPulse end
-				ps_rest(CurrentPulseText,symbol,X)
-			elseif not is_note and is_a_clef(symbol)     then -- clef
-			elseif not is_note and symbol == 'clefspace' then -- clefspace
-			end
-		else               -- it's a note !
+		if not is_note and Nbeats[symbol] then  -- it's smb min cro etc
+			-- should measure separately shortest stem-up and stem-down!
+			if Nbeats[symbol] < shortest then shortest=Nbeats[symbol] end
+			CurrentPulse = Nbeats[symbol]
+			CurrentPulseText = symbol
+		elseif not is_note and string.find(symbol,'^blank') then
+			if CurrentPulse < shortest then shortest = CurrentPulse end
+			ps_blank(CurrentPulseText,symbol,X)
+		elseif not is_note and string.find(symbol,'^rest') then
+			if CurrentPulse < shortest then shortest = CurrentPulse end
+			ps_rest(CurrentPulseText,symbol,X)
+		elseif not is_note and (is_a_clef(symbol) or symbol=='clefspace') then
+		elseif is_note then    -- it's a note !
 			local noteref = symbol  -- why ?
 			local stemup = is_stemup(noteref)
 			local shift = 0
@@ -2728,7 +2705,6 @@ local function ps_event (symbols)
 
 	-- end of bracketed simultaneous notes, sub ps_event
 	-- accidentalup = '' ;  accidentaldown = ''  -- these should be local!
---warn('CrosSoFar=',CrosSoFar,' shortest=',shortest)
 	CrosSoFar = CrosSoFar + shortest
 end
 
@@ -2743,7 +2719,7 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 	local ytext ; local size
 	-- remember ps_text() can be called before the first =1 line ...
 	local staveheight = StvHgt -- can be locally changed
-	if not vertpos then vertpos = TextBelowStave end
+	if not vertpos or vertpos == '' then vertpos = TextBelowStave end
 	if Istave == 0 then   -- above the top stave in the system
 		staveheight = StaveHeight[Isyst][1]
 		ytext = Ystave[Isyst][1] + vertpos*staveheight
@@ -2781,9 +2757,12 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 		-- should maybe handle $SpaceRightOfClef,$SpaceForClef,$SpaceForTimeSig,
 		-- $SpaceAfterKeySig, $SpaceForStartRepeat, $SpaceForEndRepeat,
 		-- $SpaceAtEndOfBar ?
-		local pn = tonumber(pos) ; if pn > Epsilon and Ibar == 1 then
+		local pn = tonumber(pos)
+		if pn > Epsilon and Ibar == 1 then
 			left = Xbar[Isyst][0]+(SpaceForClef+WhiteBlobHalfWidth)*staveheight
-		else
+		elseif Ibar == 1 then
+			left = Xbar[Isyst][0]+WhiteBlobHalfWidth*staveheight
+		elseif Ibar > 1 then
 			left = Xbar[Isyst][Ibar-1] + WhiteBlobHalfWidth*staveheight
 		end
 		right = Xbar[Isyst][Ibar] - WhiteBlobHalfWidth*staveheight
@@ -3549,7 +3528,7 @@ local function midi_event (symbols)
 -- warn('velocity = ',velocity)
 				-- $options =~ s{'}{\\'}g;
 				local midiexpressions = {} -- array of cre and dim commands
-				for i,option in ipairs(parse_options(options, false)) do
+				for i,option in ipairs(parse_options(options)) do
 					-- option =~ s{\\'}{'}g;
 					option = string.gsub(option, "[,']$", "")
 					if     option == 'fermata' then -- tempo down & up again
@@ -3815,9 +3794,9 @@ local function newstave (line)
 		-- there's always a clef at BOL ...
 		if Ibar == 1 then Xpart[1] = Xpart[1] + SpaceForClef*maxstvhgt end
 		-- make a bit of room for start-of-repeat signs
-		if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4)>0 then
+		if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4)>0.5 then
 			Xpart[1] = Xpart[1] + SpaceForStartRepeat * maxstvhgt;
-		elseif Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],1)>0 then
+		elseif Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],1)>0.5 then
 			-- double-bars
 			Xpart[1] = Xpart[1] + 0.3 * SpaceForStartRepeat * maxstvhgt;
 		end
@@ -3826,7 +3805,7 @@ local function newstave (line)
 		local ilastpart = 1 + Nparts[Isyst][Ibar]
 		Xpart[ilastpart] = Xbar[Isyst][Ibar] - SpaceAtEndOfBar*maxstvhgt
 		-- leave a bit of room for end-of-repeat signs
-		if bit32.band(BarType[Isyst][Ibar],2) > 0 then
+		if bit32.band(BarType[Isyst][Ibar],2) > 0.5 then
 			Xpart[ilastpart] = Xpart[ilastpart] - SpaceForEndRepeat*maxstvhgt
 		end
 --warn('Xpart[ilastpart] = ',Xpart[ilastpart])
@@ -3860,9 +3839,9 @@ local function newstave (line)
 			end
 		else
 			local x = Xbar[Isyst][Ibar-1] + SpaceLeftOfClef*maxstvhgt
-			if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4) > 0 then
+			if Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],4) > 0.5 then
 				x = x + SpaceForStartRepeat*maxstvhgt
-			elseif Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],1) > 0 then
+			elseif Ibar>1 and bit32.band(BarType[Isyst][Ibar-1],1) > 0.5 then
 				x = x + 0.3 * SpaceForStartRepeat*maxstvhgt
 			end
 			printf("%g %g %g %sclef\n",x,Ystv,StvHgt,cleftype)
@@ -3874,7 +3853,9 @@ local function newstave (line)
 		Stave2clef[Istave] = cleftype
 		i = i + 1
 	elseif array[i] == 'clefspace' then
-		Xpart[1] = Xpart[1] + 0.9*SpaceForClef*maxstvhgt   -- 3.2d ibar==1?
+		if not MIDI then
+			Xpart[1] = Xpart[1] + 0.9*SpaceForClef*maxstvhgt   -- 3.2d ibar==1?
+		end
 		theresaclef = true
 		i = i + 1
 	elseif Ibar == 1 and Stave2clef[Istave] then
@@ -4065,8 +4046,6 @@ end
 	end
 end
 
-
-
 local function interpret_syntax (line)
 	::redo::
 	line = string.gsub(line, "^%s*(.-)%s*$", "%1") -- strip PiL p.209
@@ -4074,8 +4053,7 @@ local function interpret_syntax (line)
 	if PrePro then print(line); return end
 	local s1, s2, s3, s4
 	s1 = string.match(line, '^=%s*(.+)$') ; if s1 then
-		--if not MIDI or not Midi_off then newstave(s1) end ; return
-		newstave(s1) ; return
+		if not MIDI or not Midi_off then newstave(s1) end ; return
 	end
 	s1,s2 = string.match(line, '^boundingbox%s+(%d+)%s+(%d+)$') ; if s2 then
 		boundingbox(s1,s2); return
@@ -4639,7 +4617,7 @@ local function xml_event {
 			my $options = noteref['options};
 			$options =~ s{'}{\\'}g;
 			if not Opt_Cache[options] then
-				Opt_Cache[options] = parse_options(options,false)  -- 1?
+				Opt_Cache[options] = parse_options(options)  -- 1?
 			wend
 			foreach (@{$Opt_Cache[options}}) {
 				my $option = $_;   -- don't clobber the cache
