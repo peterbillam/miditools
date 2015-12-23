@@ -203,9 +203,11 @@ Vars           = {}  -- set by set_var, sets up generators etc
 RabbitSequence    = {0,1,0,0,1,0,1,0, 0,1,0,0,1}
 OldRabbitSequence = {0,1,0,0,1,0,1,0}
 AabaSequence      = {0,0,1,0, 0,0,1,0, 1,1,0,1, 0,0,1,0}
-VariableSetRE     = "^\\$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
-VariableGetRE     = "\\$([A-Z][A-Z0-9]*)"
-VarArraySetRE     = "^\\$([A-Z][A-Z0-9]*)(%d)-(%d)%s*(==?)%s*(.+)$"
+VariableFindRE    = "^%$[A-Z][A-Z0-9]*%s*==?%s*.+$"
+VariableSetRE     = "^%$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
+VariableGetRE_f   = "%$[A-Z][A-Z0-9]*"
+VariableGetRE_m   = "%$([A-Z][A-Z0-9]*)"
+VarArraySetRE     = "^$([A-Z][A-Z0-9]*)(%d)-(%d)%s*(==?)%s*(.+)$"
 -- used by ps_event() and ps_y_above_note() :
 HighestStemUp   = 0 ;  HighestStemDown = 0 ;  HighestNoStem   = 0 
 -- used by ps_event() and ps_y_below_note() :
@@ -998,8 +1000,8 @@ function initialise ()
 		Xml['measure_number'] = 0
 		Xml['backup'] = 0
 	end
--- warn('Nbeats = ',DataDumper(Nbeats))
 end
+
 local function is_a_clef (s)
 	if s== 'treble' or s=='treble8va' or s=='treble8vab' or s== 'alto' or
 	   s=='tenor'or s=='bass' or s=='bass8va' or s=='bass8vab' then
@@ -1007,25 +1009,17 @@ local function is_a_clef (s)
 	end
 	return false
 end
+
 local function is_a_note (s)
---warn('is_a_note: s = ',s)
 	s = string.gsub(s, "[{}()][',]*%d?", "") -- strip slurs and ties off
---warn(' strip slurs and ties off s = ',s)
 	s = string.gsub(s, "[%[%]]%d?", "") -- strip [ ] [1 [1 beam characters off
---warn('strip [ ] [1 [1 beam characters off s = ',s)
 	s = string.gsub(s, "[<>]", "")      -- strip < and > chord characters off
---warn('strip < and > chord characters off s = ',s)
 	s = string.gsub(s, "-.*$", "")      -- strip -xxx options off
---warn('strip -xxx options off s = ',s)
-	if string.find(s,"^[A-Ga-g][~_nbrl#,'x+]*$") then
---warn('s is a note')
-	return true end
---warn('s is not a note')
+	if string.find(s,"^[A-Ga-g][~_nbrl#,'x+]*$") then return true end
 	return false
 end
 
 -------------------- stubs for debugging purposes ----------------------
-local function substitute (line,n) return {line} end
 local function xml_print_cache() return end
 
 ---------------------------- PostScript stuff --------------------------
@@ -1500,10 +1494,7 @@ local function ps_barline (x, isyst, ibar)
 end
 
 local function ps_beat2x (crossofar,crosperpart)
---warn('ps_beat2x: crossofar=',crossofar,' crosperpart=',crosperpart)
 	local ipart = 1 + math.floor(crossofar/crosperpart + Epsilon)
--- why -Epsilon ? 
---warn('ps_beat2x: ipart=',ipart,' Xpart[ipart]=',Xpart[ipart],' Xpart[ipart+1]=',Xpart[ipart+1])
 	if ipart < #Xpart then
 		return (Xpart[ipart] + (Xpart[ipart+1] - Xpart[ipart]) *
 		  (crossofar - crosperpart*(ipart-1)) / crosperpart)
@@ -1514,7 +1505,6 @@ local function ps_beat2x (crossofar,crosperpart)
 end
 
 local function parse_note (s)
---warn('parse_note: s = ',s)
 	if not s then return end
 	local scopy = s -- just in case there's a warning-message
 	local r = {}    -- will return this
@@ -1657,13 +1647,10 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 	local y
 	local dytop = 0.0   -- to space multiple options above the note
 	local dybot = 0.0   -- to space multiple options beneath the note
---warn('options = X',options,'X')
 	if not Opt_Cache[options] then
 		Opt_Cache[options] = parse_options(options) -- 2.7m
 	end
---warn('Opt_Cache[options] = ',DataDumper(Opt_Cache[options]))
 	for i,option in ipairs(Opt_Cache[options]) do -- doesnt clobber the cache
---warn('ps_note_options: i=',i,' option=',option)
 		local option_is_above = true
 		if OptionMustGoBelow[option] then option_is_above = false end
 		if string.find(option, ',$') then -- 3.1d,e,n
@@ -2566,7 +2553,6 @@ local function ps_event (symbols)
 		local halfstemlength = 0.6 * StemLength * StvHgt
 		local smb_x = X + smb_rightshift * note_shift
 --		local stemup = is_stemup(noteref)
---warn('ps_event printing-loop 2: stemup=',stemup)
 		if string.find(CurrentPulseText,'/+') then
 			s1 = string.match(CurrentPulseText,'(/+)')
 --			if stemup then -- XXX but $stemup has not been set ?! :-(
@@ -2875,7 +2861,6 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 			table.remove(tokens, 1)
 		end
 		-- this will be wrong if one of the tokens is a non-numeric syntax err
---warn('bars: tokens = ', DataDumper(tokens))
 		Nparts[Isyst][ibar] = #tokens -- relative spacing
 		-- tot up the given proportions of the bars ...
 		Proportion[ibar] = 0.0
@@ -2896,8 +2881,6 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		sumofspaceatstarts = sumofspaceatstarts + spaceatstart[ibar]
 		::nextbar::
 	end
---warn('bars: spaceatstart = ', DataDumper(spaceatstart))
---warn('bars: Nparts = ', DataDumper(Nparts))
 	Nbars[Isyst] = nbars
 	if XmlOpt then Ibar = 0; Istave = 1 return end
 	-- 3.1f avoid division by zero:
@@ -2910,8 +2893,6 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	Xbar[Isyst] = {}
 	Xbar[Isyst][0] = Lmargin[Isyst]
 	if bit32.band(BarType[Isyst][0], 8) > 0.5 then   -- Segno at first bar ?
---warn('Isyst = '..tostring(Isyst)..' Istave = '..tostring(Istave))
---warn('StaveHeight[Isyst][Istave] = '..tostring(StaveHeight[Isyst][Istave]))
 		printf("%g %g %g segno", lmargin,
 		  Ystave[Isyst][1] + StaveHeight[Isyst][Istave]*SegnoHeight,
 		  StaveHeight[Isyst][Istave])
@@ -3385,7 +3366,6 @@ function midi_in_stave (str)
 end
 
 local function midi_event_option (option, starttime, cha)   -- 3.1i
--- warn('midi_event_option: option=',option,' starttime=',starttime,' cha=',cha)
 	if option == '*' then   -- 3.0b
 		table.insert(MidiScore, {'control_change',starttime+1,cha,0x40,0x00})
 		table.remove(MidiPedal,cha)
@@ -3524,12 +3504,8 @@ local function midi_event (symbols)
 					end
 				end
 				local velocity = current_volume()
--- warn('starttime = ',starttime,' duration = ',duration,' note = ',note)
--- warn('velocity = ',velocity)
-				-- $options =~ s{'}{\\'}g;
 				local midiexpressions = {} -- array of cre and dim commands
 				for i,option in ipairs(parse_options(options)) do
-					-- option =~ s{\\'}{'}g;
 					option = string.gsub(option, "[,']$", "")
 					if     option == 'fermata' then -- tempo down & up again
 		  			elseif option == 'mordent' then
@@ -3565,10 +3541,8 @@ local function midi_event (symbols)
 				local starttie  = noteref['starttie']
 				local endslur   = noteref['endslur']
 				local endtie    = noteref['endtie']
--- warn('noteref = ',DataDumper(noteref))
 				if startslur then StartedSlurs[Istave] = true end
 				if endtie then
---warn('endtie = ',endtie)
 					local e = concat({Istave,endtie,cha},' ')
 					local begref = StartedTies[e]
 					if begref then
@@ -3576,7 +3550,6 @@ local function midi_event (symbols)
 						if pitch == begref[7] and accidental == '' then
 							note = begn  -- accidental tied from prev bar
 						end
--- warn('begn = ',begn,' note = ',note)
 						if begn == note then
 							local begtime = begref[2]
 							if starttie then -- prolong the remembered note
@@ -3692,16 +3665,153 @@ local function midi_write ()
 	io.write(MIDI.score2midi({TPC, MidiScore}))
 end
 
+--------------------- Variable stuff -------------------------
+
+local substitute, set_var   --  see PiL p.58
+
+function substitute (text, infinite_depth)
+	-- It takes a single line as arg, returns a list of perhaps more than 1
+	if type(text) == 'table' then
+		die "substitute called with an table\n";
+		-- and yet we do handle this case here, in the ARRAY loop below...
+	end
+	if string.find(text,VariableFindRE) then
+		 die("substitute called on ",text) 
+	end
+	while string.find(text,VariableGetRE_f) do  -- 3.0h
+		local var = string.match(text,VariableGetRE_m)
+		local val = Vars[var]
+		if type(val) == 'function' then
+--[[
+			#if ($2) {   -- but when is this supposed to occur ?
+			#	warn "substitution with the generator having an argument?!?\n";
+			#	my $s = &{$val}($2);
+			#	$text =~ s/$VariableGetRE/$s/o;
+			#else
+				my $s = &{$val}();
+				$text =~ s/$VariableGetRE/$s/o;   -- ?
+			#}
+]]
+		elseif type(val) == 'table' then  -- multiline, stored as arrayref
+			local raw_lines = {} ; for k,v in pairs(val) do raw_lines[k]=v end
+			local subst_lines = {}
+			while #raw_lines > 0.5 do
+				local raw_line = table.remove(raw_lines, 1)
+				if not raw_line then break end
+				if string.find(raw_line, VariableSetRE) then
+					table.insert(raw_lines, 1, raw_line)
+					local n = set_var(raw_lines, 1, infinite_depth)
+					for i = n,#raw_lines do raw_lines[i-n+1]=raw_lines[i] end
+					raw_lines[#raw_lines-n+2] = nil
+				else
+					for i,v in ipairs(substitute(raw_line,infinite_depth)) do
+						subst_lines[#subst_lines+1] = v
+					end
+				end
+			end
+			local subst_str = table.concat(subst_lines, "\n").."\n"
+			text = string.gsub(text, VariableGetRE_m, subst_str)
+		elseif not val or #val == 0 then
+			warn_ln("variable ",var," is undefined")
+			text = string.gsub(text, VariableGetRE_m, '')
+		elseif val then
+			text = string.gsub(text, '%$'..var, val)
+		end
+	end
+	return split(text,"\n")  -- returns a list, because of multiline vars
+end
+
+function set_var (stackref, i, infinite_depth)
+	-- not always called on Stack!
+	-- needs an i=linenum param, and must return new_linenum
+	local line = stackref[i]
+	local var,equals_sign,val = string.match(line, VariableSetRE)
+	local substitute_now = (equals_sign == '==')
+	if string.find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
+		-- loop until closing brace, then set_var; store in %Vars as an arrayref
+		local lines_of_var = {}
+		while i<#stackref do
+			i = i+1
+			local line = stackref[i]
+			while string.find(line,'\\\n$') do
+				line = string.gsub(line,'\\\n$','')
+				i = i+1
+				line = line .. stackref[i]
+			end
+			-- chop $line;
+			line = string.gsub(line, '^%s+', '')  -- strip leading space
+			if not line or string.find(line, '^}') then break end
+			if not substitute_now then
+				lines_of_var[#lines_of_var+1] = line
+			elseif string.find(line, VariableFindRE) then
+				if substitute_now or infinite_depth then
+					i = i-1
+					set_var(stackref, i, infinite_depth);
+				else
+					warn("setvarline ",line)
+				end
+			elseif substitute_now or infinite_depth then
+				lines_of_var[#lines_of_var+1]=substitute(line,infinite_depth)
+			end
+		end
+		Vars[var] = lines_of_var
+--[[
+	elseif ($val =~
+		 /^(cycle|morse_thue|thue_morse|leibnitz|rabbit|fibonacci|random|aaba)
+		  \?\s*(.*\S)\s*\?/x) {
+		local f = $1;   my @rhs = $2;
+		if ($substitute_now or $infinite_depth) {   -- 3.1i
+			@rhs = substitute($2, $infinite_depth);  -- 3.1i
+		end
+		if ($f == 'thue_morse') { $f = 'morse_thue';   -- 3.2g synonyms...
+		elseif ($f == 'fibonacci') { $f = 'rabbit';
+		end
+		my @a = split(/\s*:\s*/,$rhs[$[]);
+		if (! @a) {warn "line $LineNum: empty argument list in $val\n"; last;}
+		local e = '$Vars[var} = '.$f.'(@a);';
+		eval $e; if ($@) { warn "line $LineNum: can't eval $e: $@\n"; }
+]]
+	else
+		if false and (substitute_now or infinite_depth) then
+--[[
+			my @lines = ();
+			-- the arrayref logic is here, not in &substitute
+			if (ref $val == 'ARRAY') {
+				foreach my $line (@{$val}) {
+					-- one of those lines might involve a variable setting...
+					if ($line =~ /$VariableSetRE/o) {
+						unshift @$stackref, $val;
+						set_var($stackref, i, $infinite_depth);
+					elseif ($line =~ /^}/) { last;
+					else push @lines, substitute($line);
+					end
+				end
+			else
+				if ($val =~ /$VariableSetRE/o) {
+					unshift @$stackref, $val;
+					set_var($stackref, i, $infinite_depth);
+				else @lines = substitute($val);
+				end
+			end
+			if (@lines == 1) { $Vars[var} = $lines[$[];
+			elseif (@lines > 1) { $Vars[var} = \@lines;
+			end
+]]
+		else
+			Vars[var] = val
+		end
+	end
+	return i
+end
+
 ------------------------ general muscript stuff ------------------------
 
 local function newstave (line)
 	local newstave,remainder = string.match(line, "^(%d+[,']?)(.*)$")
 	local tmp = string.gsub(newstave, "[,']", "")
 	Istave = tonumber(tmp)   -- why not Istave directly ?
--- warn('newstave = ',newstave,' Istave = ',Istave)
 	if not Stave2channels[Istave] then Stave2channels[Istave] = {} end
 	local maxstvhgt = MaxStaveHeight[Isyst] -- for speed ...
--- warn('newstave: maxstvhgt = ',maxstvhgt)
 	if not PrePro and not changestave(newstave) then return false end
 	if MIDI then
 		reset_accidentalled(Keysig[Istave])
@@ -3725,7 +3835,6 @@ local function newstave (line)
 	remainder = string.gsub(remainder, "^%s+", "")
 	remainder = string.gsub(remainder, "%s+$", "")
 	local array = parse_line(remainder,false)   -- true ?
---warn('remainder=',remainder,' array=',DataDumper(array))
 	for i,v in ipairs(array) do array[i] = Intl2en[v] or v end
 	-- count up the total beats in this bar, and calculate spacings ...
 	CrosSoFar = 0  -- global
@@ -3743,11 +3852,9 @@ local function newstave (line)
 				  string.find(token,'^blank') then
 					if CurrentPulse<shortest then shortest=CurrentPulse end
 				elseif Nbeats[token] then  -- it's a smb, min, etc
---warn('token = ',token,' Nbeats[token] = ', Nbeats[token])
 					if Nbeats[token]<shortest then shortest=Nbeats[token] end
 					CurrentPulse     = Nbeats[token]
 				end
---warn('token = ',token,' CurrentPulse = ', CurrentPulse)
 				i = i + 1
 				if i>#array then warn_ln("missing >"); break end
 				token = array[i]
@@ -3783,12 +3890,9 @@ local function newstave (line)
 		  '% ERROR: no | before stave line, page ',pagenum,', sys ',Isyst)
 			CrosPerPart = 10 -- ugly but legal
 		end
---warn('Nparts[Isyst][Ibar] = ',Nparts[Isyst][Ibar])
-	
 		-- so what are the corresponding x positions ?
 		-- NB! Xpart[n] is the left end of part n, but Xbar{s,m} is right end
 		-- of bar m !  So Xbar{isyst,0} = LeftHandMargin.
-
 		-- place the beginning of the bar
 		Xpart[1]=(Xbar[Isyst][Ibar-1] or 0)+SpaceAtBeginningOfBar*maxstvhgt
 		-- there's always a clef at BOL ...
@@ -3808,9 +3912,7 @@ local function newstave (line)
 		if bit32.band(BarType[Isyst][Ibar],2) > 0.5 then
 			Xpart[ilastpart] = Xpart[ilastpart] - SpaceForEndRepeat*maxstvhgt
 		end
---warn('Xpart[ilastpart] = ',Xpart[ilastpart])
 	end
---warn('Xpart = ',DataDumper(Xpart))
 
 	-- OK. Now rescan the string bar, actually writing out the symbols ...
 	CrosSoFar = 0;			-- so far this bar
@@ -3910,7 +4012,7 @@ local function newstave (line)
 		Keysig[Istave] = array[i]
 		i = i + 1
 	elseif Ibar==1 and retain_clef and
-	  string.find(Keysig[Istave],'^([1-7])([#bn])$') then
+	  string.find(Keysig[Istave],'^[1-7])([#bn]$') then
 		must_null_the_keysig = false   -- 2.8o
 		if not MIDI and not XmlOpt then
 			s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
@@ -3950,7 +4052,6 @@ local function newstave (line)
 			Xpart[1] = Xpart[1] + SpaceForStartRepeat * maxstvhgt
 		end
 		-- calculate the length of bar available for music, = end - beginning
---warn('Nparts[Isyst][Ibar]=',Nparts[Isyst][Ibar],' Xpart[1]=',Xpart[1])
 		dxbar = Xpart[1 + Nparts[Isyst][Ibar]] - Xpart[1]
 		-- and thus place the various parts within the bar
 		for ipart = 2, Nparts[Isyst][Ibar] do
@@ -4017,16 +4118,15 @@ end
 			end
 			Stave2clef[Istave] = symbol
 		elseif symbol == 'clefspace' then
---[[
-		elseif (symbol == '|') {  -- 3.2f in-bar barline
-			if (!MIDI and !XmlOpt) {
-				local x = ps_beat2x(CrosSoFar,$CrosPerPart);
-				$x -= 0.8*$SpaceRightOfClef*$StvHgt;
-				printf "%g %g %g %g barline\n",
-				  $x, $Ystv, $Ystv-$StvHgt, $StvHgt;
+		elseif symbol == '|' then  -- 3.2f in-bar barline
+			if not MIDI and not XmlOpt then
+				local x = ps_beat2x(CrosSoFar,CrosPerPart)
+				x = x - 0.8*SpaceRightOfClef*StvHgt
+				printf("%g %g %g %g barline",
+				  x, Ystv, Ystv-StvHgt, StvHgt)
 			end
-		elseif (symbol =~ /^=(\d+[,']?)$/) { &changestave($1);
-]]
+		elseif string.find(symbol, "^=%d+[,']?$") then
+			s1 = string.match(symbol, "^=(%d+[,']?)$") ; changestave(s1)
 		elseif midi_in_stave(symbol) then   -- ignore it
 		elseif CrosPerPart or MIDI or XmlOpt then -- a note, blank or rest
 			if is_a_note(symbol) or string.find(symbol,'^rest') or
@@ -4039,6 +4139,7 @@ end
 				end
 			else
 				warn_ln("not a note: ",symbol)
+crash()
 			end
 		end
 		::nextsymbol::
@@ -4098,13 +4199,12 @@ local function interpret_syntax (line)
 	if s2 then newsystem('/'); bars(s1,s2); Ibar=0; return end -- on same line
 	s1,s2 =  string.match(line, '^([1-9][0-9]*)%s*bars?%s*(.*)$')
 	if s2 then bars(s1,s2); Ibar=0 return end
-	s1,s2 = string.match(line, '^(|%s*[^=]*)(%s*=%d.*)?$')
-	if s2 then
-		newbar(string.gsub(s1, '^|%s*', ''))
+	s1,s2 = string.match(line, '^(|%s*[^=]*)(%s*=%d.*)$') ; if s2 then
+		newbar(string.gsub(s1, '^|%s*', ''))  -- p.206 bottom
 		newstave(string.gsub(s2, '^%s*=', ''))
 		return
 	end
-	s1 = string.match(line, '^(|%s*[^=]*)$')
+	s1 = string.match(line, '^(|%s*[^=]*)$')  -- p.206 bottom
 	if s1 then newbar(string.gsub(s1, '^|%s*', '')) ; return end
 	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)(%s.*)$')
 	if s4 then
@@ -4230,22 +4330,21 @@ while LineNum < #Stack do  -- the main loop through the input-file
 		interpret_syntax(line)
 		goto nextline
 	end
-	if string.find(line, VariableSetRE) then -- 3.0g  -- is string.find enough?
-		LineNum = LineNum - 1;  Stack[LineNum] = line -- unshift @Stack, $line
-		set_var(Stack)
+	if string.find(line, VariableFindRE) then -- 3.0g
+		LineNum = set_var(Stack, LineNum, false)
 		goto nextline
 	end
 	local s1,s2,s3,s4,s5 = string.match(line, VarArraySetRE) ; if s1 then
 		set_array(s1,s2,s3,s4,s5)
 		goto nextline
 	end
-	local lines = substitute(line,1)   -- now here in mainloop
+	local lines = substitute(line,true)   -- now here in mainloop
 	for i,subline in ipairs(lines) do
 		if string.match(subline, '^%s*$') then goto nextsubline end
-		if string.match(subline, VariableSetRE) then
+		if string.match(subline, VariableFindRE) then
 			die("a $VAR= line remains in the text:\n"..line.."\n")
 		else
-			interpret_syntax(line)
+			interpret_syntax(subline)
 		end
 		::nextsubline::
 	end
@@ -4269,79 +4368,6 @@ os.exit(0)
 -- ------------------------ Subroutines -------------------------------
 
 
--------------------------------------------------------
-local function set_var { my ($stackref, $infinite_depth) = @_;
-	local line = shift @$stackref;
-	$line =~ /$VariableSetRE/o;
-	local var = $1;   local substitute_now = ($2 == '==');   local val = $3;
---warn "set_var: var=$var infinite_depth=$infinite_depth substitute_now=$substitute_now val=$val\n";
-	if ($val =~ /^{(\s*#.*)?$/) {   -- allow comments 3.1b
-		-- loop until closing brace, then set_var; store in %Vars as an arrayref
-		my @lines_of_var = ();
-		while (@$stackref) {
-			local line = shift @$stackref;
-			while ($line=~s{\\\n$}{}) {local nxt=shift @$stackref; $line.=$nxt;}
-			chop $line;
-			$line =~ s{^\s+}{};  -- strip leading space
-			if ($line =~ /^}/ or ! defined $line) { last; }
-			if (!$substitute_now) { push @lines_of_var, $line; next; }
-			if ($line =~ /$VariableSetRE/o) {
-				if ($substitute_now or $infinite_depth) {
-					unshift @$stackref, $line;
-					set_var($stackref, $infinite_depth);
-				else
-					warn "setvarline $line\n";
-				end
-			elseif ($substitute_now or $infinite_depth) { 
-				push @lines_of_var, substitute($line, $infinite_depth);
-			end
-		end
-		$Vars[var} = \@lines_of_var;
-
-	elseif ($val =~
-		 /^(cycle|morse_thue|thue_morse|leibnitz|rabbit|fibonacci|random|aaba)
-		  \?\s*(.*\S)\s*\?/x) {
-		local f = $1;   my @rhs = $2;
-		if ($substitute_now or $infinite_depth) {   -- 3.1i
-			@rhs = substitute($2, $infinite_depth);  -- 3.1i
-		end
-		if ($f == 'thue_morse') { $f = 'morse_thue';   -- 3.2g synonyms...
-		elseif ($f == 'fibonacci') { $f = 'rabbit';
-		end
-		my @a = split(/\s*:\s*/,$rhs[$[]);
-		if (! @a) {warn "line $LineNum: empty argument list in $val\n"; last;}
-		local e = '$Vars[var} = '.$f.'(@a);';
-		eval $e; if ($@) { warn "line $LineNum: can't eval $e: $@\n"; }
-	else
-		if ($substitute_now or $infinite_depth) {
-			my @lines = ();
-			-- the arrayref logic is here, not in &substitute
-			if (ref $val == 'ARRAY') {
-				foreach my $line (@{$val}) {
-					-- one of those lines might involve a variable setting...
-					if ($line =~ /$VariableSetRE/o) {
-						unshift @$stackref, $val;
-						set_var($stackref, $infinite_depth);
-					elseif ($line =~ /^}/) { last;
-					else push @lines, substitute($line);
-					end
-				end
-			else
-				if ($val =~ /$VariableSetRE/o) {
-					unshift @$stackref, $val;
-					set_var($stackref, $infinite_depth);
-				else @lines = substitute($val);
-				end
-			end
-			if (@lines == 1) { $Vars[var} = $lines[$[];
-			elseif (@lines > 1) { $Vars[var} = \@lines;
-			end
-		else
-			$Vars[var} = $val;
-		end
-	end
-
-end
 local function set_array { my ($base, $digit1, $digit2, $equals, $values) = @_;  -- 3.1m
 	-- 20130305 XXX should we just expand and let set_var take care of it ?
 	-- or should we impose a no-frills, end-of-line constraint ?
@@ -4364,52 +4390,6 @@ end
 
 
 
-local function substitute { my ($text, $infinite_depth) = @_;
-	-- It takes a single line as arg, but returns a list of perhaps more than 1
-	if (ref $text == 'ARRAY') {
-		die "substitute called with an arrayref\n";
-		-- and yet we do handle this case here, in the ARRAY loop below...
-	end
-	if ($text =~ /$VariableSetRE/o) { die "substitute called on $text\n"; }
-	while ($text =~ /$VariableGetRE/o) {  -- 3.0h
-		my $var = $1;
-		my $val = $Vars[var};
-		if (ref $val == 'CODE') {
-			#if ($2) {   -- but when is this supposed to occur ?
-			#	warn "substitution with the generator having an argument?!?\n";
-			#	my $s = &{$val}($2);
-			#	$text =~ s/$VariableGetRE/$s/o;
-			#else
-				my $s = &{$val}();
-				$text =~ s/$VariableGetRE/$s/o;   -- ?
-			#}
-		elseif (ref $val == 'ARRAY') {  -- multiline, stored as arrayref
-			my @raw_lines = @{$val};
-			my @subst_lines = ();
-			while (@raw_lines) {
-				my $raw_line = shift @raw_lines;
---warn "substitute: raw_line='$raw_line'\n";
-				if ($raw_line =~ /$VariableSetRE/o) {
---warn "substitute: raw_line matched VariableSetRE\n";
-					unshift @raw_lines, $raw_line;
-					set_var(\@raw_lines,$infinite_depth);
-				else
---warn "substitute: raw_line did not match VariableSetRE; recursing\n";
-					push @subst_lines, substitute($raw_line,$infinite_depth);
-				end
-			end
-			my $subst_str = join("\n", @subst_lines)."\n";
-			$text =~ s/$VariableGetRE/$subst_str/o;
-		elseif (! $val) {
-			warn " line $LineNum: variable \$$var is undefined\n";
-			$text =~ s/$VariableGetRE//o;
-		else
---warn "substitute: /$VariableGetRE/$val/ text='$text'\n";
-			$text =~ s/$VariableGetRE/$val/;
-		end
-	end
-	return split("\n",$text);  -- returns a list, because of multiline vars
-end
 
 
 -- ------------------------- infrastructure ------------------------
