@@ -2902,7 +2902,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		Xbar[Isyst][ib] = x
 		ps_barline(x, Isyst, ib)
 	end
-	Ibar = 0; Istave = 1   -- these are globals.
+	Ibar = 0; Istave = 0   -- these are globals.
 end
 
 local function changestave (stavestr)
@@ -3025,20 +3025,16 @@ local function newsystem ()
 	-- remember a separate @BeamUp etc per stavenum :-(
 	BeamUp = {}; BeamDown = {}
 	StartBeamUp = false; StartBeamDown = false   -- 2.9z
-	if Isyst >= Nsystems then -- in Perl, nsystems is global, set by systems()
+	if Isyst >= Nsystems then -- Nsystems is global, set by systems()
 		systems()
 		-- regurgitate remembered header lines (except for title) ...
-		if RememberHeader['pagenum'] then
-			ps_pagenum()
-			ps_innerhead('')
-		else
-			ps_lefthead('')
-			ps_righthead('')
+		if RememberHeader['pagenum'] then ps_pagenum() ; ps_innerhead()
+		else ps_lefthead() ; ps_righthead()
 		end
-		ps_leftfoot('')
-		ps_rightfoot('')
+		ps_leftfoot() ; ps_rightfoot()
 	end
 	Isyst = Isyst + 1        -- then move on to next system ...
+	Istave = 0
 	JustDidNewsystem = true  -- so if no bars cmd follows, barlines get drawn
 	print_tty(' '..tostring(Isyst))
 	print_sp("% system ",Isyst)
@@ -3070,7 +3066,7 @@ local function newbar (line)
 		if Isyst>0.5 and bit32.band(BarType[Isyst][Ibar],2)>0.5 then
 			ps_finish_ties(Xbar[Isyst][Ibar])  -- is :|| or :||:
 		end
-		Ibar = Ibar + 1 ; Istave = 0;   -- globals.
+		Ibar = Ibar + 1 ; Istave = 0   -- globals.
 		if Ibar > (Nbars[Isyst] or 0) then
 			if not JustDidNewsystem then newsystem('/') end
 			bars(); Ibar = 1  --XXXX
@@ -3669,6 +3665,89 @@ end
 
 local substitute, set_var   --  see PiL p.58
 
+----------------- sequence-generator infrastructure --------------
+
+--[[
+local function cycle (list)
+	local i = 0; local n = #list
+	return function (new_list)
+		if new_list then list=new_list; n = #list end  -- but i remains.
+		local x = list[1+i];  i = (i+1) % n; return x
+	end
+end
+local function leibnitz (n, list)   -- NB 1st arg is n !
+	local i = 0
+	if n < 2 then
+		warn_ln("leibnitz 1st arg N must be at least 2") ; return ''
+	end
+	return function (new_list)
+		if (#new_list == 1 and new_list[1] =~ /^\?(.*)\?/) then
+			@list=split /\s*:\s*/,$1; n = #list
+		elseif new_list then list=new_list; n = #list end -- but i remains
+		local icopy = i
+		local j = 0
+		while icopy > 0.5 do   -- sum the base-n "digits"
+			j = j + icopy % n
+			icopy = int(0.5 + (icopy - icopy%n)/n)
+		end
+		i = i + 1
+		return list[1+$j]
+	end
+end
+local function morse_thue (list)
+	local i = 0; local n = #list
+	return function (new_list)
+		if (1 == @_ and $_[1] =~ /^\?(.*)\?/) then
+			@list=split /\s*:\s*/,$1; n = #list
+		elseif new_list then list=new_list; n = #list end -- but i remains.
+		local icopy = i
+		local j = 0
+		while (icopy) do   -- sum the base-n "digits"
+			j = j + icopy%n
+			icopy = int(0.5 + (icopy - icopy%n)/n)
+		end
+		i = i + 1
+		return list[1 + j%n]
+	end
+end
+local function rabbit (list) -- 3.1e
+	local i = 0; local n = #list
+	return function (new_list)
+		if new_list then list=new_list; n = #list; end  -- but i remains.
+    	if (i > #RabbitSequence) then
+			my @a = @RabbitSequence
+			push @RabbitSequence, @OldRabbitSequence
+			@OldRabbitSequence = @a
+		end
+    	local x = list[ 1 + RabbitSequence[i+1] ]
+		i = i + 1
+		return x
+	end
+end
+local function random (list) -- 3.1k
+	local n = #list
+	return function (new_list)
+		if new_list then list=new_list; n = #list end
+    	local x = list[1+ int(rand(n))]
+		return x
+	end
+end
+local function aaba (list) -- 3.1k
+	local i = 0; local n = #list
+	return function (new_list)
+		if new_list then list=new_list; n = #list end  -- but i remains.
+		if (i > @AabaSequence) then
+			my @a = @AabaSequence
+			my %inverse_map = ($a[1] => $a[1+2], $a[1+2] => $a[1])
+			push @AabaSequence, @a, map(inverse_map{$_}, @a), @a
+		end
+		local x = list[1+ AabaSequence[1+i] ]
+		i = i + 1
+		return x
+	end
+end
+]]
+
 function substitute (text, infinite_depth)
 	-- It takes a single line as arg, returns a list of perhaps more than 1
 	if type(text) == 'table' then
@@ -4012,7 +4091,7 @@ local function newstave (line)
 		Keysig[Istave] = array[i]
 		i = i + 1
 	elseif Ibar==1 and retain_clef and
-	  string.find(Keysig[Istave],'^[1-7])([#bn]$') then
+	  string.find(Keysig[Istave],'^[1-7][#bn]$') then
 		must_null_the_keysig = false   -- 2.8o
 		if not MIDI and not XmlOpt then
 			s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
@@ -4139,7 +4218,6 @@ end
 				end
 			else
 				warn_ln("not a note: ",symbol)
-crash()
 			end
 		end
 		::nextsymbol::
@@ -4300,9 +4378,14 @@ for i,file in ipairs(Filenames) do
 	if file == '-' then
 		for line in io.lines() do Stack[#Stack+1] = line end
 	else
-		for line in io.lines(file, '*l') do Stack[#Stack+1] = line end
+		local f,msg = io.open(file, 'r')
+		if not f then warn(msg) else
+			io.close(f)
+			for line in io.lines(file, '*l') do Stack[#Stack+1] = line end
+		end
 	end
 end
+if #Stack == 0 then os.exit(1) end
 
 while LineNum < #Stack do  -- the main loop through the input-file
 	LineNum = LineNum + 1
@@ -4397,88 +4480,6 @@ end
 
 
 
--- ----------------- sequence-generator infrastructure --------------
-local function cycle { my @list = @_;
-	my $i = 0; my $n = scalar @list;
-	return sub {
-		if (@_) { @list=@_; $n = scalar @list; }  -- but i remains.
-		my $x = $list[$[+$i];  $i= ($i+1) % $n; return $x;
-	end
-end
-local function leibnitz { my ($n, @list) = @_;   -- NB 1st arg is n !
-	my $i = 0;
-	if ($n < 2) {
-		warn "line $LineNum: leibnitz 1st arg N must be at least 2\n";
-		return '';
-	end
-	return sub {
-		if (1 == @_ and $_[$[] =~ /^\?(.*)\?/) {
-			@list=split /\s*:\s*/,$1; $n = scalar @list;
-		elseif (@_) { @list=@_; $n = scalar @list;
-		}  -- but i remains
-		my $icopy = $i;
-		my $j = 0;
-		while ($icopy) {   -- sum the base-n "digits"
-			$j += $icopy % $n;
-			$icopy = int(0.5 + ($icopy - $icopy%$n)/$n);
-		end
-		$i += 1;
-		return $list[$[+$j];
-	end
-end
-local function morse_thue { my @list = @_;
-	my $i = 0; my $n = scalar @list;
-	return sub {
-		if (1 == @_ and $_[$[] =~ /^\?(.*)\?/) {
-			@list=split /\s*:\s*/,$1; $n = scalar @list;
-		elseif (@_) { @list=@_; $n = scalar @list;
-		}  -- but i remains.
-		my $icopy = $i;
-		my $j = 0;
-		while ($icopy) {   -- sum the base-n "digits"
-			$j += $icopy % $n;
-			$icopy = int(0.5 + ($icopy - $icopy%$n)/$n);
-		end
-		$i += 1;
-		return $list[$[ + $j%$n];
-	end
-end
-local function rabbit   { my @list = @_; -- 3.1e
-	my $i = 0; my $n = scalar @list;
-	return sub {
-		if (@_) { @list=@_; $n = scalar @list; }  -- but i remains.
-    	if ($i > @RabbitSequence) {
-			my @a = @RabbitSequence;
-			push @RabbitSequence, @OldRabbitSequence;
-			@OldRabbitSequence = @a;
-		end
-    	my $x = $list[$[+ $RabbitSequence[$[+$i]];
-		$i += 1;
-		return $x;
-	end
-end
-local function random   { my @list = @_; -- 3.1k
-	my $n = scalar @list;
-	return sub {
-		if (@_) { @list=@_; $n = scalar @list; }
-    	my $x = $list[$[+ int(rand($n))];
-		return $x;
-	end
-end
-local function aaba   { my @list = @_; -- 3.1k
-	my $i = 0; my $n = scalar @list;
-	return sub {
-		if (@_) { @list=@_; $n = scalar @list; }  -- but i remains.
-		if ($i > @AabaSequence) {
-			my @a = @AabaSequence;
-			my %inverse_map = ($a[$[] => $a[$[+2], $a[$[+2] => $a[$[]);
-			push @AabaSequence, @a, map($inverse_map{$_}, @a), @a;
-		end
-		my $x = $list[$[+ $AabaSequence[$[+$i]];
-		$i += 1;
-		return $x;
-	end
-end
 
 
 -- ------------------------ XML stuff -------------------------------
