@@ -1015,7 +1015,9 @@ local function is_a_note (s)
 	s = string.gsub(s, "[%[%]]%d?", "") -- strip [ ] [1 [1 beam characters off
 	s = string.gsub(s, "[<>]", "")      -- strip < and > chord characters off
 	s = string.gsub(s, "-.*$", "")      -- strip -xxx options off
-	if string.find(s,"^[A-Ga-g][~_nbrl#,'x+]*$") then return true end
+	if string.find(s,"^[A-Ga-g][nbrl#,'x+]*$") then return true end
+	if string.find(s,"^[A-G][_nbrl#,'x+]*$")   then return true end
+	if string.find(s,"^[a-g][~nbrl#,'x+]*$")   then return true end
 	return false
 end
 
@@ -1124,7 +1126,7 @@ local function systems (nsystems, sizes)
 	else
 		Nsystems = tonumber(nsystems)
 		RememberSystemsSizes = sizes     -- global
-		RememberNsystems     = tonumber(nsystems)  -- global
+		RememberNsystems     = Nsystems  -- global
 		RememberHeader       = {}        -- global
 	end
 	local systms = split(sizes, '%s*/%s*')
@@ -1179,13 +1181,13 @@ local function systems (nsystems, sizes)
 	end
 	print_tty("page "..tostring(Ipage)..", system")
 
-	for i=(#systms+1),nsystems do table.insert(systms, systms[#systms]) end
+	for i=(#systms+1),Nsystems do table.insert(systms, systms[#systms]) end
 	--print('systms =',DataDumper(systms))
 
 	local totsyswidth = 0.0   -- initialise counter for all systems on page
 	local barlinesandgaps = {}
 	local ngaps    = {}
-	for isyst=1,nsystems do -- for each system
+	for isyst=1,Nsystems do -- for each system
 		local syswidth = 0.0  -- this system width (includes all gaps)
 		Lmargin[isyst] = lmar;
 		Rmargin[isyst] = rmar;
@@ -1244,10 +1246,10 @@ local function systems (nsystems, sizes)
 	end
 	-- so do the systems fit on the page ?
 	local systemgap
-	if nsystems == 1 then
+	if Nsystems == 1 then
 		systemgap = (TopMar-BotMar-totsyswidth-topgap)
 	else
-		systemgap = (TopMar-BotMar-totsyswidth-topgap) / (nsystems-1);
+		systemgap = (TopMar-BotMar-totsyswidth-topgap) / (Nsystems-1);
 	end
 	if systemgap < 0 then
 		die(string.format("\nSorry, won't fit: systemgap=%g\n", systemgap))
@@ -1256,17 +1258,17 @@ local function systems (nsystems, sizes)
 	-- if systemgap is large, space is left also above top sys & below bot.
 	local Y
 	local excess = systemgap - AmpleSysGap*(TopMar-BotMar)
-	if nsystems == 1 then
+	if Nsystems == 1 then
 		Y = 0.5 * (TopMar+BotMar+totsyswidth) - topgap  -- 2.9m
 	elseif excess > 0 then
-		adjustment = excess * (nsystems-1) / (nsystems+1)
+		adjustment = excess * (Nsystems-1) / (Nsystems+1)
 		systemgap = systemgap - excess + adjustment
 		Y = TopMar - adjustment - topgap
 	else
 		Y = TopMar - topgap
 	end
 	-- for each system ...
-	for isyst=1,nsystems do
+	for isyst=1,Nsystems do
 		print("% system "..tostring(isyst)..
 		  " staves, initial barline, and brackets:")
 		local istave = 1; local igap = 1
@@ -1366,8 +1368,11 @@ local function ps_innerhead (s)
 		RememberHeader['innerhead'] = str
 	else
 		if RememberHeader['title'] then   -- 2.9g
-			str = RememberHeader['title']..',  '..RememberHeader['innerhead']
-			RememberHeader['title'] = nil   -- why this ?
+			str = RememberHeader['title']
+			if RememberHeader['innerhead'] then
+				str = str..',  '..RememberHeader['innerhead']
+			end
+			-- RememberHeader['title'] = nil   -- why this ?
 		else
 			str = RememberHeader['innerhead']
 		end
@@ -1574,6 +1579,7 @@ end
 
 local function dypitch (pitch)
 	local y = Ytable[pitch]
+	if not y then warn_ln('unrecognisable pitch: ',pitch) ; return 0 end
 	if string.find(Stave2clef[Istave], '^treble') then y = y + 0.125
 	elseif Stave2clef[Istave] == 'tenor' then y = y + 0.25
 	elseif string.find(Stave2clef[Istave], '^bass') then y = y - 0.125
@@ -3667,12 +3673,11 @@ local substitute, set_var   --  see PiL p.58
 
 ----------------- sequence-generator infrastructure --------------
 
---[[
 local function cycle (list)
 	local i = 0; local n = #list
-	return function (new_list)
-		if new_list then list=new_list; n = #list end  -- but i remains.
-		local x = list[1+i];  i = (i+1) % n; return x
+	return function (newlist)
+		if newlist then list=newlist; n = #list end  -- but i remains.
+		local x = list[1+i] ;  i = (i+1) % n ;  return x
 	end
 end
 local function leibnitz (n, list)   -- NB 1st arg is n !
@@ -3680,31 +3685,35 @@ local function leibnitz (n, list)   -- NB 1st arg is n !
 	if n < 2 then
 		warn_ln("leibnitz 1st arg N must be at least 2") ; return ''
 	end
-	return function (new_list)
-		if (#new_list == 1 and new_list[1] =~ /^\?(.*)\?/) then
-			@list=split /\s*:\s*/,$1; n = #list
-		elseif new_list then list=new_list; n = #list end -- but i remains
+	if not list then list = {} end
+	return function (newlist)
+		if newlist and #newlist==1 and string.find(newlist[1],'^%?.*%?') then
+			local s1 = string.match(newlist[1], '^%?(.*)%?')
+			list = split(s1,'%s*:%s*') ; n = #list
+		elseif newlist then list=newlist; n = #list end -- but i remains
 		local icopy = i
 		local j = 0
 		while icopy > 0.5 do   -- sum the base-n "digits"
 			j = j + icopy % n
-			icopy = int(0.5 + (icopy - icopy%n)/n)
+			icopy = round((icopy - icopy%n) / n)
 		end
 		i = i + 1
-		return list[1+$j]
+		return list[1+j]
 	end
 end
 local function morse_thue (list)
 	local i = 0; local n = #list
-	return function (new_list)
-		if (1 == @_ and $_[1] =~ /^\?(.*)\?/) then
-			@list=split /\s*:\s*/,$1; n = #list
-		elseif new_list then list=new_list; n = #list end -- but i remains.
+	if not list then list = {} end
+	return function (newlist)
+		if newlist and #newlist==1 and string.find(newlist[1],'^%?.*%?') then
+			local s1 = string.match(newlist[1], '^%?(.*)%?')
+	 	   list = split(s1,'%s*:%s*') ; n = #list
+		elseif newlist then list=newlist; n = #list end -- but i remains.
 		local icopy = i
 		local j = 0
-		while (icopy) do   -- sum the base-n "digits"
-			j = j + icopy%n
-			icopy = int(0.5 + (icopy - icopy%n)/n)
+		while icopy > 0.5 do   -- sum the base-n "digits"
+			j = j + icopy % n
+			icopy = round((icopy - icopy%n) / n)
 		end
 		i = i + 1
 		return list[1 + j%n]
@@ -3712,41 +3721,46 @@ local function morse_thue (list)
 end
 local function rabbit (list) -- 3.1e
 	local i = 0; local n = #list
-	return function (new_list)
-		if new_list then list=new_list; n = #list; end  -- but i remains.
-    	if (i > #RabbitSequence) then
-			my @a = @RabbitSequence
-			push @RabbitSequence, @OldRabbitSequence
-			@OldRabbitSequence = @a
+	return function (newlist)
+		if newlist then list=newlist; n = #list; end  -- but i remains.
+		if i >= #RabbitSequence then
+			local n_ors = #OldRabbitSequence -- really only need its size...
+			local n_rs  = #RabbitSequence
+			for i = 1,n_ors do
+				table.insert(RabbitSequence, OldRabbitSequence[i])
+			end
+			for i = 1, n_rs-n_ors do
+				table.insert(OldRabbitSequence, RabbitSequence[i])
+			end
 		end
-    	local x = list[ 1 + RabbitSequence[i+1] ]
+		local x = list[ 1 + RabbitSequence[i+1] ]
 		i = i + 1
 		return x
 	end
 end
 local function random (list) -- 3.1k
 	local n = #list
-	return function (new_list)
-		if new_list then list=new_list; n = #list end
-    	local x = list[1+ int(rand(n))]
+	return function (newlist)
+		if newlist then list=newlist; n = #list end
+		local x = list[math.random(n)]
 		return x
 	end
 end
 local function aaba (list) -- 3.1k
-	local i = 0; local n = #list
-	return function (new_list)
-		if new_list then list=new_list; n = #list end  -- but i remains.
-		if (i > @AabaSequence) then
-			my @a = @AabaSequence
-			my %inverse_map = ($a[1] => $a[1+2], $a[1+2] => $a[1])
-			push @AabaSequence, @a, map(inverse_map{$_}, @a), @a
-		end
-		local x = list[1+ AabaSequence[1+i] ]
-		i = i + 1
-		return x
-	end
+    local i = 0; local n = #list
+    return function (newlist)
+        if newlist then list=newlist; n = #list end  -- but i remains.
+        if (i >= #AabaSequence) then
+            local n = #AabaSequence
+            for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
+            for i = 1,n do table.insert(AabaSequence, 1-AabaSequence[i]) end
+            for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
+        end
+        local x = list[1+ AabaSequence[1+i] ]
+        i = i + 1
+        return x
+    end
 end
-]]
 
 function substitute (text, infinite_depth)
 	-- It takes a single line as arg, returns a list of perhaps more than 1
@@ -3812,12 +3826,11 @@ function set_var (stackref, i, infinite_depth)
 		while i<#stackref do
 			i = i+1
 			local line = stackref[i]
-			while string.find(line,'\\\n$') do
-				line = string.gsub(line,'\\\n$','')
+			while string.find(line,'\\$') do
+				line = string.gsub(line,'\\$','')
 				i = i+1
 				line = line .. stackref[i]
 			end
-			-- chop $line;
 			line = string.gsub(line, '^%s+', '')  -- strip leading space
 			if not line or string.find(line, '^}') then break end
 			if not substitute_now then
@@ -4077,7 +4090,7 @@ local function newstave (line)
 			end
 			if array[i] == '0' then  -- 2.8c cancel keysig, back to Cmaj
 				-- XXX if 2 lines on same stave, only the 1st reserves space :-(
-				s1,s2 = string.gmatch(Keysig[Istave], '^([1-7])([#bn])$')
+				s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
 				if s2 then
 					ps_keysig('-'..s1, s2, x)
 				else
