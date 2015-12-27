@@ -1567,7 +1567,7 @@ local function parse_note (s)
 	end
 	notebit = gsub(notebit, "[{}%(%)][',]*%d+", "")
 	if notebit == '' then return r end
-	warn_ln('bad note syntax in "',scopy,'" at "',s1,'"')
+	warn_ln('bad note syntax in "',scopy,'" at "',notebit,'"')
 	return r
 end
 
@@ -2279,14 +2279,13 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 			if y1 > ymax then y1 = ymax end
 		end
 		-- check if any intermediate notes are too low ...
--- there's a tiny difference here in 3duets page4 bar86  qua [f~ d~b g f]
 		local x, y, dx, dy, dydx, too_low
 		dy = yn - y1
 		dx = xn - x1 ;  if dx<1.0 then dx=1.0 end
 		dydx = dy / dx
 		too_low = false
 		for i = 2,n-1 do
-			x = xes[i]; y = y1 + dy * (x-x1) / dx
+			x = xes[i]; y = y1 + dydx * (x-x1)
 			ymax = ylowblobs[i] - min_beam_clearance -
 			  BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1)
 			if y > ymax then too_low = true ; break end
@@ -2301,10 +2300,10 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 			local best_fit_gradient = ps_best_fit_gradient(xes,ylowblobs)
 			if math.abs(best_fit_gradient) < MaxBeamGradient then
 				if best_fit_gradient > 0.0 then -- positive gradient
-					ymax = y1 + best_fit_gradient * (xn-x1)
+					ymax = y1 + best_fit_gradient*dx
 					if yn > ymax then yn = ymax end
 				else  -- negative gradient
-					ymax = yn - best_fit_gradient * (xn-x1)
+					ymax = yn - best_fit_gradient*dx
 					if y1 > ymax then y1 = ymax end
 				end
 			end
@@ -2469,7 +2468,10 @@ local function ps_event (symbols)
 					if Y > HighestStemDown then HighestStemDown = Y end
 					if Y < LowestStemDown then
 						LowestStemDown = Y
-						accidentaldown = noteref['accidental'] or '-'
+						accidentaldown = noteref['accidental']
+						if not accidentaldown or accidentaldown=='' then
+							accidentaldown = '-'
+						end
 					end
 					if startbeam == '['      then StartBeamDown = true
 					elseif startbeam == '[X' then
@@ -2961,7 +2963,7 @@ end
 local function midi_timesig (str)
 	if not MIDI then return end
 	-- should return here if !$str and midi_timesig has already been called.
-	local timesig, parts = table.unpack(split(str, ' ', 2))
+	local timesig, parts = table.unpack(split(str, ' +', 2))
 	local cc
 	local s1,s2 = string.match(timesig, '^(%d+)/(%d+)$')
 	if not timesig or timesig == '' then
@@ -3008,7 +3010,7 @@ local function midi_timesig (str)
 	local ticksperpart = TicksThisBar / #parts_a
 	for i,part_str in ipairs(parts_a) do
 		local starttime = round(TicksAtBarStart + ticksperpart*(i-1))
-		local part = tonumber(part_str)
+		local part = tonumber(part_str) or 2.0
 		if part < 10 then -- secs per part -> uSec per cro
 			MidiTempo = round(TPC * 1000000 * part / ticksperpart)
 		else -- beats per minute -> uSec per cro
@@ -3896,6 +3898,25 @@ function set_var (stackref, i, infinite_depth)
 	return i
 end
 
+local function set_array (base, digit1, digit2, equals, values)  -- 3.1m
+	-- 20130305 XXX should we just expand and let set_var take care of it ?
+	-- or should we impose a no-frills, end-of-line constraint ?
+	digit1 = tonumber(digit1) ; digit2 = tonumber(digit2) 
+	if not digit1 or not digit2 or digit1 >= digit2 then
+		warn_ln(digit1,'-',digit2,' is not a valid range') ; return;
+	end
+	local n = digit2 - digit1 + 1
+	local vals = split(values, '%s*:%s*')
+	if n > #vals then
+		vals = split(values, '%s+')
+		if n > #vals then
+			warn_ln("can't see ",n,' variables in "',values,'"') ; return
+		end
+	end
+	local j = 1
+	for i = digit1,digit2 do Vars[base..tostring(i)]=vals[j] ; j=j+1 end
+end
+
 ------------------------ general muscript stuff ------------------------
 
 local function newstave (line)
@@ -4392,7 +4413,7 @@ for i,file in ipairs(Filenames) do
 		for line in io.lines() do Stack[#Stack+1] = line end
 	else
 		local f,msg = io.open(file, 'r')
-		if not f then warn(msg) else
+		if not f then warn(msg) else  -- alas, directories pass the test :-(
 			io.close(f)
 			for line in io.lines(file, '*l') do Stack[#Stack+1] = line end
 		end
@@ -4460,39 +4481,6 @@ end
 os.exit(0)
 
 --[==[
-
--- ------------------------ Subroutines -------------------------------
-
-
-local function set_array { my ($base, $digit1, $digit2, $equals, $values) = @_;  -- 3.1m
-	-- 20130305 XXX should we just expand and let set_var take care of it ?
-	-- or should we impose a no-frills, end-of-line constraint ?
-	if ($digit1 >= $digit2) {
-		warn " line $LineNum: $digit1-$digit2 is not a valid range\n"; return;
-	end
-	local n = $digit2 - $digit1 + 1;
-	my @vals = split /\s*:\s*/, $values;
-	if ($n > scalar @vals) {
-		@vals = split /\s+/, $values;
-		if ($n > scalar @vals) {
-			warn " line $LineNum: can't see $n variables in \"$values\"\n";
-			return;
-		end
-	end
-	foreach my $i ($digit1 .. $digit2) { $Vars{"$base$i"} = shift @vals; }
-end
-
-
-
-
-
-
-
--- ------------------------- infrastructure ------------------------
-
-
-
-
 
 
 -- ------------------------ XML stuff -------------------------------
