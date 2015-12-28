@@ -123,7 +123,7 @@ Stave2legato    = {}
 Stave2nullkeysigDx = {}  -- 2.9y
 Cha2transpose   = {[0]=0,0,0,0,0,0,0,0,0,0,0,0,0,0,0} -- 3.1u see midi_global
 MidiScore       = {}   -- list
-MidiTempo       = 5208 -- needed by "midi pause" and &midi_timesig
+MidiTempo       = nil -- starts at nil, needed by midi_global & midi_timesig
 OldMidiTempo    = nil
 MidiBarParts    = '2.4'
 MidiTimesig     = ''
@@ -2902,8 +2902,8 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	Xbar[Isyst][0] = Lmargin[Isyst]
 	if bit32.band(BarType[Isyst][0], 8) > 0.5 then   -- Segno at first bar ?
 		printf("%g %g %g segno", lmargin,
-		  Ystave[Isyst][1] + StaveHeight[Isyst][Istave]*SegnoHeight,
-		  StaveHeight[Isyst][Istave])
+		  Ystave[Isyst][1] + StaveHeight[Isyst][1]*SegnoHeight,
+		  StaveHeight[Isyst][1])
 	end
 	for ib = 1,Nbars[Isyst] do
 		x = x + xperproportion * Proportion[ib] + spaceatstart[ib]
@@ -3197,7 +3197,7 @@ local function midi_global (s)
 			table.insert(MidiScore, {'sysex_f0', TicksAtBarStart, sysex})
 			TicksAtBarStart = TicksAtBarStart + 50;
 		end
-		if cha then
+		if cha and cha ~= '' then
 			if str['patch'] then
 				table.insert(MidiScore,
 				 {'patch_change', TicksAtBarStart, cha, str['patch']})
@@ -3224,9 +3224,9 @@ local function midi_global (s)
 				Cha2transpose[cha] = tonumber(str['transpose'])
 			end
 		elseif str['pause'] then
-			if MidiTempo then  -- uSec per crochet 
+			if MidiTempo then  -- uSec per crochet
 				TicksAtBarStart = TicksAtBarStart +
-				  round(str['pause']*TPC*1000000/MidiTempo)
+				  round(tonumber(str['pause'])*TPC*1000000/MidiTempo)
 			end
 		else
 			warn_ln("strange midi_global "..s.."\n")
