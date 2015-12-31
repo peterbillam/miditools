@@ -11,8 +11,8 @@
 Version = '3.2g for Lua5'
 VersionDate  = '19dec2015';
 
-debug = false
--- if debug then $|=1;  -- so you can 'tail -f' on the output file
+--is_debug = false
+-- if is_debug then $|=1;  -- so you can 'tail -f' on the output file
 require 'DataDumper'
 concat = table.concat
 
@@ -203,8 +203,9 @@ Vars           = {}  -- set by set_var, sets up generators etc
 RabbitSequence    = {0,1,0,0,1,0,1,0, 0,1,0,0,1}
 OldRabbitSequence = {0,1,0,0,1,0,1,0}
 AabaSequence      = {0,0,1,0, 0,0,1,0, 1,1,0,1, 0,0,1,0}
-VariableFindRE    = "^%$[A-Z][A-Z0-9]*%s*==?%s*.+$"
-VariableSetRE     = "^%$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
+VariableFindRE    = "^%s*%$[A-Z][A-Z0-9]*%s*==?%s*.+$"
+VariableSetRE_f   = "^%s*%$[A-Z][A-Z0-9]*%s*==?%s*.+$"
+VariableSetRE_m   = "^%s*%$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
 VariableGetRE_f   = "%$[A-Z][A-Z0-9]*"
 VariableGetRE_m   = "%$([A-Z][A-Z0-9]*)"
 VarArraySetRE     = "^$([A-Z][A-Z0-9]*)(%d)-(%d)%s*(==?)%s*(.+)$"
@@ -779,6 +780,7 @@ end
 
 
 ---- Here go all the functions ----
+
 function warn(...)
 	local a = {}
 	for k,v in pairs{...} do table.insert(a, tostring(v)) end
@@ -787,6 +789,28 @@ end
 function warn_ln(...) warn(' line ',LineNum,': ', ...) end
 function warning(...) warn('warning: ', ...) end
 function die(...) warn(...) ;  os.exit(1) end
+function dump(x)
+	local function tost(x)
+		if type(x) == 'table' then return 'table['..tostring(#x)..']' end
+		if type(x) == 'string' then return "'"..x.."'" end
+		if type(x) == 'function' then return 'function' end
+		if x == nil then return 'nil' end
+		return tostring(x)
+	end
+	if type(x) == 'table' then
+		local n = 0 ; for k,v in pairs(x) do n=n+1 end
+		if n == 0 then return '{}' end
+		if n == #x then
+			local a = {} ; for i,v in ipairs(x) do a[i] = tost(v) end
+			return '{ '..table.concat(a, ', ')..' }'
+		end
+		local a = {} ; for k,v in pairs(x) do
+			a[#a+1] = tostring(k)..'='..tost(v)
+		end
+		return '{ '..table.concat(a, ', ')..' }'
+	end
+	return tost(x)
+end
 function round(x) return math.floor(x+0.5) end
 function abs(x) if x<0 then return 0-x else return x end end
 function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
@@ -3675,15 +3699,17 @@ local substitute, set_var   --  see PiL p.58
 
 ----------------- sequence-generator infrastructure --------------
 
-local function cycle (list)
+--A = {} ; Var = ''  -- to be used in load() so they must be global 
+function cycle (list)  -- likewise, the generator functions must be global
 	local i = 0; local n = #list
 	return function (newlist)
 		if newlist then list=newlist; n = #list end  -- but i remains.
 		local x = list[1+i] ;  i = (i+1) % n ;  return x
 	end
 end
-local function leibnitz (n, list)   -- NB 1st arg is n !
+function leibnitz (list)   -- NB 1st arg is n !
 	local i = 0
+	local n = tonumber(table.remove(list,1))
 	if n < 2 then
 		warn_ln("leibnitz 1st arg N must be at least 2") ; return ''
 	end
@@ -3703,7 +3729,7 @@ local function leibnitz (n, list)   -- NB 1st arg is n !
 		return list[1+j]
 	end
 end
-local function morse_thue (list)
+function morse_thue (list)
 	local i = 0; local n = #list
 	if not list then list = {} end
 	return function (newlist)
@@ -3721,7 +3747,7 @@ local function morse_thue (list)
 		return list[1 + j%n]
 	end
 end
-local function rabbit (list) -- 3.1e
+function rabbit (list) -- 3.1e
 	local i = 0; local n = #list
 	return function (newlist)
 		if newlist then list=newlist; n = #list; end  -- but i remains.
@@ -3740,7 +3766,7 @@ local function rabbit (list) -- 3.1e
 		return x
 	end
 end
-local function random (list) -- 3.1k
+function random (list) -- 3.1k
 	local n = #list
 	return function (newlist)
 		if newlist then list=newlist; n = #list end
@@ -3748,7 +3774,7 @@ local function random (list) -- 3.1k
 		return x
 	end
 end
-local function aaba (list) -- 3.1k
+function aaba (list) -- 3.1k
     local i = 0; local n = #list
     return function (newlist)
         if newlist then list=newlist; n = #list end  -- but i remains.
@@ -3766,34 +3792,26 @@ end
 
 function substitute (text, infinite_depth)
 	-- It takes a single line as arg, returns a list of perhaps more than 1
-	if type(text) == 'table' then
-		die "substitute called with an table\n";
-		-- and yet we do handle this case here, in the ARRAY loop below...
-	end
+	if type(text) == 'table' then die "substitute called with an table\n" end
 	if string.find(text,VariableFindRE) then
 		 die("substitute called on ",text) 
 	end
 	while string.find(text,VariableGetRE_f) do  -- 3.0h
 		local var = string.match(text,VariableGetRE_m)
 		local val = Vars[var]
+--warn('substitute: text=',text,' var=',var,' val=',dump(val))
 		if type(val) == 'function' then
---[[
-			#if ($2) {   -- but when is this supposed to occur ?
-			#	warn "substitution with the generator having an argument?!?\n";
-			#	my $s = &{$val}($2);
-			#	$text =~ s/$VariableGetRE/$s/o;
-			#else
-				my $s = &{$val}();
-				$text =~ s/$VariableGetRE/$s/o;   -- ?
-			#}
-]]
+			text=string.gsub(text,VariableGetRE_f, function() return val() end)
+--warn('substitute: text=',text)
 		elseif type(val) == 'table' then  -- multiline, stored as arrayref
-			local raw_lines = {} ; for k,v in pairs(val) do raw_lines[k]=v end
+			local raw_lines = {} ;
+			for i,v in ipairs(val) do raw_lines[i]=v end
 			local subst_lines = {}
 			while #raw_lines > 0.5 do
 				local raw_line = table.remove(raw_lines, 1)
-				if not raw_line then break end
-				if string.find(raw_line, VariableSetRE) then
+--warn('substitute: raw_line=',dump(raw_line))
+				if not raw_line or raw_line=='' then break end
+				if string.find(raw_line, VariableSetRE_f) then
 					table.insert(raw_lines, 1, raw_line)
 					local n = set_var(raw_lines, 1, infinite_depth)
 					for i = n,#raw_lines do raw_lines[i-n+1]=raw_lines[i] end
@@ -3818,81 +3836,161 @@ end
 
 function set_var (stackref, i, infinite_depth)
 	-- not always called on Stack!
-	-- needs an i=linenum param, and must return new_linenum
+	-- needs an i=linenum param, and returns new_linenum
 	local line = stackref[i]
-	local var,equals_sign,val = string.match(line, VariableSetRE)
-	local substitute_now = (equals_sign == '==')
-	if string.find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
+	local var,equals_sign,val = string.match(line, VariableSetRE_m)
+warn('0) i=',i,' line=',line,' var=',var,' equals_sign=',equals_sign,' val=',val)
+	local substitute_now = equals_sign == '=='
+warn('0.5): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
+	if val and string.find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
 		-- loop until closing brace, then set_var; store in %Vars as an arrayref
 		local lines_of_var = {}
 		while i<#stackref do
 			i = i+1
 			local line = stackref[i]
+--warn('0.7) i=',i,' line=',line)
 			while string.find(line,'\\$') do
 				line = string.gsub(line,'\\$','')
 				i = i+1
 				line = line .. stackref[i]
 			end
-			line = string.gsub(line, '^%s+', '')  -- strip leading space
+			line = string.gsub(line, '^%s+', '', 1)  -- strip leading space
 			if not line or string.find(line, '^}') then break end
+-- warn('1) i=',i,' line=',line)
 			if not substitute_now then
 				lines_of_var[#lines_of_var+1] = line
-			elseif string.find(line, VariableFindRE) then
-				if substitute_now or infinite_depth then
-					i = i-1
-					set_var(stackref, i, infinite_depth);
+				goto nextline
+			elseif string.find(line, VariableSetRE_f) then
+-- warn('1.9): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
+				if substitute_now or
+				  (infinite_depth and string.find(line,VariableGetRE_f)) then
+--warn('2) about to call set_var  i=',i)
+-- This omitted the next line after $B == $A $A  :-(
+					i = set_var(stackref, i, infinite_depth);
+--  But this looped endlessly  on  $B = $A $A   :-(
+--					i = set_var(stackref, i, infinite_depth) - 1;
 				else
-					warn("setvarline ",line)
+					warn_ln("set_var: line=",line)
 				end
 			elseif substitute_now or infinite_depth then
-				lines_of_var[#lines_of_var+1]=substitute(line,infinite_depth)
+				if string.find(line, VariableGetRE_f) then
+--warn('3) about to call substitute i=',i,' line=',line)
+					local a = substitute(line,infinite_depth)
+--warn('3.5)  substitute returned i=',i,' a=',dump(a))
+					for j,v in ipairs(a) do lines_of_var[#lines_of_var+1]=v end
+				else
+--warn('3.6)  pushing onto lines_of_var[], line=',dump(line))
+					lines_of_var[#lines_of_var+1] = line
+				end
 			end
+			::nextline::
 		end
 		Vars[var] = lines_of_var
---[[
-	elseif ($val =~
-		 /^(cycle|morse_thue|thue_morse|leibnitz|rabbit|fibonacci|random|aaba)
-		  \?\s*(.*\S)\s*\?/x) {
-		local f = $1;   my @rhs = $2;
-		if ($substitute_now or $infinite_depth) {   -- 3.1i
-			@rhs = substitute($2, $infinite_depth);  -- 3.1i
+	elseif val and string.find(val, '^cycle%?%s*.*%S%s*%?' )      then
+		-- we write these cases out separately we don't need to load() ...
+		-- but we could save some lines with a String2function table...
+		local s2 = string.match(val, '^cycle%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+--warn('4) about to call substitute line=',line)
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
 		end
-		if ($f == 'thue_morse') { $f = 'morse_thue';   -- 3.2g synonyms...
-		elseif ($f == 'fibonacci') { $f = 'rabbit';
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = cycle(a)
+		else warn_ln("empty argument list in ",val)
 		end
-		my @a = split(/\s*:\s*/,$rhs[$[]);
-		if (! @a) {warn "line $LineNum: empty argument list in $val\n"; last;}
-		local e = '$Vars[var} = '.$f.'(@a);';
-		eval $e; if ($@) { warn "line $LineNum: can't eval $e: $@\n"; }
-]]
+	elseif val and (string.find(val, '^morse_thue%?%s*.*%S%s*%?' )  or
+	                string.find(val, '^thue_morse%?%s*.*%S%s*%?' )) then
+		local s2 = string.match(val, '^[morsethu_]+%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
+		end
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = morse_thue(a)
+		else warn_ln("empty argument list in ",val)
+		end
+	elseif val and string.find(val, '^leibnitz%?%s*.*%S%s*%?' )   then
+		local s2 = string.match(val, '^leibnitz%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
+		end
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = leibnitz(a)
+		else warn_ln("empty argument list in ",val)
+		end
+	elseif val and (string.find(val, '^rabbit%?%s*.*%S%s*%?' )      or
+	                string.find(val, '^fibonacci%?%s*.*%S%s*%?' ))  then
+		local s2 = string.match(val, '^[rabitfonac]+%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
+		end
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = rabbit(a)
+		else warn_ln("empty argument list in ",val)
+		end
+	elseif val and string.find(val, '^random%?%s*.*%S%s*%?' )     then
+		local s2 = string.match(val, '^random%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
+		end
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = random(a)
+		else warn_ln("empty argument list in ",val)
+		end
+	elseif val and string.find(val, '^aaba%?%s*.*%S%s*%?' )       then
+		local s2 = string.match(val, '^aaba%?%s*(.*%S)%s*%?')
+		local rhs = { s2 }
+		if substitute_now or infinite_depth then
+			rhs = substitute(s2, infinite_depth)  -- 3.1i
+		end
+		local a = split(rhs[1], '%s*:%s*')
+		if #a>0.5 then   Vars[var] = aaba(a)
+		else warn_ln("empty argument list in ",val)
+		end
 	else
-		if false and (substitute_now or infinite_depth) then
---[[
-			my @lines = ();
-			-- the arrayref logic is here, not in &substitute
-			if (ref $val == 'ARRAY') {
-				foreach my $line (@{$val}) {
+		if substitute_now or infinite_depth then
+			local lines = {}
+			-- the arrayref logic is here, not in substitute()
+			if type(val) == 'table' then
+				local j = 1 ; while j <= #val do
+					local line = val[j]
 					-- one of those lines might involve a variable setting...
-					if ($line =~ /$VariableSetRE/o) {
-						unshift @$stackref, $val;
-						set_var($stackref, i, $infinite_depth);
-					elseif ($line =~ /^}/) { last;
-					else push @lines, substitute($line);
+					if string.find(line, VariableSetRE_f) then
+--warn('5) about to call set_var')
+						j = set_var(stackref, j, infinite_depth)
+					elseif string.find(line, '^}') then j=j+1 ; break
+					else
+						local a =  substitute(line, false)
+--warn('6) substitute line=',line,' returned a=',dump(a))
+						for k,v in ipairs(a) do lines[#lines+1] = v end
+						j = j + #a
 					end
 				end
 			else
-				if ($val =~ /$VariableSetRE/o) {
-					unshift @$stackref, $val;
-					set_var($stackref, i, $infinite_depth);
-				else @lines = substitute($val);
+				if string.find(val, VariableSetRE_f) then
+--					table.insert(stackref, i, val)
+					i = set_var(stackref, i, infinite_depth);
+				elseif string.find(val, VariableGetRE_f) then
+--warn('7) about to call substitute val=',val)
+					lines = substitute(val, false)
+--warn('8)    substitute returned lines=',dump(lines))
+					i = i + #lines -1   -- XXX
+				else
+					lines = { val }
 				end
 			end
-			if (@lines == 1) { $Vars[var} = $lines[$[];
-			elseif (@lines > 1) { $Vars[var} = \@lines;
+--warn('9) i=',i,' lines=',dump(lines))
+			if    #lines == 1 then Vars[var] = lines[1] -- scalar
+			elseif #lines > 1 then Vars[var] = lines    -- table, multiline
 			end
-]]
+warn('10) i=',i,' Vars=',dump(Vars))
 		else
-			Vars[var] = val
+			if var and val then Vars[var] = val end
+warn('11) i=',i,' Vars=',dump(Vars))
 		end
 	end
 	return i
