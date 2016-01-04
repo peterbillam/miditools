@@ -140,8 +140,8 @@ Keysig  = {}    -- [Istave] ; it's local within newstave() but persistent
 TicksAtBarStart = 0
 TicksThisBar    = 0
 MidiExpression  = {}  -- dict
-xml_tempo       = nil
-xml_timesig     = nil
+-- XmlTempo       = nil
+XmlTimesig      = nil
 Proportion      = {} -- shared by PS and XML
 PartShare       = {} -- shared by newsystem(), newstave(), bars()
 StartBeamUp     = false  -- used by ps_event() and ps_note()
@@ -164,13 +164,13 @@ Ystave         = {}  -- dict
 Ystv           = nil -- timesaver
 MaxStaveHeight = {}
 StaveHeight    = {}
-StvHgt         = 0 -- timesaver for StaveHeight[Isyst][Istave]
+StvHgt         = 0   -- timesaver for StaveHeight[Isyst][Istave]
 Xbar           = {}
 GapHeight      = {}
 YblineBot      = {{},}
 YblineTop      = {{},}
 Isyst          = 0
-Nsystems       = 0    -- couldn't I just use RememberNsystems ?
+Nsystems       = 0   -- couldn't I just use RememberNsystems ?
 RememberSystemsSizes = nil
 RememberNsystems     = nil
 RememberHeader       = {}
@@ -179,7 +179,7 @@ RememberNbars        = nil
 Xstart = {}  -- Xstart[concat({'tie',Isyst,Istave,itie},' ')] (or 'slur')
 Ystart = {}
 JustDidNewsystem = false
-Xml = {}
+Xml    = {}  -- Policy: all keys and all values will be strings !
 XmlDuration     = {}
 XmlAccidental   = {}
 Accidental2alter = {}
@@ -188,7 +188,7 @@ XmlDynamics = { p=true, pp=true, ppp=true, pppp=true, ppppp=true,
 	ffffff=true, mp=true, mf=true, sf=true, sfp=true, sfpp=true,
 	fp=true, rf=true, rfz=true, sfz=true, sffz=true, fz=true,
 }
-xml_cache      = {}  -- cache for music-data in a measure, to count staves
+XmlCache       = {}  -- cache for music-data in a measure, to count staves
 Midline        = {}  -- dict
 Line2step      = {}  -- dict  -- for shifting rests in xml
 -- SlurOrTie      = {}  -- dict
@@ -813,6 +813,9 @@ function dump(x)
 end
 function round(x) return math.floor(x+0.5) end
 function abs(x) if x<0 then return 0-x else return x end end
+function is_empty(t)
+    local n=0 ; for k,v in pairs(t) do n=n+1; break end ; return n == 0
+end
 function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
 	if not s or string.len(s)<2 then return {s} end
 	if not pattern then return {s} end
@@ -910,15 +913,13 @@ function initialise ()
 		Nbeats[k..'6'] = v * 0.66667    -- sextuplet
 		Nbeats[k..'7'] = v * 0.57142857 -- septuplet  3.1z
 	end
-	local a = {}
-	for k,v in pairs(Nbeats) do   -- dotted notes
+	local a = {} ; for k,v in pairs(Nbeats) do   -- dotted notes
 		a[k..'.'  ] = v * 1.5
 		a[k..'..' ] = v * 1.75
 		a[k..'...'] = v * 1.875
 	end
 	for k,v in pairs(a) do Nbeats[k]=v end
-	a = {}
-	for k,v in pairs(Nbeats) do   -- tremolandi
+	a = {} ; for k,v in pairs(Nbeats) do   -- tremolandi
 		if string.find(k,'^cro') or
 		  string.find(k,'^min') or string.find(k,'^smb') then
 			a[k..'/'  ] = v   -- tremolandi
@@ -927,8 +928,7 @@ function initialise ()
 		end
 	end
 	for k,v in pairs(a) do Nbeats[k]=v end
-	a = {}
-	for k,v in pairs(Nbeats) do   -- small notes
+	a = {} ; for k,v in pairs(Nbeats) do   -- small notes
 		a[k..'-s']  = v
 	end
 	for k,v in pairs(a) do Nbeats[k]=v end
@@ -974,38 +974,43 @@ function initialise ()
 		Istave  = '1'
 	elseif XmlOpt then
 		Stave2channels   = {}
-		xml_timesig      = '4/4';
+		XmlTimesig      = '4/4';
 		XmlDuration={
 			hds='64th',dsq='32nd',smq='16th',qua='eighth',
 			cro='quarter', min='half',smb='whole',bre='breve'
 		}
-		for k,v in pairs(XmlDuration) do
-			XmlDuration[k..'3'] = v
+		local a = {} ; for k,v in pairs(XmlDuration) do
+			a[k..'3'] = v
 		end
-		for k,v in pairs(XmlDuration) do
-			XmlDuration[k] = '<type>'..v..'</type>'
+		for k,v in pairs(a) do XmlDuration[k]=v end
+		a = {} ; for k,v in pairs(XmlDuration) do
+			a[k] = '<type>'..v..'</type>'
 		end
-		for k,v in pairs(XmlDuration) do    -- dotted notes
-			XmlDuration[k..'.'  ] = v..'<dot/>'
-			XmlDuration[k..'..' ] = v..'<dot/><dot/>'
-			XmlDuration[k..'...'] = v..'<dot/><dot/><dot/>'
+		for k,v in pairs(a) do XmlDuration[k]=v end
+		a = {} ; for k,v in pairs(XmlDuration) do    -- dotted notes
+			a[k..'.'  ] = v..'<dot/>'
+			a[k..'..' ] = v..'<dot/><dot/>'
+			a[k..'...'] = v..'<dot/><dot/><dot/>'
 		end
-		for k,v in pairs(XmlDuration) do
+		for k,v in pairs(a) do XmlDuration[k]=v end
+		a = {} ; for k,v in pairs(XmlDuration) do
 			if string.find(k,'^cro') or string.find(k,'^min') or
 			  string.find(k,'^smb') then
-				XmlDuration[k..'/'  ] = v
-				XmlDuration[k..'//' ] = v
-				XmlDuration[k..'///'] = v
+				a[k..'/'  ] = v
+				a[k..'//' ] = v
+				a[k..'///'] = v
 			end
 		end
-		for k,v in pairs(XmlDuration) do
+		for k,v in pairs(a) do XmlDuration[k]=v end
+		a = {} ; for k,v in pairs(XmlDuration) do
 			if string.find(k,'^hds') or string.find(k,'^dsq') or
 			  string.find(k,'^smq') or string.find(k,'^qua') or
 			  string.find(k,'^cro') or string.find(k,'^min') or
 			  string.find(k,'^smb') then
-				XmlDuration[k..'-s']  = v   -- small notes
+				a[k..'-s']  = v   -- small notes
 			end
 		end
+		for k,v in pairs(a) do XmlDuration[k]=v end
 		XmlAccidental = {
 			['#']='sharp', ['##']='double-sharp',
 			['b']='flat',  ['bb']='flat-flat', ['n']='natural',
@@ -1021,8 +1026,8 @@ function initialise ()
 			['0']='C', ['1']='D', ['2']='E', ['3']='F',
 			['4']='G', ['5']='A', ['6']='B',
 		}
-		Xml['measure_number'] = 0
-		Xml['backup'] = 0
+		Xml['measure_number'] = '0'
+		Xml['backup'] = '0'
 	end
 end
 
@@ -1044,9 +1049,6 @@ local function is_a_note (s)
 	if string.find(s,"^[a-g][~nbrl#,'x+]*$")   then return true end
 	return false
 end
-
--------------------- stubs for debugging purposes ----------------------
-local function xml_print_cache() return end
 
 ---------------------------- PostScript stuff --------------------------
 
@@ -1157,35 +1159,35 @@ local function systems (nsystems, sizes)
 	local topgap = table.remove(systms,1); if topgap=='' then topgap=0 end
 	local botgap = table.remove(systms) -- botgap is unused
 	-- print('topgap =',topgap, 'systms =',DataDumper(systms))
---[[
-	if (XmlOpt) {   -- XmlOpt: see layout.dtd -
-		$Ipage++;
-		my @barlinesandgaps; my $istave;
-		for ($isyst = $[; $isyst <= $nsystems-1+$[; $isyst++) { -- ugly
-			$istave = 0;
-			my $igap = 1;
-			my $isastave = 1;	-- the first number will be a stave height
-			@barlinesandgaps = split('\s+', $systems[$isyst], 9999);
-			foreach my $word (@barlinesandgaps) {
-				my @stavesandgaps = split(/-/, $word, 9999);
-				foreach $staveorgap (@stavesandgaps) {
-					if ($isastave) {
-						$istave++;
-						$StaveHeight[isyst, $istave} = $staveorgap;
-						$isastave = 0;	-- the next will be a gap
+	if XmlOpt then   -- XmlOpt: see layout.dtd -
+		Ipage = Ipage + 1
+		local barlinesandgaps = {} ; local istave;
+		for isyst = 1,Nsystems do
+			StaveHeight[isyst] = {}
+			GapHeight[isyst] = {}
+			istave = 0
+			local igap = 1
+			local isastave = true  -- the first number will be a stave height
+			barlinesandgaps = split(systms[isyst], '%s+', 9999)
+			for i1,word in ipairs(barlinesandgaps) do
+				local stavesandgaps = split(word, '-', 9999)
+				for i2,staveorgap in ipairs(stavesandgaps) do
+					if isastave then
+						istave = istave + 1
+						StaveHeight[isyst][istave] = staveorgap
+						isastave = false  -- the next will be a gap
 					else  -- its a gap
-						$GapHeight[isyst, $igap} = $staveorgap;
-						$isastave = 1;	-- the next will be a stave
-						$igap++;
-					}
-				}
-			}
-			$nstaves[isyst} = $istave;
-		}
-		$Isyst = 0;
-		return;
-	}
-]]
+						GapHeight[isyst][igap] = staveorgap
+						isastave = true   -- the next will be a stave
+						igap = igap + 1
+					end
+				end
+			end
+			Nstaves['isyst'] = istave
+		end
+		Isyst = 0
+		return
+	end
 	if Ipage > 0 then
 		ps_finish_ties()
 		print("pgsave restore\nshowpage")
@@ -2412,7 +2414,7 @@ end
 local function ps_event (symbols)
 	-- print one thing, or multiple simultaneous things, on one stave ...
 	if MIDI   then die("BUG: ps_event called with MIDI set") end
-	if XmlOpt then die("BUG: ps_event called with XmlOpt set") end
+	if XmlOpt then warn("BUG: ps_event called with XmlOpt set") ; crash() end
 	-- will be right-adjusted later if there is an r in one of the notes ...
 	local X = ps_beat2x(CrosSoFar,CrosPerPart)
 	local concat = table.concat
@@ -2825,7 +2827,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	else
 		BarType[Isyst][0] = 0; last_terminator = '|'
 	end
-	local maxstvhgt = MaxStaveHeight[Isyst]
+	local maxstvhgt = MaxStaveHeight[Isyst] or 19   -- DEBUG only
 	local spaceatstart = {}  -- but the comment above say this is global
 	local sumofproportions   = 0.0  -- sum of  proportions  of all bars in line
 	local sumofspaceatstarts = 0.0  -- sum of spaceatstarts of all bars in line
@@ -3049,7 +3051,7 @@ end
 
 local function newsystem ()
 	if MIDI then return end
-	if XmlOpt then Isyst = Isyst + 1; xml['staves'] = 1 return end
+	if XmlOpt then Isyst = Isyst + 1; Xml['staves'] = '1' return end
 	  -- could also add <print new-system="yes"/>
 	  -- See Mario Lang in ~/Mail/musicxml ...
 	ps_finish_ties()	-- first put in any unfinished ties ...
@@ -3072,6 +3074,124 @@ local function newsystem ()
 	print_sp("% system ",Isyst)
 end
 
+function xml_timesig (str)
+	if not XmlOpt then return end
+	if str then Xml['previous timesig line'] = str
+	else  str = Xml['previous timesig line']
+	end
+	local timesig, parts = table.unpack(split(str,' +',2))
+	if not timesig or timesig == '' then return end
+	if not string.find(timesig, '^%d+/%d+$') then
+		if string.find(timesig, '^[.%d]+$') then
+			parts = timesig..' '..parts -- put it back
+			timesig = XmlTimesig
+		else
+			warn_ln('strange timesig '..timesig) ; return false
+		end
+	end
+	if not parts then return end
+	local nn,bottom = string.match(timesig, '^(%d+)/(%d+)$')
+	nn = tonumber(nn) ; bottom = tonumber(bottom)
+	local cro_per_bar = 4 * nn / bottom
+	parts = split(parts, ' +')
+	local cro_per_part   = cro_per_bar / #parts
+	local ticks_per_part = cro_per_bar * TPC / #parts  -- float
+	local ticks_so_far = 0  -- int
+	for ipart,part in ipairs(parts) do
+		part = tonumber(part)
+		local secs_this_part
+		if part < 10  then secs_this_part = part
+		else
+			secs_this_part = 60 * cro_per_bar / part
+			if (nn%3) < 0.5 and (bottom == 8 or bottom == 16) then
+				secs_this_part = secs_this_part * 12 / bottom
+			end
+		end
+		if secs_this_part < 0.1 then
+			warn_ln('warning: secs_this_part=',secs_this_part)
+			goto nextpart
+		end
+		local tempo_this_part = 60 * cro_per_part / secs_this_part
+		XmlCache[#XmlCache+1] =
+		 string.format('\t\t\t<sound tempo="%g"/>\n', tempo_this_part)
+		if ipart >= #parts then break end
+		local new_ticks_so_far = round(ipart * ticks_per_part)
+		local ticks_this_part = new_ticks_so_far - ticks_so_far
+		XmlCache[#XmlCache+1] = '\t\t\t<forward><duration>'..
+		  tostring(ticks_this_part)..'</duration></forward>'
+		ticks_so_far = new_ticks_so_far
+		::nextpart::
+	end
+	if ticks_so_far > 0.5 then
+		XmlCache[#XmlCache+1] = '\t\t\t<backup><duration>'..
+		  tostring(ticks_so_far)..'</duration></backup>'
+	end
+end
+
+function xml_print_barline (bartype)
+	if not XmlOpt then return end
+	-- draws a barline of type bartype. Types: 0 = simple, 1 = double,
+	-- add 2 for end-of-repeat, 4 for start-of-repeat, 8 for Segno
+	local elements = {}
+	if bit32.band(bartype,1) > 0.5 then
+		elements[#elements+1] = '<bar-style>light-heavy</bar-style>'
+	end
+	if bit32.band(bartype,8) > 0.5 then   -- Segno ...
+		elements[#elements+1] = '<segno/>'
+	end
+	if bit32.band(bartype,2) > 0.5 then   -- end repeated section ...
+		elements[#elements+1] = '<repeat direction="backward"/>'
+	end
+	if #elements > 0.5 then
+		print('\t\t\t<barline>'..table.concat(elements,' ')..'</barline>')
+	end
+end
+
+function xml_print_cache ()
+	-- Fussy order ...
+	-- ((footnote?,level?), divisions?, key?, time?, staves?, instruments?,
+	-- clef* , staff-details* , transpose? , directive* , measure-style*)
+	-- at beginning of measure, "staves clef clef.." for all staves :-(
+	-- EACH <attributes> can only contain one key, one time, one instruments
+	--  and one transposes; therefore each stavenum needs its own 
+	if bit32.band((BarType[Isyst][Ibar-1] or 0), 4) > 0.5 then print(
+	  '\t\t\t<barline location="left"><repeat direction="forward"/></barline>')
+	end
+	for k,ca in ipairs(XmlCache) do
+		local t4 = '\t\t\t\t'
+		if type(ca) == 'table' then
+			print("\t\t\t<attributes>")
+			if ca['footnote']  then print(t4..ca['footnote'])  end
+			if ca['level']     then print(t4..ca['level'])     end
+			if ca['divisions'] then print(t4..ca['divisions']) end
+			if ca['key']       then print(t4..ca['key'])       end
+			if ca['time']      then print(t4..ca['time'])      end
+			if Xml['staves'] ~= Xml['remembered_staves'] then
+				print(t4..'<staves>'..Xml['staves']..'</staves>')
+				Xml['remembered_staves'] = Xml['staves']
+			end
+			if ca['instruments'] then
+				print(t4..'<instruments>'..ca['instruments'].."</instruments>")
+			end
+			if ca['clef']      then print(t4..ca['clef'])      end
+			if ca['transpose'] then print(t4..ca['transpose']) end
+			print("\t\t\t</attributes>")
+		else
+			print(ca)
+		end
+	end
+	xml_print_barline(BarType[Isyst][Ibar])
+	XmlCache = {}
+end
+
+function xml_time_attribute (timesig)
+	local beats,beat_type = string.match(timesig, '(%d+)/(%d+)')
+	return '<time number="'..tostring(Istave)..'"><beats>'..beats..
+	  '</beats><beat-type>'..beat_type..'</beat-type></time>'
+end
+
+------------------------------------------------------------------------
+
 local function newbar (line)
 	-- warn('newbar: line = ',line)
 	if MIDI then
@@ -3079,21 +3199,19 @@ local function newbar (line)
 		Ibar = Ibar + 1; Istave = 0
 		-- if line and string.find(line,'%S') then midi_timesig(line) end
 		midi_timesig(line)
---[[
 	elseif XmlOpt then
-		if (Xml{measure_number}) {
-			&xml_print_cache();
-			print "\t\t</measure>\n";
+		if Xml['measure_number'] ~= '0' then
+			xml_print_cache()
+			print("\t\t</measure>")
 		end
-		Xml{measure_number}++;
-		$Ibar++; $Istave = 0;   -- globals.
-		if ($Ibar > Nbars[Isyst}) { &newsystem('/'); &bars(); $Ibar=1; }
-		print "\t\t<measure number=\"Xml{measure_number}\">\n";
-		Xml{backup} = 0;
-		Xml{voice}  = 0;
-		Xml{staves} = 1;
-		&xml_timesig($_[$[]);
-]]
+		Xml['measure_number'] = tostring(tonumber(Xml['measure_number']) + 1)
+		Ibar = Ibar + 1 ; Istave = 0   -- globals.
+		if Ibar > Nbars[Isyst] then newsystem('/') ; bars() ; Ibar=1 end
+		print('\t\t<measure number="'..Xml['measure_number']..'">')
+		Xml['backup'] = '0'
+		Xml['voice']  = '0'
+		Xml['staves'] = '1'
+		xml_timesig(line[1])
 	else 
 		if Isyst>0.5 and bit32.band(BarType[Isyst][Ibar],2)>0.5 then
 			ps_finish_ties(Xbar[Isyst][Ibar])  -- is :|| or :||:
@@ -3133,24 +3251,23 @@ local function midi_global (s)
 	local str = {} ; for i=1,#a,2 do str[a[i]] = a[i+1] end
 --print(DataDumper(str))
 	cha = str['channel'] or str['cha']
-	if XmlOpt then  -- the Parts mean MIDI-Tracks - we only use one track.
---[[
-		local t3 = "\t\t\t"; local t4 = "\t\t\t\t";
-		if (defined $cha) {
-			local pan = '';
-			if (defined $str{pan}) {
-				$pan = string.format " pan=\"%d\"", int (($str{pan}-50)*1.8);
-			}
-			$cha++;
-			push @xml_cache,
-			 "$t3<sound$pan><midi-instrument id=\"cha$cha\">\n";
-			if (defined $str{patch}) {
-				local program = $str{patch} + 1;
-				push @xml_cache,"$t4<midi-program>$program</midi-program>\n";
-			}
-			push @xml_cache,"$t3</midi-instrument></sound>\n";
-		}
-]]
+	if XmlOpt then  -- the Parts mean MIDI-Tracks - we use one track
+		local t3 = "\t\t\t" ; local t4 = "\t\t\t\t"
+		if cha then
+			local pan = ''
+			if str['pan'] then
+				pan = string.format(' pan="%d"',
+				  math.floor((tonumber(str['pan'])-50) * 1.8))
+			end
+			XmlCache[#XmlCache+1] = t3..'<sound'..pan..
+			  '><midi-instrument id="cha'..tostring(tonumber(cha)+1)..'">'
+			if str['patch'] then
+				local program = tostring(tonumber(str['patch']) + 1)
+				XmlCache[#XmlCache+1] =
+				 t4..'<midi-program>'..program..'</midi-program>'
+			end
+			XmlCache[#XmlCache+1] = t3..'</midi-instrument></sound>'
+		end
 	elseif MIDI then
 		if str['barlines'] then
 			if str['barlines'] == 'off' then MidiBarlines = false
@@ -3327,7 +3444,7 @@ function midi_in_stave (str)
 		if XmlOpt then  -- 2.8u
 			local attributes = {}
 			attributes['transpose'] = xml_transpose(s1);
-			table.insert(xml_cache, attributes)
+			table.insert(XmlCache, attributes)
 			-- c is a BUG. Have to go through an if-then-else as for pan...
 			-- but I think it's maybe a useless noop anyway...
 			-- Xml['current transpose'] = c   -- 2.8u
@@ -3693,6 +3810,433 @@ local function midi_write ()
 	io.write(MIDI.score2midi({TPC, MidiScore}))
 end
 
+-------------------------- XML stuff -------------------------------
+function xml_header (line)
+	local date = os.date('%Y-%m-%d')
+	local dtd = "http://www.musicxml.org/dtds/partwise.dtd"
+	local devel_dtd ="/home/pjb/musicxml/dtds/partwise.dtd"
+	if not Xml['header begun'] then Xml['header begun'] = true ; print([[
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 1.1 Partwise//EN"
+ "]]..dtd..[[">
+<score-partwise>]])
+	end
+	if string.find(line, '^%d+%s+system') then systems("") ; return true end
+	local s1 = string.match(line, '^title (%S.*)$') ; if s1 then
+		printf("\t<movement-title>%s</movement-title>",
+		 escape_and_utf2iso(s1))
+		return true
+	end
+	s1 = string.match(line, '^leftfoot (%S.*)$') ; if s1 then
+		Xml['credit'] = escape_and_utf2iso(s1) ; return true
+	end
+	if string.find(line, '^left')    then return true end
+	if string.find(line, '^right')   then return true end
+	if string.find(line, '^inner')   then return true end
+	if string.find(line, '^pagenum') then return true end
+	print([[
+	<identification>
+		<encoding>
+			<software>muscript ]]..Version..[[</software>
+			<encoding-date>]]..date..[[</encoding-date>
+		</encoding>
+	</identification>]])
+	if Xml['credit'] then
+		print("\t<credit><credit-words>\n\t\t"..Xml['credit'] ..
+		  "\n\t</credit-words></credit>\n")
+	end
+	print([[
+	<part-list>
+		<score-part id="P1">
+			<part-name>MIDI Track 1</part-name>]])
+	-- with readahead, we wouldn't need to set up all 16 channels...
+	for i = 1,16 do
+		local cha = tostring(i)
+		print([[
+			<score-instrument id="cha]]..cha..[[">
+				<instrument-name>cha]]..cha..[[</instrument-name>
+			</score-instrument>]])
+	end
+	for i = 1,16 do
+		local cha = tostring(i)
+		print([[
+			<midi-instrument id="cha]]..cha..[[">
+				<midi-channel>]]..cha..[[</midi-channel>
+			</midi-instrument>]])
+	end
+	print([[
+		</score-part>
+	</part-list>
+	<part id="P1">]])
+	return false
+end
+
+local function xml_text (text_type, size, vertpos, text)
+	if not XmlOpt then return false end
+	text = escape_and_utf2iso(text)
+	local font_size = 'medium';
+	if     string.find(size,'l') then font_size = 'large'
+	elseif string.find(size,'s') then font_size = 'small'
+	end
+	local font_weight = 'normal'
+	if string.find(text_type,'[bI]') then font_weight = 'bold' end
+	local font_style = 'normal'
+	if string.find(text_type,'[iI]') then font_style = 'italic' end
+	if not vertpos then vertpos = TextBelowStave end
+	local ytext = 40.0 * vertpos - 80.0  -- should measure gap, like &ps_text
+	if Istave == 0 then   -- above the top stave in the system
+		ytext = 40.0 * vertpos
+	elseif Istave < Nstaves[Isyst] then   -- text lies between staves
+		local netgap = GapHeight[Isyst][Istave] - TextSize*StvHgt
+		ytext = -40.0 - (1.0-vertpos) * netgap * 40.0 / StvHgt
+	else   -- below the bottom stave in the system
+		ytext = -40.0 -  40.0 * vertpos
+	end
+	local t3 = "\t\t\t" ;     local t4 = "\t\t\t\t"
+	local t5 = "\t\t\t\t\t" ; local t6 = "\t\t\t\t\t\t"
+	text = string.gsub(text, '%.%d+ ', ' ')
+	-- $text =~ s/ /#x0020/g;  -- this xml hex notation not respected by mscore?
+	XmlCache[#XmlCache+1] = t3.."<direction>\n"
+	XmlCache[#XmlCache+1]=t4..'<direction-type>\n'..t5..'<words halign="left" '
+	if 0.1 < math.abs(ytext) then
+		XmlCache[#XmlCache+1] = string.format('default-y="%g" ', ytext)
+	end
+	XmlCache[#XmlCache+1] = 'font-style="'..font_style..'" '
+	XmlCache[#XmlCache+1] =
+	  'font-size="'..font_size..'" font-weight="'..font_weight..'">'
+	XmlCache[#XmlCache+1] = text..'</words>\n'..t4..'</direction-type>\n'
+	if Istave > 0.5 then XmlCache[#XmlCache+1] =
+		 t4..'<staff>'..istave..'</staff>\n'..t3..'</direction>\n'
+	else 
+		XmlCache[#XmlCache+1] = t4..'<staff>1</staff>\n'..t3..'</direction>\n'
+	end
+end
+
+function xml_keysig  (keysig)
+	local s1,s2 = string.match(keysig,'(%d+)([#bn]*)')
+	local fifths = s1 or '0' ;  local acc = s2 or ''
+	if     string.find(acc,'b$') then fifths = '-'..fifths
+	elseif string.find(acc,'n$') then fifths = '0'
+	end
+	return
+	'<key number="'..tostring(Istave)..'"><fifths>'..fifths..'</fifths></key>';
+end
+
+function xml_pitch (pitch, accidental)
+	local step = string.gsub(pitch, '[a-g]',
+	  function (c) return string.upper(c) end)
+	local octave = 4
+	if string.find(pitch, '[A-G]') then
+		pitch = string.gsub(pitch, '[A-G]',
+		  function (c) return string.lower(c) end)
+		octave = 3
+	end
+	if     Stave2clef[Istave] == 'treble8va' then octave = octave + 2
+	elseif Stave2clef[Istave] == 'treble'    then octave = octave + 1
+	elseif Stave2clef[Istave] == 'bass'      then octave = octave - 1
+	elseif Stave2clef[Istave] == 'bass8vab'  then octave = octave - 2
+	end
+	local  nup  = 0 ; step, nup  = string.gsub(step, '~', '')
+	local ndown = 0 ; step,ndown = string.gsub(step, '_', '')
+	octave = octave + nup - ndown
+	local alter = ''   -- 2.8u
+	if accidental and accidental ~= '' then
+		Accidentalled[pitch] = accidental
+		alter = '<alter>'..Accidental2alter[accidental]..'</alter>'
+	elseif Accidentalled[pitch] then
+		alter = '<alter>'..Accidental2alter[Accidentalled[pitch]]..'</alter>'
+	end
+	return '<pitch><step>'..step..'</step>'..alter..
+	  '<octave>'..tostring(octave)..'</octave></pitch>'
+end
+
+function xml_event (symbols)
+	if not XmlOpt then die("BUG xml_event called without XmlOpt set\n") end
+	local i_note = 0
+	local t1 = "\t" ;  local t4 = "\t\t\t\t"; local t5 = "\t\t\t\t\t"
+	local t2 = "\t\t"; local t3 = "\t\t\t" ;  local t6 = "\t\t\t\t\t\t"
+	local shortest = 9999
+	for i,symbol in ipairs(symbols) do
+		is_note = is_a_note(symbol)
+		if is_note or
+		  string.find(symbol,'^rest') or string.find(symbol,'^blank') then
+			if CurrentPulse < shortest then shortest = CurrentPulse end
+		end
+		if Nbeats[symbol] then  -- it's smb min cro qua smq dsq etc
+			-- we need to measure separately shortest stem-up and stem-down !
+			if Nbeats[symbol]<shortest then shortest=Nbeats[symbol] end
+			CurrentPulse = Nbeats[symbol]
+			CurrentPulseText = symbol
+		elseif is_note then
+			local noteref = parse_note(symbol)
+			-- go through the options first; they can influence <note> element
+			local notations = {}
+			if noteref['endslur'] then
+				local updown = 'below'
+				if (noteref['endslur']%2) > 0.5 then updown = 'above' end
+				notations[#notations+1] =
+				 '<slur type="stop" placement="'..updown..'"/>'
+			end
+			if noteref['startslur'] then
+				local updown = 'below'
+				if (noteref['startslur']%2) > 0.5 then updown = 'above' end
+				notations[#notations+1] =
+				 '<slur type="start" placement="'..updown..'"/>'
+			end
+			if noteref['endtie'] then
+				local updown = 'below'
+				if (noteref['endtie']%2) > 0.5 then updown = 'above' end
+				notations[#notations+1] =
+				 '<tied type="stop" placement="'..updown..'"/>'
+			end
+			if noteref['starttie'] then
+				local updown = 'below'
+				if (noteref['starttie']%2) > 0.5 then updown = 'above' end
+				notations[#notations+1] =
+				 '<tied type="start" placement="'..updown..'"/>'
+			end
+			-- fermata is an xml notation; stacc, tenuto, emph are xml
+			-- articulations,  and an articulation is an xml notation;
+			-- tr, turn, mordent are xml ornaments
+			--  and an ornament is an xml notation.
+			local articulations = {}
+			local ornaments     = {}
+			local is_staccato   = false
+			local is_emphasis   = false
+			local options = noteref['options']
+--[[
+			$options =~ s{'}{\\'}g;
+			if not Opt_Cache[options] then
+				Opt_Cache[options] = parse_options(options)  -- 1?
+			end
+			foreach (@{$Opt_Cache['options']}) {
+				local option = $_;   -- don't clobber the cache
+				$option =~ s{\\'}{'}g;
+				local option_is_above = 1;
+				if ($option =~ s{,$}{}g) { $option_is_above = 0; }
+				-- need to to duplicate the 3.1d code below
+				local text = ''; local shortoption = '';
+				if ($option =~  /^([Ibir]s?)(.+)$/) {  -- text option
+					$shortoption = $1; $text = escape_and_utf2iso($2);
+				elseif ($option =~  /^s(.+)$/) {
+					$shortoption = 'rs'; $text = escape_and_utf2iso($1);
+				else
+					$shortoption = $option;
+					$shortoption =~ tr /,'//d;
+					$shortoption = $Options['shortoption'] or $shortoption;
+				end
+				if ($option_is_above) {
+					$option =~ s{'$}{}g;
+				else
+				end
+				if ($Options['option']) {
+					local updown = $option_is_above ? 'above' : 'below';
+					local opt = $Options['option'];  -- canonicalise
+					if ($opt == 'turn' or $opt == 'mordent') {
+						push @ornaments, "<$opt/>";
+					elseif ($opt == 'dot') {
+						$is_staccato = 1;
+						push @articulations,
+						 "<staccato placement=\"$updown\"/>";
+					elseif ($opt == 'emphasis') {
+						$is_emphasis = 1;
+						push @articulations,
+						 "<accent placement=\"$updown\"/>";
+					elseif ($opt == 'tenuto') {
+						push @articulations,
+						 "<tenuto placement=\"$updown\"/>";
+					elseif ($opt =~ /^tr/) {
+						push @ornaments,
+						 "<trill-mark placement=\"$updown\"/>";
+					end
+				elseif ($option == 'blank' or $option == '') {  -- 2.9c
+				elseif ($option =~ /^gs\d/) {  -- 3.1y
+					-- BUG: what about -gs ?
+					-- See technical in ~/musicxml/musicxml3/note.dtd
+					-- but guitar-strings are not printed like violin-strings!
+				elseif (length $text) {  -- text option
+					local font;  local fontsize=$TextSize*$StvHgt;
+					if ($shortoption =~ /^I/) {
+						if ($XmlDynamics['text']) {
+							push @notations, "<dynamics><$text/></dynamics>";
+						end
+						$font = $BoldItalicFont;
+					elseif ($shortoption =~ /^i/) { $font = $ItalicFont;
+					elseif ($shortoption =~ /^b/) { $font = $BoldFont;
+					else $font = $RegularFont;
+					end
+					if ($shortoption =~ /s/) { $fontsize *= $SmallFontRatio; }
+				elseif ($shortoption == 'fermata') {
+					local updown = $option_is_above ? 'upright' : 'inverted';
+					push @notations,
+					 "<fermata type=\"$updown\"/>";
+				elseif ($option =~ /^cre/ or $option =~ /^dim/) {
+				elseif ($option =~ /^\*$|^P$/) {   -- 3.0b
+				else
+					warn " line $LineNum: unrecognised option $option\n";
+				end
+			end
+]]
+			local note_attributes = ''
+			local release = 0   -- legato = <note release="-ticks">
+			local legato = Stave2legato[Istave] or DefaultLegato
+			if is_staccato then legato = legato * 0.55 end
+			if CurrentPulse>1 and not string.find(CurrentPulseText,'-s$') then
+			 	 release = round((legato-1.0) * TPC)
+			else release = round((legato-1.0) * CurrentPulse * TPC)
+			end
+			if math.abs(release)>1 and not noteref['starttie'] then
+				note_attributes = note_attributes..' release="'..release..'"'
+			end
+			local vol = current_volume()
+			if is_emphasis then vol=vol+10 ; if vol>127 then vol=127 end end
+			local vol = round(1.1111*vol)
+			note_attributes=note_attributes..' dynamics="'..tostring(vol)..'"'
+			for i,cha in ipairs(Stave2channels[Istave]) do   -- 3.1v
+				XmlCache[#XmlCache+1] = t3..'<note'..note_attributes..'>'
+				if string.find(CurrentPulseText,'-s$') then
+					XmlCache[#XmlCache+1] = t4..'<grace/>'
+				end
+				if i_note>0.5 then XmlCache[#XmlCache+1] = t4..'<chord/>' end
+				local xml_pitch =
+				  xml_pitch(noteref['pitch'], noteref['accidental'])
+				XmlCache[#XmlCache+1] = t4..xml_pitch
+				if not string.find(CurrentPulseText,'-s$') then
+					-- no duration on grace notes
+					local duration = round(CurrentPulse * TPC)
+					XmlCache[#XmlCache+1] =
+					  t4..'<duration>'..tostring(duration)..'</duration>'
+					if i_note < 0.5 then Xml['backup'] =
+						tostring(tonumber(Xml['backup']) + duration)
+					end
+				end
+				if noteref['endtie'] then
+					XmlCache[#XmlCache+1] = t4..'<tie type="stop"/>'
+				end
+				if noteref['starttie'] then
+					XmlCache[#XmlCache+1] = t4..'<tie type="start"/>'
+				end
+				-- fermata is a muscript option, and an xml notation
+				local cha_p1 = cha+1
+				XmlCache[#XmlCache+1] =
+				  t4..'<instrument id="cha'..tostring(cha_p1)..'"/>'
+				i_note = i_note + 1
+				XmlCache[#XmlCache+1] =
+				  t4..'<voice>'..Xml['voice']..'</voice>'
+				XmlCache[#XmlCache+1] = t4..XmlDuration[CurrentPulseText]
+				if noteref['accidental'] then  -- must be after <type>
+					local acc = XmlAccidental[noteref['accidental']]
+					if acc then XmlCache[#XmlCache+1] =
+					   t4..'<accidental>'..acc..'</accidental>'
+					end
+				end
+				if string.find(CurrentPulseText,'3$') then  -- triplet 
+					XmlCache[#XmlCache+1] = t4 ..
+					  '<time-modification><actual-notes>3</actual-notes>' ..
+					  '<normal-notes>2</normal-notes></time-modification>'
+				end
+				local stemup = 'down'
+				if is_stemup(noteref) then stemup = 'up' end
+				XmlCache[#XmlCache+1] = t4..'<stem>'..stemup..'</stem>'
+				XmlCache[#XmlCache+1] =
+				  t4..'<staff>'..tostring(Istave)..'</staff>'
+				local nbeams = 1
+				if     string.find(CurrentPulseText,'^smq') then nbeams = 2
+				elseif string.find(CurrentPulseText,'^dsq') then nbeams = 3
+				elseif string.find(CurrentPulseText,'^hds') then nbeams = 4
+				end
+				if noteref['startbeam'] then
+					for ibeam =1,nbeams do XmlCache[#XmlCache+1] = t4..
+					  '<beam number="'..tostring(ibeam)..'">begin</beam>'
+					end
+					if stemup then StartBeamUp = true
+					else     StartBeamDown = true
+					end
+				elseif noteref['endbeam'] then
+					for ibeam =1,nbeams do XmlCache[#XmlCache+1] = t4..
+					  '<beam number="'..tostring(ibeam)..'">end</beam>'
+					end
+					if stemup then StartBeamUp = false
+					else StartBeamDown = false
+					end
+				elseif StartBeamUp and stemup then
+					for ibeam =1,nbeams do XmlCache[#XmlCache+1] = t4..
+					  '<beam number="'..tostring(ibeam)..'">continue</beam>'
+					end
+				elseif StartBeamDown and not stemup then
+					for ibeam =1,nbeams do XmlCache[#XmlCache+1] = t4..
+					  '<beam number="'..tostring(ibeam)..'">continue</beam>'
+					end
+				end
+				if #notations>0.5 or #ornaments>0.5 or #articulations>0.5 then
+					XmlCache[#XmlCache+1] = t4..'<notations>'
+					for i,v in ipairs(notations) do
+						XmlCache[#XmlCache+1] = t5..v
+					end
+					if #ornaments>0.5 then
+						XmlCache[#XmlCache+1] = t5..'<ornaments>'..
+						  table.concat(ornaments, ' ')..'</ornaments>'
+					end
+					if #articulations>0.5 then
+						XmlCache[#XmlCache+1] = t5..'<articulations>'..
+						  table.concat(articulations, ' ')..'</articulations>'
+					end
+					XmlCache[#XmlCache+1] = t4..'</notations>'
+				end
+				XmlCache[#XmlCache+1] = t3..'</note>'
+			end
+		elseif string.find(symbol,'^rest') then
+			-- must handle fermata
+			local clef = Stave2clef[Istave]
+			local move = 0;  local display = ''
+			if string.find(symbol, "'") then
+				move = string.len(string.match(symbol, "('+)"))
+			elseif string.find(symbol, ",") then
+				move = 0 - string.len(string.match(symbol, "(,+)"))
+			end
+			if move > 0.5 then
+				local line = 4*move + Midline[clef]
+				local octave = tostring(math.floor(0.1 + line/7))
+				local step = Line2step[tostring(line%7)]
+				display = '<display-step>'..step..'</display-step>'..
+				  '<display-octave>'..octave..'</display-octave>'
+			end
+			XmlCache[#XmlCache+1] =
+			  t3..'<note>\n'..t4..'<rest>'..display..'</rest>'
+			local duration = tostring(round(CurrentPulse * TPC))
+			XmlCache[#XmlCache+1] = t4..'<duration>'..duration..'</duration>'
+			XmlCache[#XmlCache+1] = t4..'<voice>'..Xml['voice']..'</voice>'
+			Xml['backup'] = tostring(tonumber(Xml['backup']) + duration)
+			XmlCache[#XmlCache+1] = t4..XmlDuration[CurrentPulseText]
+			XmlCache[#XmlCache+1] = t4..'<staff>'..tostring(Istave)..'</staff>'
+			XmlCache[#XmlCache+1] = t3..'</note>'
+		elseif string.find(symbol,'^blank') then
+			local duration = round(CurrentPulse * TPC)
+			Xml['backup'] = tostring(tonumber(Xml['backup'] + duration))
+			XmlCache[#XmlCache+1] = t3..'<forward><duration>'..
+			  tostring(duration)..'</duration></forward>'
+		end
+	end
+end
+
+function xml_clef_attribute (clef)
+	local sign = 'C'
+	local line = '3'
+	if     string.find(clef,'^treble') then sign = 'G' line = '2'
+	elseif string.find(clef,'^bass')   then sign = 'F' line = '4'
+	elseif string.find(clef,'^tenor')  then line = '4'
+	end
+	local clef_octave_change = ''
+	if     string.find(clef,'8vab$')   then
+		clef_octave_change = '<clef-octave-change>-1</clef-octave-change>'
+	elseif string.find(clef,'8va$')    then
+		clef_octave_change = '<clef-octave-change>1</clef-octave-change>'
+	end
+	return '<clef number="'..tostring(Istave)..'"><sign>'..sign..
+	  '</sign><line>'..line..'</line>'..clef_octave_change..'</clef>'
+end
+
+
 --------------------- Variable stuff -------------------------
 
 local substitute, set_var   --  see PiL p.58
@@ -3839,9 +4383,8 @@ function set_var (stackref, i, infinite_depth)
 	-- needs an i=linenum param, and returns new_linenum
 	local line = stackref[i]
 	local var,equals_sign,val = string.match(line, VariableSetRE_m)
-warn('0) i=',i,' line=',line,' var=',var,' equals_sign=',equals_sign,' val=',val)
 	local substitute_now = equals_sign == '=='
-warn('0.5): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
+--warn('0.5): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
 	if val and string.find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
 		-- loop until closing brace, then set_var; store in %Vars as an arrayref
 		local lines_of_var = {}
@@ -3987,10 +4530,10 @@ warn('0.5): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
 			if    #lines == 1 then Vars[var] = lines[1] -- scalar
 			elseif #lines > 1 then Vars[var] = lines    -- table, multiline
 			end
-warn('10) i=',i,' Vars=',dump(Vars))
+--warn('10) i=',i,' Vars=',dump(Vars))
 		else
 			if var and val then Vars[var] = val end
-warn('11) i=',i,' Vars=',dump(Vars))
+--warn('11) i=',i,' Vars=',dump(Vars))
 		end
 	end
 	return i
@@ -4031,13 +4574,13 @@ local function newstave (line)
 		local t3 = "\t\t\t"
 		-- XXX must use <backup> - using only one <part> = one MIDI track
 		if tonumber(Xml['backup']) > 0 then
-			table.insert(xml_cache,
-			 "$t3<backup><duration>Xml{backup}</duration></backup>\n")
+			table.insert(XmlCache,
+			 t3..'<backup><duration>'..Xml['backup']..'</duration></backup>')
 		end
-		Xml['backup'] = 0;
-		Xml['voice'] = Xml['voice'] + 1
-		if Istave > Xml['staves'] then
-			Xml['staves'] = Istave
+		Xml['backup'] = 0
+		Xml['voice'] = tonumber(Xml['voice'] or 0) + 1
+		if Istave > tonumber(Xml['staves'] or 0) then
+			Xml['staves']=tostring(Istave)
 		end
 	elseif not PrePro then
 		print_sp('% page',pagenum,'sys',Isyst,' bar',Ibar,' stave',Istave)
@@ -4237,13 +4780,12 @@ local function newstave (line)
 	if midi_in_stave(array[i]) then i = i + 1 end
 	if array[i] and string.find(array[i], '%d+/%d+') then -- new timesig
 		if MIDI then
---[[
 		elseif XmlOpt then
-			if (Xml{"timesig $Istave"} ne $array[$i]) then
-				$attributes{time} = &xml_time_attribute($array[$i]);
-				Xml{"timesig $Istave"} = $array[$i];
+			local k = "timesig "..tostring(Istave)
+			if not Xml[k] or Xml[k] ~= array[i] then
+				attributes['time'] = xml_time_attribute(array[i])
+				Xml[k] = array[i]
 			end
-]]
 		else
 			local topnum, botnum = table.unpack(split(array[i], '/', 2))
 			printf("%g %g %g (%s) (%s) timesig",
@@ -4269,26 +4811,24 @@ local function newstave (line)
 			Xpart[ipart] = Xpart[ipart-1] +
 			  dxbar * PartShare[Ibar][ipart-1] / Proportion[Ibar]
 		end
-end
--- frontier
---[[
-	elseif (XmlOpt) {
-		if ($xmlkeysig) {
-			$attributes{key} = $xmlkeysig;
+	elseif XmlOpt then
+		if xmlkeysig ~= '' then
+			attributes['key'] = xmlkeysig
 		else  -- musicxml2ly insists on a key even when there isn't one :-(
-			if (! Xml{"keysig $Istave"}) {  -- XXX 2.5u
-				$attributes{key} = &xml_keysig('');
-				Xml{"keysig $Istave"} = 'Cmaj';
-			}
-		}
-		if (! Xml{specified_divisions}) {
-			$attributes{divisions} = "<divisions>$TPC</divisions>";
-			Xml{specified_divisions} = 1;
-		}
-		if (%attributes) { -- XXX
-			push @xml_cache, \%attributes;
-		}
-]]
+			if not Xml["keysig "..tostring(Istave)] then  -- XXX 2.5u
+				attributes['key'] = xml_keysig('')
+				Xml["keysig "..tostring(Istave)] = 'Cmaj'
+			end
+		end
+		if not Xml['specified_divisions'] then
+			attributes['divisions'] =
+			  "<divisions>"..tostring(TPC).."</divisions>"
+			Xml['specified_divisions'] = true
+		end
+		if not is_empty(attributes) then
+			XmlCache[#XmlCache+1] = attributes
+		end
+	end
 	while i <= #array do
 		symbol = array[i]
 		if symbol == '' then break end
@@ -4307,11 +4847,9 @@ end
 				i = i + 1
 				if i > #array then break end
 			end
-			if MIDI then midi_event(things)
---[[
-			elseif (XmlOpt) then xml_event(@things)
-]]
-			else ps_event(things)
+			if      MIDI  then midi_event(things)
+			elseif XmlOpt then xml_event(things)
+			else               ps_event(things)
 			end
 			goto nextsymbol
 		end
@@ -4342,11 +4880,9 @@ end
 		elseif CrosPerPart or MIDI or XmlOpt then -- a note, blank or rest
 			if is_a_note(symbol) or string.find(symbol,'^rest') or
 	 		  string.find(symbol,'^blank') then
-				if MIDI then midi_event(symbol)
---[[
-				elseif XmlOpt then xml_event(symbol)
-]]
-				else ps_event({symbol})
+				if MIDI       then midi_event(symbol)  -- ?? array?
+				elseif XmlOpt then xml_event({symbol})
+				else                ps_event({symbol})
 				end
 			else
 				warn_ln("not a note: ",symbol)
@@ -4380,10 +4916,10 @@ local function interpret_syntax (line)
 		return
 	end
 	if MIDI and Midi_off then return end
-	if XmlOpt and not xml['header finished'] then
+	if XmlOpt and not Xml['header finished'] then
 		-- for xml, the header lines must be consecutive ...
 		if not xml_header(line) then
-			xml['header finished'] = true; goto redo  -- don't understand this
+			Xml['header finished'] = true; goto redo  -- don't understand this
 		end
 	end
 	local ps = not MIDI and not XmlOpt -- either PS or EPS
@@ -4418,7 +4954,7 @@ local function interpret_syntax (line)
 	if s1 then newbar(string.gsub(s1, '^|%s*', '')) ; return end
 	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)(%s.*)$')
 	if s4 then
-		-- if XmlOpt then xml_text(s1,s2,s3,s4) ; return end
+		if XmlOpt then xml_text(s1,s2,s3,s4) ; return end
 		if MIDI then return end
 		ps_text(s1,s2,s3,s4) ; return
 	end
@@ -4569,7 +5105,9 @@ end
 if MIDI then
 	midi_write()
 elseif XmlOpt then
+	--io.stdout:write('x')
 	xml_print_cache()
+	--io.stdout:write('y')
 	print "\t\t</measure>\n\t</part>\n</score-partwise>";
 elseif not PrePro then
 		ps_finish_ties()	-- put in any unfinished ties ... 2.7j
@@ -4581,541 +5119,19 @@ os.exit(0)
 --[==[
 
 
--- ------------------------ XML stuff -------------------------------
-local function xml_header {  my $line = $_[$[];
-	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime;
-	my $date = string.format ('%4.4d-%2.2d-%2.2d', $year+1900, $mon+1, $mday);
-	my $dtd = "http://www.musicxml.org/dtds/partwise.dtd";
-	my $devel_dtd ="/home/pjb/musicxml/dtds/partwise.dtd";
-	-- if (-f $devel_dtd) { $dtd = $devel_dtd; }   -- must comment out...
-	if (!Xml{'header begun'}) { Xml{'header begun'} = 1; print <<EOT; }
-<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 1.1 Partwise//EN"
- "$dtd">
-<score-partwise>
-EOT
-	if ($line =~ /^\d+\s+system/) { &systems(""); return true }
-	if ($line =~ /^title (\S.*)$/) {
-		printf "\t<movement-title>%s</movement-title>\n",
-		 escape_and_utf2iso($1);
-		return true
-	end
-	if ($line =~ /^leftfoot (\S.*)$/) {
-		Xml{credit} = escape_and_utf2iso($1); return true
-	end
-	if ($line =~ /^(left|right|inner|pagenum)/) { return true }
-	print <<EOT;
-	<identification>
-		<encoding>
-			<software>muscript $Version</software>
-			<encoding-date>$date</encoding-date>
-		</encoding>
-	</identification>
-EOT
-	if (Xml{credit}) {
-		print "\t<credit><credit-words>\n\t\tXml{credit}\n",
-		 , "\t</credit-words></credit>\n";
-	end
-	print <<EOT;
-	<part-list>
-		<score-part id="P1">
-			<part-name>MIDI Track 1</part-name>
-EOT
-	-- with readahead, we wouldn't need to set up all 16 channels...
-	foreach (1..16) {
-		print <<EOT;
-			<score-instrument id="cha$_">
-				<instrument-name>cha$_</instrument-name>
-			</score-instrument>
-EOT
-	end
-	foreach (1..16) {
-		print <<EOT;
-			<midi-instrument id="cha$_">
-				<midi-channel>$_</midi-channel>
-			</midi-instrument>
-EOT
-	end
-	print <<'EOT';
-		</score-part>
-	</part-list>
-	<part id="P1">
-EOT
-	return false
-end
-local function xml_event {
-	if (!XmlOpt) { die "BUG xml_event called without XmlOpt set\n"; }
-	my @symbols = @_;
-	my $i_note = 0;
 
-	my $t1 = "\t"; my $t2 = "\t\t"; my $t4 = "$t2$t2";
-	my $t3 = "$t2$t1"; my $t5 = "$t4$t1"; my $t6 = "$t4$t2";
 
-	foreach my $symbol (@symbols) {
-		is_note = &is_a_note($symbol);
-		if (is_note or $symbol =~ /^rest|^blank/) {
-			if ($CurrentPulse < $shortest) { $shortest = $CurrentPulse; }
-		end
-		if (defined Nbeats[symbol}) {  -- it's smb min cro qua smq dsq etc
-			-- we need to measure separately shortest stem-up and stem-down !
-			if (Nbeats[symbol}<$shortest) { $shortest=Nbeats[symbol}; }
-			$CurrentPulse = Nbeats[symbol};
-			$CurrentPulseText = $symbol;
-		elseif (is_note) {
-			my $note_ref = &parse_note($symbol);
-
-			-- go through the options first; they can influence <note> element
-			my @notations = ();
-			if (noteref['endslur}) {
-				my $updown = (noteref['endslur}%2) ? 'above' : 'below';
-				push @notations,
-				 "<slur type=\"stop\" placement=\"$updown\"/>";
-			end
-			if (noteref['startslur}) {
-				my $updown = (noteref['startslur}%2) ? 'above' : 'below';
-				push @notations,
-				 "<slur type=\"start\" placement=\"$updown\"/>";
-			end
-			if (noteref['endtie}) {
-				my $updown = (noteref['endtie}%2) ? 'above' : 'below';
-				push @notations,
-				 "<tied type=\"stop\" placement=\"$updown\"/>";
-			end
-			if (noteref['starttie}) {
-				my $updown = (noteref['starttie}%2) ? 'above' : 'below';
-				push @notations,
-				 "<tied type=\"start\" placement=\"$updown\"/>";
-			end
-			-- fermata is an xml notation; stacc, tenuto, emph are xml
-			-- articulations,  and an articulation is an xml notation;
-			-- tr, turn, mordent are xml ornaments
-			--  and an ornament is an xml notation.
-			my @articulations = ();
-			my @ornaments = ();
-			my $is_staccato = 0;
-			my $is_emphasis = 0;
-			my $options = noteref['options};
-			$options =~ s{'}{\\'}g;
-			if not Opt_Cache[options] then
-				Opt_Cache[options] = parse_options(options)  -- 1?
-			wend
-			foreach (@{$Opt_Cache[options}}) {
-				my $option = $_;   -- don't clobber the cache
-				$option =~ s{\\'}{'}g;
-				my $option_is_above = 1;
-				if ($option =~ s{,$}{}g) { $option_is_above = 0; }
-				-- need to to duplicate the 3.1d code below
-		
-				my $text = ''; my $shortoption = '';
-				if ($option =~  /^([Ibir]s?)(.+)$/) {  -- text option
-					$shortoption = $1; $text = escape_and_utf2iso($2);
-				elseif ($option =~  /^s(.+)$/) {
-					$shortoption = 'rs'; $text = escape_and_utf2iso($1);
-				else
-					$shortoption = $option;
-					$shortoption =~ tr /,'//d;
-					$shortoption = $Options[shortoption} or $shortoption;
-				end
-		
-				if ($option_is_above) {
-					$option =~ s{'$}{}g;
-				else
-				end
-		
-				if ($Options[option}) {
-					my $updown = $option_is_above ? 'above' : 'below';
-					my $opt = $Options[option};  -- canonicalise
-					if ($opt == 'turn' or $opt == 'mordent') {
-						push @ornaments, "<$opt/>";
-					elseif ($opt == 'dot') {
-						$is_staccato = 1;
-						push @articulations,
-						 "<staccato placement=\"$updown\"/>";
-					elseif ($opt == 'emphasis') {
-						$is_emphasis = 1;
-						push @articulations,
-						 "<accent placement=\"$updown\"/>";
-					elseif ($opt == 'tenuto') {
-						push @articulations,
-						 "<tenuto placement=\"$updown\"/>";
-					elseif ($opt =~ /^tr/) {
-						push @ornaments,
-						 "<trill-mark placement=\"$updown\"/>";
-					end
-				elseif ($option == 'blank' or $option == '') {  -- 2.9c
-				elseif ($option =~ /^gs\d/) {  -- 3.1y
-					-- BUG: what about -gs ?
-					-- See technical in ~/musicxml/musicxml3/note.dtd
-					-- but guitar-strings are not printed like violin-strings!
-				elseif (length $text) {  -- text option
-					my $font;  my $fontsize=$TextSize*$StvHgt;
-					if ($shortoption =~ /^I/) {
-						if ($XmlDynamics[text}) {
-							push @notations, "<dynamics><$text/></dynamics>";
-						end
-						$font = $BoldItalicFont;
-					elseif ($shortoption =~ /^i/) { $font = $ItalicFont;
-					elseif ($shortoption =~ /^b/) { $font = $BoldFont;
-					else $font = $RegularFont;
-					end
-					if ($shortoption =~ /s/) { $fontsize *= $SmallFontRatio; }
-				elseif ($shortoption == 'fermata') {
-					my $updown = $option_is_above ? 'upright' : 'inverted';
-					push @notations,
-					 "<fermata type=\"$updown\"/>";
-				elseif ($option =~ /^cre/ or $option =~ /^dim/) {
-				elseif ($option =~ /^\*$|^P$/) {   -- 3.0b
-				else
-					warn " line $LineNum: unrecognised option $option\n";
-				end
-			end
-
-			my $note_attributes = '';
-			my $release = 0;   -- legato = <note release="-ticks">
-			my $legato = Stave2legato[Istave} or $DefaultLegato;
-			if ($is_staccato) { $legato *= 0.55; }
-			if ($CurrentPulseText !~ /-s$/ and $CurrentPulse > 1.0) {
-			 	$release = round(($legato-1.0) * $TPC);
-			else $release = round(($legato-1.0)*$CurrentPulse*$TPC);
-			end
-			if (!noteref['starttie} and abs $release > 1) {
-				$note_attributes .= " release=\"$release\"";
-			end
-			my $vol = current_volume();
-			if ($is_emphasis) { $vol += 10; if ($vol>127) { $vol=127; } }
-			my $vol = round(1.1111*$vol);
-			$note_attributes .= " dynamics=\"$vol\"";
-			foreach my $cha (@{ Stave2channels[Istave] }) {   -- 3.1v
-				push @xml_cache, "$t3<note$note_attributes>\n";
-
-				if ($CurrentPulseText =~ /-s$/) {
-					push @xml_cache, "$t4<grace/>\n";
-				end
-				if ($i_note) { push @xml_cache, "$t4<chord/>\n"; }
-				$xml_pitch =
-				  &xml_pitch(noteref['pitch}, noteref['accidental});
-				push @xml_cache, "$t4$xml_pitch\n";
-				if ($CurrentPulseText !~ /-s$/) { -- no duration on grace notes
-					my $duration = round($CurrentPulse * $TPC);
-					push @xml_cache, "$t4<duration>$duration</duration>\n";
-					if (!$i_note) { Xml{backup} += $duration; }
-				end
-				if (noteref['endtie}) {
-					push @xml_cache, "$t4<tie type=\"stop\"/>\n";
-				end
-				if (noteref['starttie}) {
-					push @xml_cache, "$t4<tie type=\"start\"/>\n";
-				end
-				-- fermata is a muscript option, and an xml notation
-				my $cha_p1 = $cha+1;
-				push @xml_cache, "$t4<instrument id=\"cha$cha_p1\"/>\n";
-				$i_note++;
-				push @xml_cache, "$t4<voice>Xml{voice}</voice>\n";
-				push @xml_cache, "$t4$XmlDuration[CurrentPulseText}\n";
-				if (noteref['accidental}) {  -- must be after <type>
-					my $a = $XmlAccidental{noteref['accidental}};
-					if ($a) {
-						push @xml_cache,"$t4<accidental>$a</accidental>\n";
-					end
-				end
-				if ($CurrentPulseText =~ /3/) {  -- triplet 
-					push @xml_cache,
-					 "$t4<time-modification><actual-notes>3</actual-notes>"
-					 . "<normal-notes>2</normal-notes></time-modification>\n";
-				end
-				my $stemup = &is_stemup(noteref);
-				push @xml_cache, "$t4<stem>".($stemup?'up':'down')."</stem>\n";
-				push @xml_cache, "$t4<staff>$Istave</staff>\n";
-				my $nbeams = "1";
-				if      ($CurrentPulseText =~ /^smq/) { $nbeams = "2";
-				elseif ($CurrentPulseText =~ /^dsq/) { $nbeams = "3";
-				elseif ($CurrentPulseText =~ /^hds/) { $nbeams = "4";
-				end
-				if (noteref['startbeam}) {
-					for my $ibeam (1..$nbeams) { push @xml_cache,
-						"$t4<beam number=\"$ibeam\">begin</beam>\n";
-					end
-					if ($stemup) { $StartBeamUp = true
-					else     $StartBeamDown = true
-					end
-				elseif (noteref['endbeam}) {
-					for my $ibeam (1..$nbeams) { push @xml_cache,
-						"$t4<beam number=\"$ibeam\">end</beam>\n";
-					end
-					if ($stemup) { $StartBeamUp = false
-					else     $StartBeamDown = false
-					end
-				elseif ($StartBeamUp   and $stemup) {
-					for my $ibeam (1..$nbeams) { push @xml_cache,
-						"$t4<beam number=\"$ibeam\">continue</beam>\n";
-					end
-				elseif ($StartBeamDown and !$stemup) {
-					for my $ibeam (1..$nbeams) { push @xml_cache,
-						"$t4<beam number=\"$ibeam\">continue</beam>\n";
-					end
-				end
-
-				if (@notations or @ornaments or @articulations) {
-					push @xml_cache, "$t4<notations>";
-					if (@notations) {
-						push @xml_cache, "\n$t5", join "\n$t5", @notations;
-					end
-					if (@ornaments) {
-						push @xml_cache,
-						 "\n$t5<ornaments>", @ornaments, "</ornaments>";
-					end
-					if (@articulations) {
-						push @xml_cache, "\n$t5<articulations>",
-						  @articulations, "</articulations>";
-					end
-					push @xml_cache, "\n$t4</notations>\n";
-				end
-				push @xml_cache, "$t3</note>\n";
-			end
-		elseif ($symbol =~ /^rest/) {
-			-- must handle fermata
-			my $clef = Stave2clef[Istave];
-			my $move = 0;  my $display = '';
-			if ($symbol =~ /('+)/)    { $move = length $1;
-			elseif ($symbol =~ /(,+)/)    { $move = 0 - length $1;
-			end
-			if ($move) {
-				my $line = 4*$move + $Midline[clef[Istave]};
-				my $octave = int (0.1 + $line/7);
-				$line = $line % 7;
-				my $step = $Line2step{"$line"};
-				$display = "<display-step>$step</display-step>"
-				 . "<display-octave>$octave</display-octave>";
-			end
-			push @xml_cache, "$t3<note>\n$t4<rest>$display</rest>\n";
-			my $duration = round($CurrentPulse * $TPC);
-			push @xml_cache, "$t4<duration>$duration</duration>\n";
-			push @xml_cache, "$t4<voice>Xml{voice}</voice>\n";
-			Xml{backup} += $duration;
-			push @xml_cache, "$t4$XmlDuration[CurrentPulseText}\n";
-			push @xml_cache, "$t4<staff>$Istave</staff>\n";
-			push @xml_cache, "$t3</note>\n";
-		elseif ($symbol =~ /^blank/) {
-			my $duration = round($CurrentPulse * $TPC);
-			Xml{backup} += $duration;
-			push @xml_cache,
-			 "$t3<forward><duration>$duration</duration></forward>\n";
-		end
-	end
-end
-local function xml_barline { return unless XmlOpt;  my (bartype) = @_;
-	-- draws a barline of type bartype. Types: 0 = simple, 1 = double,
-	-- add 2 for end-of-repeat, 4 for start-of-repeat, 8 for Segno
-	my @elements;
-	if (bartype & 1) {
-		push @elements, '<bar-style>light-heavy</bar-style>';
-	end
-	if (bartype & 8) {   -- Segno ...
-		push @elements, '<segno/>';
-	end
-	if (bartype & 2) {   -- end repeated section ...
-		push @elements, '<repeat direction="backward"/>';
-	end
-	if (@elements) { return "\t\t\t<barline>",@elements,"</barline>\n";
-	else return '';
-	end
-end
 local function xml_transpose { my $c = 0 + $_[$[];
 	my $d = round($c*0.583333) % 7;
 	return "<transpose>\n\t\t\t\t\t<diatonic>$d</diatonic>"
 	 . "<chromatic>$c</chromatic>\n\t\t\t\t</transpose>";
 	Xml{'current transpose'} = $c;
 end
-local function xml_text { return unless XmlOpt;
-	my ($type, $size, $vertpos, $text) = @_;
-	$text = escape_and_utf2iso($text);
-	
-	my $font_size = 'medium';
-	if      ($size =~ /l/) { $font_size = 'large';
-	elseif ($size =~ /s/) { $font_size = 'small';
-	end
-	my $font_weight = 'normal';
-	if ($type =~ /b/ or $type =~ /I/) { $font_weight = 'bold'; }
-	my $font_style = 'normal';
-	if ($type =~ /i/ or $type =~ /I/) { $font_style = 'italic'; }
 
-	$vertpos = $TextBelowStave unless $vertpos;
-	my $ytext = 40.0 * $vertpos - 80.0;  -- should measure gap, like &ps_text
-	if ($Istave == 0) {   -- above the top stave in the system
-		$ytext = 40.0 * $vertpos;
-	elseif ($Istave < $Nstaves[Isyst}) {   -- text lies between staves
-		$netgap = $GapHeight[Isyst,$Istave} - $TextSize*$StvHgt;
-		$ytext = -40.0 - (1.0-$vertpos) * $netgap * 40.0 / $StvHgt;
-	else   -- below the bottom stave in the system
-		$ytext = -40.0 -  40.0 * $vertpos;
-	end
 
-	my $t3 = "\t\t\t"; my $t4 = "$t3\t"; my $t5 = "$t4\t"; my $t6 = "$t3$t3";
-	$text =~ s/\.\d+ / /g;
-	-- $text =~ s/ /#x0020/g;  -- this xml hex notation not respected by mscore?
 
-	push @xml_cache, "$t3<direction>\n";
-	push @xml_cache, "$t4<direction-type>\n$t5<words halign=\"left\" ";
-	if (0.1 < abs $ytext) {
-		push @xml_cache, string.format('default-y="%g" ', $ytext);
-	end
-	push @xml_cache, "font-style=\"$font_style\" ";
-	push @xml_cache, "font-size=\"$font_size\" font-weight=\"$font_weight\">";
-	push @xml_cache, "$text</words>\n$t4</direction-type>\n";
-	if ($Istave) {
-		push @xml_cache, "$t4<staff>$istave</staff>\n$t3</direction>\n";
-	else       {
-		push @xml_cache, "$t4<staff>1</staff>\n$t3</direction>\n";
-	end
-end
-local function xml_timesig { return unless XmlOpt; my $str = $_[$[];
-	if ($str) { Xml{'previous timesig line'} = $str;
-	else    { $str = Xml{'previous timesig line'};
-	end
-	my ($timesig, $parts) = split (' ', $str, 2);
-	if (!$timesig) { return; }
-	if ($timesig !~ m{^\d+/\d+$}) {
-		if ($timesig =~ /^[.\d]+$/) {
-			$parts = "$timesig $parts"; -- put it back
-			$timesig = $xml_timesig;
-		else
-			warn " line $LineNum: strange timesig $timesig\n"; return false
-		end
-	end
-	return unless $parts;
 
-	$timesig =~ m{^(\d+)/(\d+)$};
-	my ($nn,$bottom) = (0+$1,0+$2);
-	my $cro_per_bar = 4 * $nn / $bottom;
-	my @parts = split ' ',$parts;
-	my $nparts = scalar @parts;
-	my $cro_per_part   = $cro_per_bar / $nparts;
-	my $ticks_per_part = $cro_per_bar * $TPC / $nparts;  -- float
-	my $ticks_so_far = 0;  -- int
-	my $ipart = 0;
-	foreach my $part (@parts) {
-		$ipart++;
-		my $secs_this_part;
-		if ($part < 10) { $secs_this_part = $part;
-		else
-			$secs_this_part = 60 * $cro_per_bar / $part;
-			if (!($nn % 3) and ($bottom == 8 or $bottom == 16)) {
-				$secs_this_part *= 12 / $bottom;
-			end
-		end
-		if ($secs_this_part < 0.1) {
-			warn " line $LineNum: warning: secs_this_part=$secs_this_part\n";
-			next;
-		end
-		my $tempo_this_part = 60 * $cro_per_part / $secs_this_part;
-		push @xml_cache,
-		 string.format "\t\t\t<sound tempo=\"%g\"/>\n", $tempo_this_part;
-		if ($ipart >= $nparts) { last; }
-		my $new_ticks_so_far = round($ipart * $ticks_per_part);
-		my $ticks_this_part = $new_ticks_so_far - $ticks_so_far;
-		push @xml_cache,
-		 "\t\t\t<forward><duration>$ticks_this_part</duration></forward>\n";
-		$ticks_so_far = $new_ticks_so_far;
-	end
-	if ($ticks_so_far) {
-		push @xml_cache,
-		 "\t\t\t<backup><duration>$ticks_so_far</duration></backup>\n";
-	end
-end
-local function xml_pitch { my $pitch = shift; my $accidental = shift;
-	my $step = $pitch;  $step =~ tr/[a-g]/[A-G]/d;
-	my $octave;
-	if ($pitch =~ tr/[A-G]/[a-g]/) { $octave = 3; else $octave = 4; }
-	if (Stave2clef[Istave] == 'treble8va')     { $octave += 2;
-	elseif (Stave2clef[Istave] == 'treble')   { $octave += 1;
-	elseif (Stave2clef[Istave] == 'bass')     { $octave -= 1;
-	elseif (Stave2clef[Istave] == 'bass8vab') { $octave -= 2;
-	end
-	$octave += ($step =~ tr/~//d);
-	$octave -= ($step =~ tr/_//d);
-	
-	my $alter = 0;   -- 2.8u
-	if ($accidental) {
-		$Accidentalled[pitch} = $accidental;
-		$alter = $Accidental2alter[accidental};
-	else
-		$alter = $Accidental2alter[Accidentalled[pitch}};
-	end
-	if ($alter) { $alter = "<alter>$alter</alter>"; else $alter = ''; }
-	return "<pitch><step>$step</step>$alter<octave>$octave</octave></pitch>";
-end
 
-local function xml_clef_attribute  { my $clef = $_[$[];
-	my $sign = q{C};
-	my $line = q{3};
-	if ($clef =~ /^treble/)     { $sign = q{G}; $line = q{2};
-	elseif ($clef =~ /^bass/)  { $sign = q{F}; $line = q{4};
-	elseif ($clef =~ /^tenor/) { $line = q{4};
-	end
-	my $clef_octave_change = '';
-	if ($clef =~ /8vab$/)     { $clef_octave_change = q{-1};
-	elseif ($clef =~ /8va$/) { $clef_octave_change = q{1};
-	end
-	if ($clef_octave_change) {
-		$clef_octave_change
-		 = "<clef-octave-change>$clef_octave_change</clef-octave-change>";
-	end
-	return "<clef number=\"$istave\"><sign>$sign</sign><line>$line</line>"
-	. "$clef_octave_change</clef>";
-end
-local function xml_keysig  { my $keysig = $_[$[];
-	$keysig =~ m/(\d+)([#bn])/;
-	my $fifths = $1 or q{0};  my $acc = $2;
-	if ($acc =~ /b$/)   { $fifths = q{-} . $fifths;
-	elseif ($acc =~ /n$/) { $fifths = q{0};
-	end
-	return "<key number=\"$istave\"><fifths>$fifths</fifths></key>";
-end
-local function xml_time_attribute  { my $timesig = $_[$[];
-	$timesig =~ m{(\d+)/(\d+)};
-	my $beats = $1;  my $beat_type = $2;
-	if ($acc =~ /b$/)   { $fifths = q{-} . $fifths;
-	} if ($acc =~ /n$/) { $fifths = "0";
-	end
-	return "<time number=\"$istave\"><beats>$beats</beats>"
-	. "<beat-type>$beat_type</beat-type></time>";
-end
-local function xml_print_cache {
-	-- Fussy order ...
-	-- ((footnote?,level?), divisions?, key?, time?, staves?, instruments?,
-	-- clef* , staff-details* , transpose? , directive* , measure-style*)
-	-- at beginning of measure, "staves clef clef.." for all staves :-(
-	-- EACH <attributes> can only contain one key, one time, one instruments
-	--  and one transposes; therefore each stavenum needs its own 
-	if (4 & $BarType[Isyst,$Ibar-1}) {
-		print "\t\t\t<barline location=\"left\">";
-		print "<repeat direction=\"forward\"/></barline>\n";
-	end
-	foreach my $ca (@xml_cache) {
-		if (ref $ca == 'HASH') {
-			print "\t\t\t<attributes>\n";
-			foreach my $att (qw(footnote level divisions key time)) { -- 3.1m
-				if ($ca->{$att}) { print "\t\t\t\t",$ca->{$att},"\n"; }
-			end
-			if (Xml{staves} ne Xml{remembered_staves}) {
-				print "\t\t\t\t<staves>Xml{staves}</staves>\n";
-				Xml{remembered_staves} = Xml{staves};
-			end
-			if ($ca->{instruments}) {
-				print "\t\t\t\t<instruments>",
-				 $ca->{instruments},"</instruments>\n";
-			end
-			foreach my $att (qw(clef transpose)) { -- 3.1m
-				if ($ca->{$att}) { print "\t\t\t\t",$ca->{$att},"\n"; }
-			end
-			print "\t\t\t</attributes>\n";
-		else
-			print $ca;
-		end
-	end
-	print &xml_barline($BarType[Isyst,$Ibar});
-	@xml_cache = ();
-end
 
 -- ------------------------ MIDI stuff -------------------------------
 
