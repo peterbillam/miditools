@@ -3190,6 +3190,13 @@ function xml_time_attribute (timesig)
 	  '</beats><beat-type>'..beat_type..'</beat-type></time>'
 end
 
+function xml_transpose (c)
+	local d = tostring(round(tonumber(c)*0.583333) % 7)
+	Xml['current transpose'] = c
+	return '<transpose>\n\t\t\t\t\t<diatonic>'..d ..
+	  '</diatonic><chromatic>'..c..'</chromatic>\n\t\t\t\t</transpose>'
+end
+
 ------------------------------------------------------------------------
 
 local function newbar (line)
@@ -3669,11 +3676,11 @@ local function midi_event (symbols)
 		  			elseif option == 'emph' then
 						velocity = round(1.3 * velocity)
 						if velocity > 127 then velocity = 127 end
-		  			elseif string.find(option, "/^cre%d+$") then
-						local s1 = string.match(option, "/^cre(%d+)$")
+		  			elseif string.find(option, '^cre%d+$') then
+						local s1 = string.match(option, '^cre(%d+)$')
 						table.insert(midiexpressions, tonumber(s1))
-		  			elseif string.find(option, "/^dim%d+$") then
-						local s1 = string.match(option, "/^dim(%d+)$")
+		  			elseif string.find(option, '^dim%d+$') then
+						local s1 = string.match(option, '^dim(%d+)$')
 						table.insert(midiexpressions, 0 - tonumber(s1))
 					else  -- pedal options that are also needed by rests...
 						midi_event_option(option, starttime, cha)
@@ -3730,41 +3737,40 @@ local function midi_event (symbols)
 					else D = D + fullduration - duration
 					end
 				end
---[[
-				if (@midiexpressions) { -- 2.7a cre and dim
+				if #midiexpressions > 0.5 then -- 2.7a cre and dim
 					-- could also pan+50, 20141118 could also bend
-					local n = scalar @midiexpressions;
-					local begin_section = $B;
-					local duration = $D;
-					if ($starttie) { $duration = $fullduration; }
-					local ticks_per_section = round($duration / $n);
-					local expression = 100;
-					foreach local expr (@midiexpressions) {
-						if ($expression+$expr > 127)  { $expr=127-$expression;
-						elseif ($expression+$expr < 0) { $expr=0-$expression;
+					local n = #midiexpressions
+					local begin_section = B
+					local duration = D
+					if starttie then duration = fullduration end
+					local ticks_per_section = round(duration / n)
+					local expression = 100
+					for j,expr in ipairs(midiexpressions) do
+						if   (expression+expr) > 127 then expr=127-expression
+						elseif (expression+expr) < 0 then expr=0-expression
 						end
 -- 20141104  should leave at least, say, 5ms  between each cc-change !
-						local step = int(1.01 + 5*abs($expr)/$ticks_per_section);
+						local step = math.floor(
+							1.01 + 5*math.abs(expr)/ticks_per_section)
 -- 20141104  $step should correspond to at least, say, 5ms !
 -- $MidiTempo = uSec-per-cro ;    $TPC = ticks-per-cro
 -- ticks_per_5000uS = int(1.01 + 5000 * $TPC / $MidiTempo)
-						if ($expr < 0) { $step = 0 - $step; }
-						local nsteps = round($expr / $step);
-						if (! $nsteps) {
-							$begin_section += $ticks_per_section; next;
+						if expr < 0 then step = 0 - step end
+						local nsteps = round(expr / step)
+						if nsteps<0.5 then
+							begin_section = begin_section + ticks_per_section
+							goto nextexpr
 						end
-						local i = 1; while (1) {
-							$expression += $step;
-							$ticks = round($begin_section
-							 + $i * $ticks_per_section/(1+$nsteps) );
-							midi_expression($ticks, $cha, $expression);
-							$i++; if ($i > $nsteps) { last; }
+						for i = 1,nsteps do
+							expression = expression + step
+							local ticks = round(
+							  begin_section + i*ticks_per_section/(1+nsteps))
+							midi_expression(ticks, cha, expression)
 						end
-						$begin_section += $ticks_per_section;
+						begin_section = begin_section + ticks_per_section
+						::nextexpr::
 					end
 				end
-]]
--- frontier
 				if starttie then
 					if not endtie then  -- 2.4e
 						StartedTies[concat({Istave,starttie,cha}, ' ')] =
@@ -4004,79 +4010,92 @@ function xml_event (symbols)
 			local is_staccato   = false
 			local is_emphasis   = false
 			local options = noteref['options']
---[[
-			$options =~ s{'}{\\'}g;
-			if not Opt_Cache[options] then
-				Opt_Cache[options] = parse_options(options)  -- 1?
+			-- $options =~ s{'}{\\'}g;
+			if options and not Opt_Cache[options] then
+				Opt_Cache[options] = parse_options(options)
 			end
-			foreach (@{$Opt_Cache['options']}) {
-				local option = $_;   -- don't clobber the cache
-				$option =~ s{\\'}{'}g;
-				local option_is_above = 1;
-				if ($option =~ s{,$}{}g) { $option_is_above = 0; }
-				-- need to to duplicate the 3.1d code below
-				local text = ''; local shortoption = '';
-				if ($option =~  /^([Ibir]s?)(.+)$/) {  -- text option
-					$shortoption = $1; $text = escape_and_utf2iso($2);
-				elseif ($option =~  /^s(.+)$/) {
-					$shortoption = 'rs'; $text = escape_and_utf2iso($1);
-				else
-					$shortoption = $option;
-					$shortoption =~ tr /,'//d;
-					$shortoption = $Options['shortoption'] or $shortoption;
+			for i,o in ipairs(Opt_Cache[options] or {}) do
+				local option = o   -- don't clobber the cache or the loopvar
+				--$option =~ s{\\'}{'}g;
+				local option_is_above = true
+				if string.find(option,',$') then
+					option_is_above = false
+					option = string.gsub(option, ',$', '')
 				end
-				if ($option_is_above) {
-					$option =~ s{'$}{}g;
+				-- need to duplicate the 3.1d code below
+				local text = '' ; local shortoption = ''
+-- BUG ? these text-options seem to get ignored, in Perl and Lua :-(
+				if string.find(option,'^[Ibir]s?.+$') then  -- text option
+					local s1,s2 = string.match(option, '^([Ibir]s?)(.+)$')
+					shortoption = s1; text = escape_and_utf2iso(s2);
+				elseif string.find(option,'^s.+$') then
+					local s1 = string.match(option, '^s(.+)$')
+					shortoption = 'rs'; text = escape_and_utf2iso(s1);
 				else
+					shortoption = string.gsub(option, "[,']", "")
+					shortoption = Options['shortoption'] or shortoption
 				end
-				if ($Options['option']) {
-					local updown = $option_is_above ? 'above' : 'below';
-					local opt = $Options['option'];  -- canonicalise
-					if ($opt == 'turn' or $opt == 'mordent') {
-						push @ornaments, "<$opt/>";
-					elseif ($opt == 'dot') {
-						$is_staccato = 1;
-						push @articulations,
-						 "<staccato placement=\"$updown\"/>";
-					elseif ($opt == 'emphasis') {
-						$is_emphasis = 1;
-						push @articulations,
-						 "<accent placement=\"$updown\"/>";
-					elseif ($opt == 'tenuto') {
-						push @articulations,
-						 "<tenuto placement=\"$updown\"/>";
-					elseif ($opt =~ /^tr/) {
-						push @ornaments,
-						 "<trill-mark placement=\"$updown\"/>";
+				if option_is_above then
+					option = string.gsub(option, "'$", "")
+				end
+				if Options[option] then
+					local updown = 'below'
+					if option_is_above then updown = 'above' end
+					local opt = Options[option]  -- canonicalise
+					if not opt or opt == '' then
+					elseif opt == 'turn' then
+						ornaments[#ornaments+1] = '<turn/>'
+					elseif opt == 'mordent' then
+						ornaments[#ornaments+1] = '<mordent/>'
+					elseif opt == 'dot' then
+						is_staccato = true
+						articulations[#articulations+1] =
+						  '<staccato placement="'..updown..'"/>'
+					elseif opt == 'emphasis' then
+						is_emphasis = true
+						articulations[#articulations+1] =
+						  '<accent placement="'..updown..'"/>'
+					elseif opt == 'tenuto' then
+						articulations[#articulations+1] =
+						  '<tenuto placement="'..updown..'"/>'
+					elseif string.find(opt,'^tr') then
+						ornaments[#ornaments+1] =
+						  '<trill-mark placement="'..updown..'"/>'
 					end
-				elseif ($option == 'blank' or $option == '') {  -- 2.9c
-				elseif ($option =~ /^gs\d/) {  -- 3.1y
+				elseif option == 'blank' or option == '' then  -- 2.9c
+				elseif string.find(option,'/^gs%d') then  -- 3.1y
 					-- BUG: what about -gs ?
 					-- See technical in ~/musicxml/musicxml3/note.dtd
 					-- but guitar-strings are not printed like violin-strings!
-				elseif (length $text) {  -- text option
-					local font;  local fontsize=$TextSize*$StvHgt;
-					if ($shortoption =~ /^I/) {
-						if ($XmlDynamics['text']) {
-							push @notations, "<dynamics><$text/></dynamics>";
+				elseif string.len(text) > 0.5 then  -- text option
+					local font     = RegularFont
+					local fontsize = TextSize * StvHgt
+					if string.find(shortoption,'^I') then
+						if (XmlDynamics['text']) then
+							 notations[#notations+1] =
+							  '<dynamics><'..text..'/></dynamics>'
 						end
-						$font = $BoldItalicFont;
-					elseif ($shortoption =~ /^i/) { $font = $ItalicFont;
-					elseif ($shortoption =~ /^b/) { $font = $BoldFont;
-					else $font = $RegularFont;
+						font = BoldItalicFont
+					elseif string.find(shortoption,'^i') then
+						font = ItalicFont
+					elseif string.find(shortoption,'^b') then
+						font = BoldFont
 					end
-					if ($shortoption =~ /s/) { $fontsize *= $SmallFontRatio; }
-				elseif ($shortoption == 'fermata') {
-					local updown = $option_is_above ? 'upright' : 'inverted';
-					push @notations,
-					 "<fermata type=\"$updown\"/>";
-				elseif ($option =~ /^cre/ or $option =~ /^dim/) {
-				elseif ($option =~ /^\*$|^P$/) {   -- 3.0b
+					if string.find(shortoption,'s') then
+						fontsize = fontsize * SmallFontRatio
+					end
+				elseif shortoption == 'fermata' then
+					local updown = 'inverted'
+					if option_is_above then updown = 'upright' end
+					notations[#notations+1] = '<fermata type="'..updown..'"/>'
+				elseif string.find(option,'^cre') then
+				elseif string.find(option,'^dim') then
+				elseif option == '*' then
+				elseif option == 'P' then
 				else
-					warn " line $LineNum: unrecognised option $option\n";
+					warn_ln('unrecognised option '..option)
 				end
 			end
-]]
 			local note_attributes = ''
 			local release = 0   -- legato = <note release="-ticks">
 			local legato = Stave2legato[Istave] or DefaultLegato
@@ -5116,23 +5135,8 @@ elseif not PrePro then
 end
 os.exit(0)
 
+
 --[==[
-
-
-
-
-local function xml_transpose { my $c = 0 + $_[$[];
-	my $d = round($c*0.583333) % 7;
-	return "<transpose>\n\t\t\t\t\t<diatonic>$d</diatonic>"
-	 . "<chromatic>$c</chromatic>\n\t\t\t\t</transpose>";
-	Xml{'current transpose'} = $c;
-end
-
-
-
-
-
-
 -- ------------------------ MIDI stuff -------------------------------
 
 local function midi_x2ticks (crossofar,crosperpart)  -- 2.9c
