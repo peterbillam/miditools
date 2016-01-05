@@ -3248,6 +3248,7 @@ local function midi_cc_100 (cha, num, percent)
 end
 
 local function midi_expression (ticks, cha, val)
+	cha = tonumber(cha)
 	if MidiExpression[cha] == val then return end
 	table.insert(MidiScore, {'control_change', ticks, cha, 11, val})
 	MidiExpression[cha] = val
@@ -3256,7 +3257,6 @@ end
 local function midi_global (s)
 	local a = split (string.gsub(s,'%s+#.*$',''), '%s*[ =]%s*')
 	local str = {} ; for i=1,#a,2 do str[a[i]] = a[i+1] end
---print(DataDumper(str))
 	cha = str['channel'] or str['cha']
 	if XmlOpt then  -- the Parts mean MIDI-Tracks - we use one track
 		local t3 = "\t\t\t" ; local t4 = "\t\t\t\t"
@@ -3730,7 +3730,7 @@ local function midi_event (symbols)
 					end
 				elseif MidiExpression[cha] ~= 100 then
 					-- we're already within a loop over channels
-					midi_expression(B, cha, 100);
+					midi_expression(B, cha, 100)
 				end
 				if StartedSlurs[Istave] then
 					if endslur then table.remove(StartedSlurs,Istave)
