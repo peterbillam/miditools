@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2g for Lua5'
-VersionDate  = '19dec2015';
+Version = '3.2h for Lua5'
+VersionDate  = '09jan2016';
 
 --is_debug = false
 -- if is_debug then $|=1;  -- so you can 'tail -f' on the output file
@@ -101,17 +101,16 @@ MidiBarlines = false
 NoteTable       = {}
 Ytable          = {}
 Nbeats          = {}
-Intl2en         ={}
+Intl2en         = {}
 
 -- Other globals
 Epsilon         = 0.0005 -- less than .001 for good word spacing
 TTY             = nil -- filehandle for /dev/tty
 PageNum         = 0
 Ibar            = 0
-Istave          = 1    -- but isn't CurrentStaveNum the same as this ?
+Istave          = 1  -- in Perl, CurrentStaveNum was the same but as a string
 BarType         = {}
-CurrentStaveNum = 0    -- it's a number ! in perl it was a string...
-CurrentPulse     = 1
+CurrentPulse     = 1  -- in Quarters
 CurrentPulseText = 'cro'
 Stave2clef      = {}
 Stave2channels  = {}   -- 3.1v now a hash of lists
@@ -140,7 +139,6 @@ Keysig  = {}    -- [Istave] ; it's local within newstave() but persistent
 TicksAtBarStart = 0
 TicksThisBar    = 0
 MidiExpression  = {}  -- dict
--- XmlTempo       = nil
 XmlTimesig      = nil
 Proportion      = {} -- shared by PS and XML
 PartShare       = {} -- shared by newsystem(), newstave(), bars()
@@ -161,16 +159,16 @@ OptionMustGoBelow = {  -- 3.1n
 }
 DefaultStem    = nil -- for this stave
 Ystave         = {}  -- dict
-Ystv           = nil -- timesaver
+local Ystv     = nil -- timesaver
 MaxStaveHeight = {}
 StaveHeight    = {}
-StvHgt         = 0   -- timesaver for StaveHeight[Isyst][Istave]
+local StvHgt   = 0   -- timesaver for StaveHeight[Isyst][Istave]
 Xbar           = {}
 GapHeight      = {}
 YblineBot      = {{},}
 YblineTop      = {{},}
 Isyst          = 0
-Nsystems       = 0   -- couldn't I just use RememberNsystems ?
+-- Nsystems    = 0   -- just use RememberNsystems
 RememberSystemsSizes = nil
 RememberNsystems     = nil
 RememberHeader       = {}
@@ -179,27 +177,27 @@ RememberNbars        = nil
 Xstart = {}  -- Xstart[concat({'tie',Isyst,Istave,itie},' ')] (or 'slur')
 Ystart = {}
 JustDidNewsystem = false
-Xml    = {}  -- Policy: all keys and all values will be strings !
-XmlDuration     = {}
-XmlAccidental   = {}
+Xml              = {} -- Policy: all keys and all values will be strings !
+XmlDuration      = {}
+XmlAccidental    = {}
 Accidental2alter = {}
 XmlDynamics = { p=true, pp=true, ppp=true, pppp=true, ppppp=true,
 	pppppp=true, f=true, ff=true, fff=true, ffff=true, fffff=true,
 	ffffff=true, mp=true, mf=true, sf=true, sfp=true, sfpp=true,
 	fp=true, rf=true, rfz=true, sfz=true, sffz=true, fz=true,
 }
-XmlCache       = {}  -- cache for music-data in a measure, to count staves
-Midline        = {}  -- dict
-Line2step      = {}  -- dict  -- for shifting rests in xml
--- SlurOrTie      = {}  -- dict
-SlurOrTieShift = {}  -- dict
+XmlCache         = {}  -- cache for music-data in a measure, to count staves
+Midline          = {}  -- dict
+Line2step        = {}  -- dict  -- for shifting rests in xml
+-- SlurOrTie     = {}  -- dict
+SlurOrTieShift   = {}  -- dict
 PS_Prolog        = nil -- will be set later if MIDI is not defined
 PS_prologAlready = false
 Midi_off         = false
-MidiPedal      = {}  -- 3.0b
-MidiSosPed     = {}  -- 3.0g
-MidiUnaPed     = {}  -- 3.1n
-Vars           = {}  -- set by set_var, sets up generators etc
+MidiPedal        = {}  -- 3.0b
+MidiSosPed       = {}  -- 3.0g
+MidiUnaPed       = {}  -- 3.1n
+Vars             = {}  -- set by set_var, sets up generators etc
 RabbitSequence    = {0,1,0,0,1,0,1,0, 0,1,0,0,1}
 OldRabbitSequence = {0,1,0,0,1,0,1,0}
 AabaSequence      = {0,0,1,0, 0,0,1,0, 1,1,0,1, 0,0,1,0}
@@ -209,10 +207,9 @@ VariableSetRE_m   = "^%s*%$([A-Z][A-Z0-9]*)%s*(==?)%s*(.+)$"
 VariableGetRE_f   = "%$[A-Z][A-Z0-9]*"
 VariableGetRE_m   = "%$([A-Z][A-Z0-9]*)"
 VarArraySetRE     = "^$([A-Z][A-Z0-9]*)(%d)-(%d)%s*(==?)%s*(.+)$"
--- used by ps_event() and ps_y_above_note() :
-HighestStemUp   = 0 ;  HighestStemDown = 0 ;  HighestNoStem   = 0 
--- used by ps_event() and ps_y_below_note() :
-LowestStemUp   = 1000; LowestStemDown = 1000; LowestNoStem   = 1000
+-- next 2 lines used by ps_event() and ps_y_above_note() :
+HighestStemUp = 0 ;  HighestStemDown = 0 ;  HighestNoStem = 0 
+LowestStemUp  = 1000; LowestStemDown = 1000; LowestNoStem = 1000
 
 -- "boundingbox" can override these ...
 lmar    =  40  -- these four for system-layout
@@ -1137,7 +1134,7 @@ local function systems (nsystems, sizes)
 	-- print('systems: nsystems =', nsystems)
 	if MIDI then return end
 	if nsystems and not sizes then  -- impose some defaults
-		Nsystems = tonumber(nsystems)
+		nsystems = tonumber(nsystems)
 		if     nsystems > 6 then sizes = '/19/'
 		elseif nsystems > 4 then sizes = '/19 30 19/'
 		elseif nsystems > 3 then sizes = '/19 30 19 30 19/'
@@ -1148,11 +1145,11 @@ local function systems (nsystems, sizes)
 		RememberNsystems and RememberSystemsSizes then
 		sizes    = RememberSystemsSizes
 		nsystems = RememberNsystems
-		Nsystems = RememberNsystems
+		-- Nsystems = RememberNsystems
 	else
-		Nsystems = tonumber(nsystems)
+		nsystems = tonumber(nsystems)
 		RememberSystemsSizes = sizes     -- global
-		RememberNsystems     = Nsystems  -- global
+		RememberNsystems     = nsystems  -- global
 		RememberHeader       = {}        -- global
 	end
 	local systms = split(sizes, '%s*/%s*')
@@ -1162,7 +1159,7 @@ local function systems (nsystems, sizes)
 	if XmlOpt then   -- XmlOpt: see layout.dtd -
 		Ipage = Ipage + 1
 		local barlinesandgaps = {} ; local istave;
-		for isyst = 1,Nsystems do
+		for isyst = 1,nsystems do
 			StaveHeight[isyst] = {}
 			GapHeight[isyst] = {}
 			istave = 0
@@ -1183,7 +1180,7 @@ local function systems (nsystems, sizes)
 					end
 				end
 			end
-			Nstaves['isyst'] = istave
+			Nstaves[isyst] = istave
 		end
 		Isyst = 0
 		return
@@ -1207,13 +1204,13 @@ local function systems (nsystems, sizes)
 	end
 	print_tty("page "..tostring(Ipage)..", system")
 
-	for i=(#systms+1),Nsystems do table.insert(systms, systms[#systms]) end
+	for i=(#systms+1),nsystems do table.insert(systms, systms[#systms]) end
 	--print('systms =',DataDumper(systms))
 
 	local totsyswidth = 0.0   -- initialise counter for all systems on page
 	local barlinesandgaps = {}
 	local ngaps    = {}
-	for isyst=1,Nsystems do -- for each system
+	for isyst=1,nsystems do -- for each system
 		local syswidth = 0.0  -- this system width (includes all gaps)
 		Lmargin[isyst] = lmar;
 		Rmargin[isyst] = rmar;
@@ -1272,10 +1269,10 @@ local function systems (nsystems, sizes)
 	end
 	-- so do the systems fit on the page ?
 	local systemgap
-	if Nsystems == 1 then
+	if nsystems == 1 then
 		systemgap = (TopMar-BotMar-totsyswidth-topgap)
 	else
-		systemgap = (TopMar-BotMar-totsyswidth-topgap) / (Nsystems-1);
+		systemgap = (TopMar-BotMar-totsyswidth-topgap) / (nsystems-1);
 	end
 	if systemgap < 0 then
 		die(string.format("\nSorry, won't fit: systemgap=%g\n", systemgap))
@@ -1284,17 +1281,17 @@ local function systems (nsystems, sizes)
 	-- if systemgap is large, space is left also above top sys & below bot.
 	local Y
 	local excess = systemgap - AmpleSysGap*(TopMar-BotMar)
-	if Nsystems == 1 then
+	if nsystems == 1 then
 		Y = 0.5 * (TopMar+BotMar+totsyswidth) - topgap  -- 2.9m
 	elseif excess > 0 then
-		adjustment = excess * (Nsystems-1) / (Nsystems+1)
+		adjustment = excess * (nsystems-1) / (nsystems+1)
 		systemgap = systemgap - excess + adjustment
 		Y = TopMar - adjustment - topgap
 	else
 		Y = TopMar - topgap
 	end
 	-- for each system ...
-	for isyst=1,Nsystems do
+	for isyst=1,nsystems do
 		print("% system "..tostring(isyst)..
 		  " staves, initial barline, and brackets:")
 		local istave = 1; local igap = 1
@@ -3059,7 +3056,7 @@ local function newsystem ()
 	-- remember a separate @BeamUp etc per stavenum :-(
 	BeamUp = {}; BeamDown = {}
 	StartBeamUp = false; StartBeamDown = false   -- 2.9z
-	if Isyst >= Nsystems then -- Nsystems is global, set by systems()
+	if Isyst >= RememberNsystems then -- global, set by systems()
 		systems()
 		-- regurgitate remembered header lines (except for title) ...
 		if RememberHeader['pagenum'] then ps_pagenum() ; ps_innerhead()
@@ -4602,7 +4599,7 @@ local function newstave (line)
 			Xml['staves']=tostring(Istave)
 		end
 	elseif not PrePro then
-		print_sp('% page',pagenum,'sys',Isyst,' bar',Ibar,' stave',Istave)
+		print_sp('% page',PageNum,'sys',Isyst,' bar',Ibar,' stave',Istave)
 		-- surely all the measurement loop should also be part of this "else" ?
 	end
 	remainder = string.gsub(remainder, "^%s+", "")
@@ -4660,7 +4657,7 @@ local function newstave (line)
 		if Nparts[Isyst][Ibar] then
 			CrosPerPart = CrosSoFar / Nparts[Isyst][Ibar]
 		else print_sp(
-		  '% ERROR: no | before stave line, page ',pagenum,', sys ',Isyst)
+		  '% ERROR: no | before stave line, page',PageNum,', sys',Isyst)
 			CrosPerPart = 10 -- ugly but legal
 		end
 		-- so what are the corresponding x positions ?
@@ -4729,7 +4726,7 @@ local function newstave (line)
 		i = i + 1
 	elseif array[i] == 'clefspace' then
 		if not MIDI then
-			Xpart[1] = Xpart[1] + 0.9*SpaceForClef*maxstvhgt   -- 3.2d ibar==1?
+			Xpart[1] = Xpart[1] + 0.9*SpaceForClef*maxstvhgt  -- 3.2d ibar==1?
 		end
 		theresaclef = true
 		i = i + 1

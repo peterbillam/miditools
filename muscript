@@ -46,15 +46,14 @@ $Data::Dumper::Quotekeys = 0;
 $Data::Dumper::Sortkeys  = 1;
 $Data::Dumper::Terse     = 1;
 
-
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2g for Perl'; # various bug-fixes
-$VersionDate           = '19dec2015';
+$Version               = '3.2h for Perl'; # consistent GlobalVariable spelling
+$VersionDate           = '09jan2016';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
-$[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $istave
+$[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $Istave
 # Beginning of Configuration Stuff: mostly relative to stave height ...
 $SpaceAtBeginningOfBar = 0.60;
 $AccidentalBeforeNote  = 0.40;
@@ -192,7 +191,8 @@ my $Epsilon;         # a small number
 my $NoTTY;
 my $PageNum;
 my $Ibar;
-my $istave;
+my $Istave;
+my @Nstaves;
 my %BarType;
 my %Stave2clef;
 my %Stave2channels;   # 3.1v now a hash of lists
@@ -212,14 +212,14 @@ my $CrosSoFar;
 my $CrosPerPart;
 my %Nbeats;
 my $TicksAtBarStart;
-my $ticksthisbar;
+my $TicksThisBar;
 my %MidiExpression;
 my %Intl2en;
 my $XmlTimesig;
 my $StartBeamUp;    # &ps_event and &ps_note
 my $StartBeamDown;  # &ps_event and &ps_note
 my %StartedSlurs = ();
-my %StartedTies  = ();  # 3.2b cha3+4, $StartedTies{"$istave $starttie $cha"}
+my %StartedTies  = ();  # 3.2b cha3+4, $StartedTies{"$Istave $starttie $cha"}
 my @BeamUp;
 my @BeamDown;
 my $LineNum = 0;
@@ -237,7 +237,7 @@ my $StvHgt;    # timesaver
 my %YblineBot; my %YblineTop; my %Nblines;  # barlines on this system
 my $Isyst = 0; # my $Nsystems = 0;
 my $RememberSystemsSizes; my $RememberNsystems; my %RememberHeader=();
-my %Xstart; my %Ystart;  # $Xstart{'tie',$Isyst,$istave,$itie}; (or 'slur')
+my %Xstart; my %Ystart;  # $Xstart{'tie',$Isyst,$Istave,$itie}; (or 'slur')
 my $JustDidNewsystem = 0;
 my %Xml;
 my %XmlAccidental;
@@ -246,7 +246,7 @@ my %Accidental2alter;
 my %XmlDynamics = map { $_, 1 } qw(p pp ppp pppp ppppp pppppp
  f ff fff ffff fffff ffffff mp mf sf sfp sfpp fp rf rfz sfz sffz fz);
 my @XmlCache;       # cache for music-data in a measure, to count staves
-my %midline; my %line2step;  # for shifting rests in xml
+my %Midline; my %Line2step;  # for shifting rests in xml
 my %SlurOrTie;
 my %SlurOrTieShift;
 my $PSprologAlready = 0;
@@ -483,7 +483,7 @@ sub initialise {
 		$MidiTimesig     = q{};
 		$TicksPerMidiBeat = $TPC;
 		$TicksAtBarStart  = 0;
-		$ticksthisbar     = 0;      # so as not to delay the start
+		$TicksThisBar     = 0;      # so as not to delay the start
 		$midibarparts     = '2.4';  # default guesses 4/4 at 100 cro/min
 		%Stave2channels   = ();
 		$currentstavenum  = '1';
@@ -521,11 +521,11 @@ sub initialise {
 		%Accidental2alter = (
 			'#'=>1, '##'=>2, 'b'=>-1, 'bb'=>-2, 'n'=>0, ''=>0,
 		);
-		%midline = (
+		%Midline = (
 			treble8va=>41, treble=>34, treble8vab=>27, alto=>28,
 			tenor=>26, bass8va=>29, bass=>22, bass8va=>15,
 		);
-		%line2step = (
+		%Line2step = (
 			'0'=>'C', '1'=>'D', '2'=>'E', '3'=>'F',
 			'4'=>'G', '5'=>'A', '6'=>'B',
 		);
@@ -632,7 +632,7 @@ sub boundingbox { my ($w, $h) = @_;
 	$Box_W = $w;
 }
 sub systems { $[=1; $nsystems = shift; my $sizes = shift;
-	# sets globals: lmargin, rmargin, nsystems, nstaves, ystave,
+	# sets globals: lmargin, rmargin, nsystems, Nstaves, ystave,
 	# staveheight, gapheight, Nblines, ybline, blineheight, Isyst
 	return if $Midi;
 
@@ -680,7 +680,7 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 					}
 				}
 			}
-			$nstaves{$isyst} = $istave;
+			$Nstaves{$isyst} = $istave;
 		}
 		$Isyst = 0;
 		return;
@@ -754,7 +754,7 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 				$YblineBot{$isyst, $ibline} = $syswidth;  # will invert later
 			}
 		}
-		$nstaves{$isyst} = $istave;
+		$Nstaves{$isyst} = $istave;
 		$Nblines{$isyst} = $ibline;
 		$ngaps{$isyst}	 = $igap-1;
 	}
@@ -803,7 +803,7 @@ sub systems { $[=1; $nsystems = shift; my $sizes = shift;
 			printf "%g %g %g %g stave\n", $lmargin{$isyst},
 			 $rmargin{$isyst}, $Y, $StaveHeight{$isyst,$istave};
 			$Y -= $StaveHeight{$isyst,$istave};
-			if ($istave >= $nstaves{$isyst}) {
+			if ($istave >= $Nstaves{$isyst}) {
 				printf "%g %g %g %g barline\n", $lmargin{$isyst},
 				 $Ystave{$isyst,1}, $Y, $StaveHeight{$isyst,$istave};
 				if ($igap<=$ngaps{$isyst}) { $Y-=$gapheight{$isyst,$igap}; }
@@ -977,7 +977,7 @@ sub bars { my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
 		}
 	}
 	$nbars{$Isyst} = $ibar;
-	if ($XmlOpt) { $ibar = 0; $istave = 0; return; }
+	if ($XmlOpt) { $Ibar = 0; $Istave = 0; return; }
 	# 3.1f avoid division by zero
 	if ($sumofproportions == 0) { $sumofproportions = 1; }
 
@@ -989,21 +989,21 @@ sub bars { my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
 	$xbar{$Isyst, 0} = $lmargin{$Isyst};   # YYY bug? why not = $lmargin;
 	if (8 & $BarType{$Isyst,0}) {   # Segno at first bar ?
 		printf "%g %g %g segno\n", $lmargin,
-		  $Ystave{$Isyst,1} + $StaveHeight{$Isyst,$istave}*$SegnoHeight,
-		  $StaveHeight{$Isyst, $istave};
+		  $Ystave{$Isyst,1} + $StaveHeight{$Isyst,$Istave}*$SegnoHeight,
+		  $StaveHeight{$Isyst, $Istave};
 	}
 	for ($ibar=1; $ibar<=$nbars{$Isyst}; $ibar++) {
 		$X += $xperproportion*$proportion{$ibar} + $spaceatstart{$ibar};
 		$xbar{$Isyst,$ibar} = $X;
 		&ps_barline($X, $Isyst, $ibar);
 	}
-	$Ibar = 0; $istave = 0; # these are globals
+	$Ibar = 0; $Istave = 0; # these are globals
 }
 
 sub newbar {
 	if ($Midi) {
-		$TicksAtBarStart += $ticksthisbar;
-		$Ibar++; $istave = 0;   # globals.
+		$TicksAtBarStart += $TicksThisBar;
+		$Ibar++; $Istave = 0;   # globals.
 		midi_timesig($_[$[]);
 	} elsif ($XmlOpt) {
 		if ($Xml{measure_number}) {
@@ -1011,7 +1011,7 @@ sub newbar {
 			print "\t\t</measure>\n";
 		}
 		$Xml{measure_number}++;
-		$Ibar++; $istave = 0;   # globals.
+		$Ibar++; $Istave = 0;   # globals.
 		if ($Ibar > $nbars{$Isyst}) { &newsystem('/'); &bars(); $Ibar=1; }
 		print "\t\t<measure number=\"$Xml{measure_number}\">\n";
 		$Xml{backup} = 0;
@@ -1022,7 +1022,7 @@ sub newbar {
 		if ($BarType{$Isyst,$Ibar} & 2) {   # if BarType is :|| or :||:
 			&ps_finish_ties($xbar{$Isyst,$Ibar});
 		}
-		$Ibar++; $istave = 0;   # globals.
+		$Ibar++; $Istave = 0;   # globals.
 		if ($Ibar > $nbars{$Isyst}) {
 			if (! $JustDidNewsystem) { &newsystem('/'); }
 			&bars(); $Ibar=1;  #XXXX
@@ -1075,7 +1075,7 @@ sub newstave { $[=1;
 			$Xml{staves} = $currentstavenum;
 		}
 	} elsif (!$PrePro) {
-		print "% page $PageNum, sys $Isyst, bar $Ibar, stave $istave\n";
+		print "% page $PageNum, sys $Isyst, bar $Ibar, stave $Istave\n";
 		# surely all the measurement loop should also be part of this "else" ?
 	}
 
@@ -1123,7 +1123,7 @@ sub newstave { $[=1;
 	my $maxstaveheight;
 	if ($Midi) {
 		if ($Epsilon < abs $CrosSoFar) {
-			$TicksPerCro = $ticksthisbar / $CrosSoFar;
+			$TicksPerCro = $TicksThisBar / $CrosSoFar;
 		} else {
 			$TicksPerCro = $TPC;
 		}
@@ -1185,9 +1185,9 @@ sub newstave { $[=1;
 		if ($Midi) {
 			%Accidentalled = ();
 		} elsif ($XmlOpt) {
-			if ($Xml{"clef $istave"} ne $cleftype) {
+			if ($Xml{"clef $Istave"} ne $cleftype) {
 				$attributes{clef} = &xml_clef_attribute($cleftype);
-				$Xml{"clef $istave"} = $cleftype;
+				$Xml{"clef $Istave"} = $cleftype;
 			}
 		} else {
 			my $x = $xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight;
@@ -1202,7 +1202,7 @@ sub newstave { $[=1;
 				$theresaclef = 1;
 			}
 		}
-		$Stave2clef{$istave} = $cleftype;
+		$Stave2clef{$Istave} = $cleftype;
 		$i++;
 	} elsif ($array[$i] eq 'clefspace') {
 		if (!$Midi) {
@@ -1210,10 +1210,10 @@ sub newstave { $[=1;
 		}
 		$theresaclef = 1;
 		$i++;
-	} elsif ($Ibar == 1 && $Stave2clef{$istave}) {
+	} elsif ($Ibar == 1 && $Stave2clef{$Istave}) {
 		if (!$Midi && !$XmlOpt) { printf "%g %g %g %sclef\n",
 			 $xbar{$Isyst,$Ibar-1} + $SpaceLeftOfClef*$maxstaveheight,
-			 $Ystv, $StvHgt, $Stave2clef{$istave};
+			 $Ystv, $StvHgt, $Stave2clef{$Istave};
 		}
 		$theresaclef = 1;
 		$retain_clef = 1;
@@ -1227,9 +1227,9 @@ sub newstave { $[=1;
 			&reset_accidentalled($array[$i]);
 		} elsif ($XmlOpt) {
 			&reset_accidentalled($array[$i]);
-			if ($Xml{"keysig $istave"} ne $array[$i]) {
+			if ($Xml{"keysig $Istave"} ne $array[$i]) {
 				$xml_keysig = &xml_keysig($array[$i]);
-				$Xml{"keysig $istave"} = $array[$i];
+				$Xml{"keysig $Istave"} = $array[$i];
 			}
 		} else {
 			my $x = $xbar{$Isyst,$Ibar-1};
@@ -1247,24 +1247,24 @@ sub newstave { $[=1;
 			}
 			if ($array[$i] eq q{0}) {  # 2.8c cancel keysig, back to Cmaj
 				# XXX if 2 lines on same stave, only the 1st reserves space :-(
-				if ($keysig{$istave} =~ /^([1-7])([#bn])$/) {
+				if ($keysig{$Istave} =~ /^([1-7])([#bn])$/) {
 					&ps_keysig(0-$1,$2,$x);
 				} else {
-					$xpart{1} += $Stave2nullkeysigDx{$istave};   # 2.9y
+					$xpart{1} += $Stave2nullkeysigDx{$Istave};   # 2.9y
 				}
 			} else {
 				&ps_keysig($1,$2,$x);
 			}
 		}
-		$keysig{$istave} = $array[$i];
+		$keysig{$Istave} = $array[$i];
 		$i++;
-	} elsif($Ibar==1 && $retain_clef && $keysig{$istave}=~/^([1-7])([#bn])$/){
+	} elsif($Ibar==1 && $retain_clef && $keysig{$Istave}=~/^([1-7])([#bn])$/){
 		$must_null_the_keysig = 0;   # 2.8o
 		if (!$Midi && !$XmlOpt) { &ps_keysig
 			($1, $2, $xbar{$Isyst,$Ibar-1}+$SpaceForClef*$maxstaveheight);
 		}
 	}
-	if ($must_null_the_keysig) { $keysig{$istave} = q{}; }   # 2.8o
+	if ($must_null_the_keysig) { $keysig{$Istave} = q{}; }   # 2.8o
 
 	# if new timesig, print it and adjust beginning of bar, xpart{1}
 	# BUG: should actually adjust all the bars in the whole line ...
@@ -1272,9 +1272,9 @@ sub newstave { $[=1;
 	if ($array[$i] =~ m{\d+/\d+}) { # new time signature, eg 6/4 or 15/8
 		if ($Midi) {
 		} elsif ($XmlOpt) {
-			if ($Xml{"timesig $istave"} ne $array[$i]) {
+			if ($Xml{"timesig $Istave"} ne $array[$i]) {
 				$attributes{time} = &xml_time_attribute($array[$i]);
-				$Xml{"timesig $istave"} = $array[$i];
+				$Xml{"timesig $Istave"} = $array[$i];
 			}
 		} else {
 			my ($topnum, $botnum) = split ('/', $array[$i], 2);
@@ -1292,7 +1292,7 @@ sub newstave { $[=1;
 
 	if (!$Midi && !$XmlOpt) {
 		if ($Ibar==1 && $BarType{$Isyst,0} & 4) { # start repeat at BOL
-			&ps_repeatmark($Isyst, $istave,
+			&ps_repeatmark($Isyst, $Istave,
 				$xpart{1} - $SpaceForStartRepeat*$StvHgt);
 			$xpart{1} += $SpaceForStartRepeat * $maxstaveheight;
 		}
@@ -1307,9 +1307,9 @@ sub newstave { $[=1;
 		if ($xml_keysig) {
 			$attributes{key} = $xml_keysig;
 		} else {  # musicxml2ly insists on a key even when there isn't one :-(
-			if (! $Xml{"keysig $istave"}) {  # XXX 2.5u
+			if (! $Xml{"keysig $Istave"}) {  # XXX 2.5u
 				$attributes{key} = &xml_keysig('');
-				$Xml{"keysig $istave"} = 'Cmaj';
+				$Xml{"keysig $Istave"} = 'Cmaj';
 			}
 		}
 		if (! $Xml{specified_divisions}) {
@@ -1351,7 +1351,7 @@ sub newstave { $[=1;
 				}
 				printf "%g %g %g %sclef\n", $x, $Ystv, $StvHgt, $symbol;
 			}
-			$Stave2clef{$istave} = $symbol;
+			$Stave2clef{$Istave} = $symbol;
 		} elsif ($symbol eq 'clefspace') {
 		} elsif ($symbol eq '|') {  # 3.2f in-bar barline
 			if (!$Midi && !$XmlOpt) {
@@ -1419,11 +1419,11 @@ sub substitute { my ($text, $infinite_depth) = @_;
 
 sub changestave { my ($stave, $stem) = $_[$[] =~ /^(\d+)([,']?)$/;
 	if (!$Midi && !$XmlOpt) {
-		if ($stave > $nstaves{$Isyst}) {
+		if ($stave > $Nstaves{$Isyst}) {
 			print "% ERROR: stave = $stave, but system $Isyst only has ";
-			print "$nstaves{$stave} staves\n"; warn
+			print "$Nstaves{$stave} staves\n"; warn
 			" line $LineNum: stavenumber $stave too big for system $Isyst\n";
-			$stave = $nstaves{$Isyst};
+			$stave = $Nstaves{$Isyst};
 		} elsif ($stave < 1) {
 			print "% ERROR: stave = $stave, should be at least one\n";
 			warn " line $LineNum: stavenumber $stave too small\n";
@@ -1432,7 +1432,7 @@ sub changestave { my ($stave, $stem) = $_[$[] =~ /^(\d+)([,']?)$/;
 		$Ystv      = $Ystave{$Isyst,$stave};      # timesaver
 		$StvHgt = $StaveHeight{$Isyst,$stave}; # timesaver
 	}
-	$istave      = $stave;
+	$Istave      = $stave;
 	$DefaultStem = $stem;
 	return 1;
 }
@@ -1475,9 +1475,9 @@ sub escape_and_utf2iso { my $s = $_[$[];   # 2.9b
 sub dypitch { my $pitch = $_[$[];
 	# returns how far the pitch is above the top line, in staveheights
 	my $Y = $ytable{$pitch};
-	if ($Stave2clef{$istave} =~ /^treble/)    { $Y += 0.125;
-	} elsif ($Stave2clef{$istave} eq 'tenor') { $Y += 0.25;
-	} elsif ($Stave2clef{$istave} =~ /^bass/) { $Y -= 0.125;
+	if ($Stave2clef{$Istave} =~ /^treble/)    { $Y += 0.125;
+	} elsif ($Stave2clef{$Istave} eq 'tenor') { $Y += 0.25;
+	} elsif ($Stave2clef{$Istave} =~ /^bass/) { $Y -= 0.125;
 	}
 	return $Y;
 }
@@ -1856,7 +1856,7 @@ sub xml_event {
 			if ($is_emphasis) { $vol += 10; if ($vol>127) { $vol=127; } }
 			my $vol = round(1.1111*$vol);
 			$note_attributes .= " dynamics=\"$vol\"";
-			foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+			foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 				push @XmlCache, "$t3<note$note_attributes>\n";
 
 				if ($currentpulsetext =~ /-s$/) {
@@ -1896,7 +1896,7 @@ sub xml_event {
 				}
 				my $stemup = &is_stemup($note_ref->{stem},$note_ref->{pitch});
 				push @XmlCache, "$t4<stem>".($stemup?'up':'down')."</stem>\n";
-				push @XmlCache, "$t4<staff>$istave</staff>\n";
+				push @XmlCache, "$t4<staff>$Istave</staff>\n";
 				my $nbeams = "1";
 				if      ($currentpulsetext =~ /^smq/) { $nbeams = "2";
 				} elsif ($currentpulsetext =~ /^dsq/) { $nbeams = "3";
@@ -1945,16 +1945,16 @@ sub xml_event {
 			}
 		} elsif ($symbol =~ /^rest/) {
 			# must handle fermata
-			my $clef = $Stave2clef{$istave};
+			my $clef = $Stave2clef{$Istave};
 			my $move = 0;  my $display = q{};
 			if ($symbol =~ /('+)/)    { $move = length $1;
 			} elsif ($symbol =~ /(,+)/)    { $move = 0 - length $1;
 			}
 			if ($move) {
-				my $line = 4*$move + $midline{$Stave2clef{$istave}};
+				my $line = 4*$move + $Midline{$Stave2clef{$Istave}};
 				my $octave = int (0.1 + $line/7);
 				$line = $line % 7;
-				my $step = $line2step{"$line"};
+				my $step = $Line2step{"$line"};
 				$display = "<display-step>$step</display-step>"
 				 . "<display-octave>$octave</display-octave>";
 			}
@@ -1964,7 +1964,7 @@ sub xml_event {
 			push @XmlCache, "$t4<voice>$Xml{voice}</voice>\n";
 			$Xml{backup} += $duration;
 			push @XmlCache, "$t4$XmlDuration{$currentpulsetext}\n";
-			push @XmlCache, "$t4<staff>$istave</staff>\n";
+			push @XmlCache, "$t4<staff>$Istave</staff>\n";
 			push @XmlCache, "$t3</note>\n";
 		} elsif ($symbol =~ /^blank/) {
 			my $duration = round($currentpulse * $TPC);
@@ -2012,11 +2012,11 @@ sub xml_text { return unless $XmlOpt;
 
 	$vertpos = $TextBelowStave unless $vertpos;
 	my $ytext = 40.0 * $vertpos - 80.0;  # should measure gap, like &ps_text
-	my $StvHgt = $StaveHeight{$Isyst,$istave}; # timesaver
-	if ($istave == 0) {   # above the top stave in the system
+	my $StvHgt = $StaveHeight{$Isyst,$Istave}; # timesaver
+	if ($Istave == 0) {   # above the top stave in the system
 		$ytext = 40.0 * $vertpos;
-	} elsif ($istave < $nstaves{$Isyst}) {   # text lies between staves
-		$netgap = $gapheight{$Isyst,$istave} - $TextSize*$StvHgt;
+	} elsif ($Istave < $Nstaves{$Isyst}) {   # text lies between staves
+		$netgap = $gapheight{$Isyst,$Istave} - $TextSize*$StvHgt;
 		$ytext = -40.0 - (1.0-$vertpos) * $netgap * 40.0 / $StvHgt;
 	} else {   # below the bottom stave in the system
 		$ytext = -40.0 -  40.0 * $vertpos;
@@ -2034,8 +2034,8 @@ sub xml_text { return unless $XmlOpt;
 	push @XmlCache, "font-style=\"$font_style\" ";
 	push @XmlCache, "font-size=\"$font_size\" font-weight=\"$font_weight\">";
 	push @XmlCache, "$text</words>\n$t4</direction-type>\n";
-	if ($istave) {
-		push @XmlCache, "$t4<staff>$istave</staff>\n$t3</direction>\n";
+	if ($Istave) {
+		push @XmlCache, "$t4<staff>$Istave</staff>\n$t3</direction>\n";
 	} else       {
 		push @XmlCache, "$t4<staff>1</staff>\n$t3</direction>\n";
 	}
@@ -2098,10 +2098,10 @@ sub xml_pitch { my $pitch = shift; my $accidental = shift;
 	my $step = $pitch;  $step =~ tr/[a-g]/[A-G]/d;
 	my $octave;
 	if ($pitch =~ tr/[A-G]/[a-g]/) { $octave = 3; } else { $octave = 4; }
-	if ($Stave2clef{$istave} eq 'treble8va')     { $octave += 2;
-	} elsif ($Stave2clef{$istave} eq 'treble')   { $octave += 1;
-	} elsif ($Stave2clef{$istave} eq 'bass')     { $octave -= 1;
-	} elsif ($Stave2clef{$istave} eq 'bass8vab') { $octave -= 2;
+	if ($Stave2clef{$Istave} eq 'treble8va')     { $octave += 2;
+	} elsif ($Stave2clef{$Istave} eq 'treble')   { $octave += 1;
+	} elsif ($Stave2clef{$Istave} eq 'bass')     { $octave -= 1;
+	} elsif ($Stave2clef{$Istave} eq 'bass8vab') { $octave -= 2;
 	}
 	$octave += ($step =~ tr/~//d);
 	$octave -= ($step =~ tr/_//d);
@@ -2132,7 +2132,7 @@ sub xml_clef_attribute  { my $clef = $_[$[];
 		$clef_octave_change
 		 = "<clef-octave-change>$clef_octave_change</clef-octave-change>";
 	}
-	return "<clef number=\"$istave\"><sign>$sign</sign><line>$line</line>"
+	return "<clef number=\"$Istave\"><sign>$sign</sign><line>$line</line>"
 	. "$clef_octave_change</clef>";
 }
 sub xml_keysig  { my $keysig = $_[$[];
@@ -2141,7 +2141,7 @@ sub xml_keysig  { my $keysig = $_[$[];
 	if ($acc =~ /b$/)   { $fifths = q{-} . $fifths;
 	} elsif ($acc =~ /n$/) { $fifths = q{0};
 	}
-	return "<key number=\"$istave\"><fifths>$fifths</fifths></key>";
+	return "<key number=\"$Istave\"><fifths>$fifths</fifths></key>";
 }
 sub xml_time_attribute  { my $timesig = $_[$[];
 	$timesig =~ m{(\d+)/(\d+)};
@@ -2149,7 +2149,7 @@ sub xml_time_attribute  { my $timesig = $_[$[];
 	if ($acc =~ /b$/)   { $fifths = q{-} . $fifths;
 	} if ($acc =~ /n$/) { $fifths = "0";
 	}
-	return "<time number=\"$istave\"><beats>$beats</beats>"
+	return "<time number=\"$Istave\"><beats>$beats</beats>"
 	. "<beat-type>$beat_type</beat-type></time>";
 }
 sub xml_print_cache {
@@ -2238,7 +2238,7 @@ sub midi_event {
 			if ($3) {
 				my $options = $3;
 				my $starttime    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
-				foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+				foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 					$options =~ s{'}{\\'}g;
 					foreach $option (&parse_line('-', 0, $options)) {
 						$option =~ s{\\'}{'}g;
@@ -2260,7 +2260,7 @@ sub midi_event {
 			if ($duration > $TPC) { $duration -= round((1.0-$legato) * $TPC);
 			} else { $duration = round($legato * $duration);
 			}
-			foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+			foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 				my $note = &midi_pitch("$pitch$accidental")
 				 + $Stave2transpose{$currentstavenum}
 				 + $Cha2transpose{$cha};   # 3.1u
@@ -2313,14 +2313,14 @@ sub midi_event {
 				my $starttie  = $note_ref->{starttie};
 				my $endslur   = $note_ref->{endslur};
 				my $endtie    = $note_ref->{endtie};
-				#if ($startslur) { $StartedSlurs{"$istave $stemup"} = 1; }
-				if ($startslur) { $StartedSlurs{$istave} = 1; }
+				#if ($startslur) { $StartedSlurs{"$Istave $stemup"} = 1; }
+				if ($startslur) { $StartedSlurs{$Istave} = 1; }
 				# XXX BUG what has stemup got to do with it ? <a{1 A,}2>
-				# but we can't do $StartedSlurs{"$istave $startslur"} because
+				# but we can't do $StartedSlurs{"$Istave $startslur"} because
 				# intermediate notes lying under a slur; they don't know 1 or 2
 				if ($endtie) {
-					if ($StartedTies{"$istave $endtie $cha"}) {
-						my $beg_ref = $StartedTies{"$istave $endtie $cha"};
+					if ($StartedTies{"$Istave $endtie $cha"}) {
+						my $beg_ref = $StartedTies{"$Istave $endtie $cha"};
 						my $begn =   $beg_ref->[$[+4];
 						if (!$accidental && ($pitch eq $beg_ref->[$[+6])) {
 							$note = $begn;  # accidental tied from prev bar
@@ -2331,12 +2331,12 @@ sub midi_event {
 								$beg_ref->[$[+2]=$starttime+$duration-$begtime;
 								if ($starttie != $endtie) {
 								# the tie-number might have changed, eg )1(2
-									$StartedTies{"$istave $starttie $cha"}
-									 = $StartedTies{"$istave $endtie $cha"};
-									delete $StartedTies{"$istave $endtie $cha"};
+									$StartedTies{"$Istave $starttie $cha"}
+									 = $StartedTies{"$Istave $endtie $cha"};
+									delete $StartedTies{"$Istave $endtie $cha"};
 								}
 							} else { # output the full-length combined note
-								delete $StartedTies{"$istave $endtie $cha"};
+								delete $StartedTies{"$Istave $endtie $cha"};
 								$B = $begtime;
 								$D = $starttime+$duration-$begtime;
 							}
@@ -2345,7 +2345,7 @@ sub midi_event {
 							. " of ( for slur. Use { instead\n";
 							$#{$beg_ref} = $[+5;   # pop old $pitch off end
 							push @MidiScore, $beg_ref;
-							delete $StartedTies{"$istave $endtie $cha"};
+							delete $StartedTies{"$Istave $endtie $cha"};
 							$startslur = $starttie;
 						}
 					} else {
@@ -2356,9 +2356,9 @@ sub midi_event {
 					# we're already within a loop over channels
 					midi_expression($B, $cha, 100);
 				}
-				if ($StartedSlurs{$istave}) {
+				if ($StartedSlurs{$Istave}) {
 					if ($endslur) {
-						delete $StartedSlurs{$istave};
+						delete $StartedSlurs{$Istave};
 					} else {
 						$D += $fullduration - $duration;
 					}
@@ -2397,7 +2397,7 @@ sub midi_event {
 				}
 				if ($starttie) {
 					if (! $endtie) {  # 2.4e
-						$StartedTies{"$istave $starttie $cha"} = ['note',
+						$StartedTies{"$Istave $starttie $cha"} = ['note',
 						  $B,$fullduration,$cha,$note,$velocity,$pitch];
 					}
 				} else {
@@ -2414,10 +2414,10 @@ sub midi_event {
 
 sub midi_pitch { my $pitch = $_[$[];  # middleC = 60
 	my $P = $notetable{$pitch};
-	if ($Stave2clef{$istave} eq 'treble8va')	   { $P += 24;
-	} elsif ($Stave2clef{$istave} eq 'treble')   { $P += 12;
-	} elsif ($Stave2clef{$istave} eq 'bass')     { $P -= 12;
-	} elsif ($Stave2clef{$istave} eq 'bass8vab') { $P -= 24;
+	if ($Stave2clef{$Istave} eq 'treble8va')	   { $P += 24;
+	} elsif ($Stave2clef{$Istave} eq 'treble')   { $P += 12;
+	} elsif ($Stave2clef{$Istave} eq 'bass')     { $P -= 12;
+	} elsif ($Stave2clef{$Istave} eq 'bass8vab') { $P -= 24;
 	}
 	return $P;
 }
@@ -2447,17 +2447,17 @@ sub midi_timesig { return unless $Midi; my $str = $_[$[];
 		push @MidiScore, ['time_signature',$TicksAtBarStart, $nn,$dd,$cc,8];
 		$MidiTimesig = $timesig;
 		$TicksPerMidiBeat = $cc;
-		$ticksthisbar = round(384 * $nn / $bottom);
+		$TicksThisBar = round(384 * $nn / $bottom);
 	}
 	if ($MidiBarlines) { comment("barline $MidiTimesig"); }   # 3.1f
-	$ticksthisbar ||= $TPC * 4 ;
+	$TicksThisBar ||= $TPC * 4 ;
 	# tempo changes ...
 	# return if $parts eq $midibarparts;
 	if (!$parts) { $parts = $midibarparts;
 	} else { $midibarparts = $parts;
 	}
 	my @parts = split ' ',$parts;
-	my $i = 0; my $n = scalar @parts; my $ticksperpart = $ticksthisbar/$n;
+	my $i = 0; my $n = scalar @parts; my $ticksperpart = $TicksThisBar/$n;
 	while (1) {
 		my $starttime = round($TicksAtBarStart + $ticksperpart*$i);
 		my $part = shift @parts;
@@ -2614,8 +2614,8 @@ sub midi_cc_127 { my ($cha, $num, $val) = @_;  # 2.9r
 
 sub midi_in_stave { my $str = $_[$[];
 # seems currentstavenum is a tautology !!!
-	if ($istave != $currentstavenum) {   # 20151204 experiment
-		warn("istave = $istave  currentstavenum = $currentstavenum\n");
+	if ($Istave != $currentstavenum) {   # 20151204 experiment
+		warn("Istave = $Istave  currentstavenum = $currentstavenum\n");
 	}
 	if ($str =~ /^vol/) {
 		if ($str =~ /^vol(\d+)$/) {   # 3.2a remove u?m?e?
@@ -2639,7 +2639,7 @@ sub midi_in_stave { my $str = $_[$[];
 		$Stave2channels{$currentstavenum} = [@channels];
 		return 1;
 	} elsif ($str =~ /^pan/) {  # 2.9s
-		foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+		foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 			my $pan = 50;
 			if ($str =~ /^pan(\d+)$/) {
 				$pan = 0+$1; if ($pan > 100) { $pan = 100; }
@@ -2668,7 +2668,7 @@ sub midi_in_stave { my $str = $_[$[];
 		my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
 		my $val = round($1*1.27);  # 0..100 to 1..127
 		if ($val>127) { $val=127; } elsif ($val<0) { $val=0; }
-		foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+		foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 			push @MidiScore, ['control_change', $ticks, $cha, 77, $val];
 		}
 		return 1;
@@ -2678,7 +2678,7 @@ sub midi_in_stave { my $str = $_[$[];
 		if ($controller>127) { $controller=127; }
 		if ($val>127) { $val=127; }
 		my $ticks    = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
-		foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+		foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 			push @MidiScore, ['control_change',$ticks,$cha,$controller,$val];
 		}
 		return 1;   # 3.1w
@@ -2706,7 +2706,7 @@ sub midi_in_stave { my $str = $_[$[];
 		}
 		$Stave2bend{$currentstavenum} = $bend;
 		my $ticks = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
-		foreach my $cha (@{ $Stave2channels{$istave} }) {   # 3.1v
+		foreach my $cha (@{ $Stave2channels{$Istave} }) {   # 3.1v
 			push @MidiScore, ['pitch_wheel_change', $ticks, $cha, $bend];
 		}
 		return 1;   # 3.1w
@@ -3192,7 +3192,7 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 	}
 	sub end_thing { my ($thing_type, $thing_num, $thing_shift) = @_;
 		my ($x_left, $y_left);
-		$x_left = $Xstart{$thing_type,$Isyst,$istave,$thing_num};
+		$x_left = $Xstart{$thing_type,$Isyst,$Istave,$thing_num};
 		if (! $x_left) { # detect the nearest :|| before using BOL ...
 			my $ib = $Ibar;
 			while (1) {
@@ -3214,7 +3214,7 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 			if ($stemup && $thing_shift>0) { $above_note += $TieShift; }
 			$y_right = $Y + $above_note*$StvHgt;
 			$x_right = $X;
-			$y_left=$Ystart{$thing_type,$Isyst,$istave,$thing_num}||$y_right;
+			$y_left=$Ystart{$thing_type,$Isyst,$Istave,$thing_num}||$y_right;
 			if ($accidental eq 'b' && !$thing_shift) {
 			  $y_right += 0.7*$TieAboveNote*$StvHgt;
 			}
@@ -3223,7 +3223,7 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 			my $above_note = $thing_shift*$TieDy - $TieAboveNote;
 			if (!$stemup && $thing_shift<0) { $above_note -= $TieShift; }
 			$y_right = $Y + $above_note*$StvHgt;
-			$y_left=$Ystart{$thing_type,$Isyst,$istave,$thing_num}||$y_right;
+			$y_left=$Ystart{$thing_type,$Isyst,$Istave,$thing_num}||$y_right;
 			if ($stemup || $thing_shift) { $x_right = $X;
 			} else { $x_right = $X - 1.6 * $BlackBlobHalfWidth * $StvHgt;
 			}
@@ -3253,8 +3253,8 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 		printf "%g %g %g %g %g %g slur\n",
 			$x_left, $y_left, $x_right, $y_right, $updown, $StvHgt;
 
-		delete $Xstart{$thing_type,$Isyst,$istave,$thing_num};
-		delete $Ystart{$thing_type,$Isyst,$istave,$thing_num};
+		delete $Xstart{$thing_type,$Isyst,$Istave,$thing_num};
+		delete $Ystart{$thing_type,$Isyst,$Istave,$thing_num};
 	}
 
 	# start a tie or slur, if any
@@ -3269,27 +3269,27 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 			my $above_note = $thing_shift*$TieDy + $TieAboveNote;
 			if ($stemup && $thing_shift>0) { $above_note += $TieShift; }
 			$y_right = $Y + $above_note*$StvHgt;
-			$Ystart{$thing_type,$Isyst,$istave,$thing_num}
+			$Ystart{$thing_type,$Isyst,$Istave,$thing_num}
 			 = $Y + $above_note*$StvHgt;
 			if ($thing_shift) {
-				$Xstart{$thing_type,$Isyst,$istave,$thing_num}
+				$Xstart{$thing_type,$Isyst,$Istave,$thing_num}
 					= $X + 0.5 * $BlackBlobHalfWidth * $StvHgt;
 			} elsif ($stemup) {
-				$Xstart{$thing_type,$Isyst,$istave,$thing_num}
+				$Xstart{$thing_type,$Isyst,$Istave,$thing_num}
 					= $X + 1.6 * $BlackBlobHalfWidth * $StvHgt; # too far?
 				if ((!@BeamUp) && ($currentpulsetext=~/^smq|^qua|^dsq|^hds/)) {
-					$Xstart{$thing_type,$Isyst,$istave,$thing_num} += 
+					$Xstart{$thing_type,$Isyst,$Istave,$thing_num} += 
 						$BlackBlobHalfWidth * $StvHgt;
 				}
 			} else {
-				$Xstart{$thing_type,$Isyst,$istave,$thing_num} = $X;
+				$Xstart{$thing_type,$Isyst,$Istave,$thing_num} = $X;
 			}
 		} else {	# start tie below (even numbers)
 			my $above_note = $thing_shift*$TieDy - $TieAboveNote;
 			if (!$stemup && $thing_shift<0) { $above_note -= $TieShift; }
-			$Ystart{$thing_type,$Isyst,$istave,$thing_num} =
+			$Ystart{$thing_type,$Isyst,$Istave,$thing_num} =
 			 $Y + $above_note*$StvHgt;
-			$Xstart{$thing_type,$Isyst,$istave,$thing_num}=$X;
+			$Xstart{$thing_type,$Isyst,$Istave,$thing_num}=$X;
 		}
 	}
 
@@ -3314,9 +3314,9 @@ sub ps_beat2x { my ($crossofar,$crosperpart) = @_;
 }
 sub ps_note_options { my ($X,$ybot,$ytop,$stem,$options) = @_;
 	# ensure the option clears the stave lines ...
-	my $ystop = $Ystave{$Isyst,$istave} + $OptionClearance*$StvHgt;
+	my $ystop = $Ystave{$Isyst,$Istave} + $OptionClearance*$StvHgt;
 	if ($ytop < $ystop) { $ytop = $ystop; }
-	my $ysbot = $Ystave{$Isyst,$istave} - ($OptionClearance+1)*$StvHgt;
+	my $ysbot = $Ystave{$Isyst,$Istave} - ($OptionClearance+1)*$StvHgt;
 	if ($ybot > $ysbot) { $ybot = $ysbot; }
 
 	my $y;
@@ -3434,14 +3434,14 @@ sub ps_barline { my ($X, $isyst, $ibar) = @_;
 		$type -= 8;
 	}
 	if ($type > 3) {   # begin repeated section ...
-		for ($i = 1; $i <= $nstaves{$isyst}; $i++) {
+		for ($i = 1; $i <= $Nstaves{$isyst}; $i++) {
 			my $StvHgt = $StaveHeight{$isyst,$i};  # 2.8b
 			&ps_repeatmark($isyst,$i,$X+.6*$SpaceForStartRepeat*$StvHgt);
 		}
 		$type -= 4;
 	}
 	if ($type > 1) {   # end repeated section ...
-		for ($i = 1; $i <= $nstaves{$isyst}; $i++) {
+		for ($i = 1; $i <= $Nstaves{$isyst}; $i++) {
 			my $StvHgt = $StaveHeight{$isyst,$i};  # 2.8b
 			&ps_repeatmark($isyst,$i,$X-0.6*$SpaceForStartRepeat*$StvHgt);
 		}
@@ -3479,19 +3479,19 @@ sub ps_text {  my ($fonttype, $fontsize, $vertpos, $text) = @_;
 
 	my ($ytext, $size);
 	# remember ps_text() can be called before the first =1 line ...
-	my $StvHgt = $StaveHeight{$Isyst,$istave}; # timesaver
+	my $StvHgt = $StaveHeight{$Isyst,$Istave}; # timesaver
 	$vertpos = $TextBelowStave unless $vertpos;
-	if ($istave == 0) {   # above the top stave in the system
+	if ($Istave == 0) {   # above the top stave in the system
 		$StvHgt = $StaveHeight{$Isyst,1};
 		$ytext = $Ystave{$Isyst,1} + $vertpos*$StvHgt;
 		$size = $TextSize * $StvHgt;
-	} elsif ($istave < $nstaves{$Isyst}) {   # text lies between staves
-		$netgap = $gapheight{$Isyst,$istave} - $TextSize*$StvHgt;
-		$size = 0.5*$TextSize * ($StvHgt+$StaveHeight{$Isyst,$istave+1});
-		$ytext = $vertpos*$netgap + $Ystave{$Isyst, $istave+1} + 0.33*$size;
+	} elsif ($Istave < $Nstaves{$Isyst}) {   # text lies between staves
+		$netgap = $gapheight{$Isyst,$Istave} - $TextSize*$StvHgt;
+		$size = 0.5*$TextSize * ($StvHgt+$StaveHeight{$Isyst,$Istave+1});
+		$ytext = $vertpos*$netgap + $Ystave{$Isyst, $Istave+1} + 0.33*$size;
 	} else {   # below the bottom stave in the system
 		# XXX just TextSize too clumsy: could be lowercase, could be small...
-		$ytext = $Ystave{$Isyst,$istave}-($TextSize+1.0+$vertpos)*$StvHgt;
+		$ytext = $Ystave{$Isyst,$Istave}-($TextSize+1.0+$vertpos)*$StvHgt;
 		$size = $TextSize * $StvHgt;
 	}
 	if ($fontsize eq 's') { $size *= $SmallFontRatio;
@@ -3541,7 +3541,7 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 	my (@options);
 	$n = scalar @_; return unless $n;
 	if ($n < 2) {
-	 warn " ps_beam: only $n stems at bar $Ibar stave $istave\n"; return 0;
+	 warn " ps_beam: only $n stems at bar $Ibar stave $Istave\n"; return 0;
 	}
 	my $smallness = $SmallStemRatio;
 	foreach $string (@_) {
@@ -3586,7 +3586,7 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 
 		# check the beams don't sink into ledger lines ... 2.7v,2.7x,2.8x,2.9u
 		my $gap = $BeamSpacing*$smallstaveheight;
-		my $ymin1 = $Ystave{$Isyst, $istave} - $StvHgt;
+		my $ymin1 = $Ystave{$Isyst, $Istave} - $StvHgt;
 		my $yminn = $ymin1;
 		$ymin1 += $gap * (ps_tails_or_beams($duration[$[])-1);  # 2.9u
 		if ($y1 < $ymin1) { $y1 = $ymin1; }
@@ -3720,7 +3720,7 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		$yn = $ylowblobn - $stem_length;
 
 		# check the beams don't rise into ledger lines ... 2.7v,2.7x,2.8x,2.9u
-		my $ymax1 = $Ystave{$Isyst, $istave};
+		my $ymax1 = $Ystave{$Isyst, $Istave};
 		my $ymaxn = $ymax1;
 		$ymax1 -= $gap * (ps_tails_or_beams($duration[$[])-1);  # 2.9u
 		if ($y1 > $ymax1) { $y1 = $ymax1; }
@@ -3856,25 +3856,25 @@ sub ps_keysig { my ($num, $sign, $x) = @_;
 	if ($num < 0)          {
 		$accidental = 'natural';
 		$num = 0-$num;  # 2.8b
-		$Stave2nullkeysigDx{$istave}
+		$Stave2nullkeysigDx{$Istave}
 		 = $dx*$num + $SpaceAfterKeySig*$StvHgt;  # 2.9y
 	} elsif ($sign eq '#') { $accidental = 'sharp';
 	} elsif ($sign eq 'b') { $accidental = 'flat';
 	} else { return 0;
 	}
-	if ($Stave2clef{$istave} =~ /^treble/) {
+	if ($Stave2clef{$Istave} =~ /^treble/) {
 		if ($sign eq '#') {      @pitches = ('f','c','g','d','A','e','B');
 		} elsif ($sign eq 'b') { @pitches = ('B','e','A','d','G','c','F');
 		}
-	} elsif ($Stave2clef{$istave} eq 'alto') {
+	} elsif ($Stave2clef{$Istave} eq 'alto') {
 		if ($sign eq '#') {      @pitches = ('f','c','g','d','A','e','B');
 		} elsif ($sign eq 'b') { @pitches = ('B','e','A','d','G','c','F');
 		}
-	} elsif ($Stave2clef{$istave} eq 'tenor') {
+	} elsif ($Stave2clef{$Istave} eq 'tenor') {
 		if ($sign eq '#') {      @pitches = ('f','c','g','d','A','e','B');
 		} elsif ($sign eq 'b') { @pitches = ('B','e','A','d','g','c','f');
 		}
-	} elsif ($Stave2clef{$istave} =~ /^bass/) {
+	} elsif ($Stave2clef{$Istave} =~ /^bass/) {
 		if ($sign eq '#') {      @pitches = ('f','c','g','d','A','e','B');
 		} elsif ($sign eq 'b') { @pitches = ('B','e','A','d','G','c','F');
 		}
@@ -3984,8 +3984,8 @@ sub ps_repeatmark { my ($isyst, $istave, $X) = @_;
 }
 sub ps_finish_ties { my $right = $_[$[];
 	if (! $right) { $right = $rmar + $TieOverhang*$StvHgt; }  # 2.8s
-	return unless defined $nstaves{$Isyst}; # defeat -w warning
-	foreach $istave (1 .. $nstaves{$Isyst}) {
+	return unless defined $Nstaves{$Isyst}; # defeat -w warning
+	foreach my $istave (1 .. $Nstaves{$Isyst}) {
 		my ($x_left, $y_left, $x_right, $y_right);
 		foreach $itie (1,3,5,7,9) {  # first, ties above
 			foreach $thing_type ('slur','tie') {   # 2.7j
@@ -4123,25 +4123,25 @@ sub ps_blank { my ($currentpulse, $symbol, $X) = @_;
 	}
 }
 
-sub ps_ledger_lines { my ($X, $dy) = @_;
+sub ps_ledger_lines { my ($x, $dy) = @_;
 	# draws ledger lines if $dy > 0.2 above top of stave, or <-1.2 below top
-	if (! defined $X) { print "% BUG: ps_ledger_lines: \$X undef\n"; return; }
+	if (! defined $x) { print "% BUG: ps_ledger_lines: \$x undef\n"; return; }
 	if (! defined $dy) {print "% BUG: ps_ledger_lines \$dy undef\n"; return; }
 	my $yl;  # the height of the ledger line, rather than the note
-	my $Y;   # the absolute height of the ledger line on the page
+	my $y;   # the absolute height of the ledger line on the page
 	if ($dy > 0.2) {	# ledger line(s) above stave
 		$yl = 0.25;
 		while (1) {
-			$Y = $Ystave + $StvHgt * $yl;
-			printf "%g %g %g ledger\n", $X, $Y, $StvHgt;
+			$y = $Ystv + $StvHgt * $yl;
+			printf "%g %g %g ledger\n", $x, $y, $StvHgt;
 			$yl += 0.25;
 			last if $yl > ($dy + 0.1);
 		}
 	} elsif ($dy < -1.2) {	# ledger line(s) below stave
 		$yl = -1.25;
 		while (1) {
-			$Y = $Ystave + $StvHgt * $yl;
-			printf "%g %g %g ledger\n", $X, $Y, $StvHgt;
+			$y = $Ystv + $StvHgt * $yl;
+			printf "%g %g %g ledger\n", $x, $y, $StvHgt;
 			$yl -= 0.25;
 			last if $yl < ($dy - 0.1);
 		}

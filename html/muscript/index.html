@@ -11,8 +11,8 @@ CONTENT="music publishing, music typesetting, Peter Billam, muscript, MIDI">
 <HR>
 
 <P><I>Muscript</I> is a language for typesetting music,
-and a <I>Perl</I> script which translates this language
-either into <I>PostScript</I>,
+and either a <I>Perl</I> script, or a <I>Lua</I> script,
+which translates this language either into <I>PostScript</I>,
 or into <I>Encapsulated PostScript</I>,
 or into <I>MIDI</I>, or into
 <I><A HREF="http://www.musicxml.com/">MusicXML</A></I>,
@@ -25,12 +25,11 @@ and there is a script
 <A HREF="http://www.pjb.com.au/mus/arr.html">arrangements</A>;
 it started life as an <I>awk</I> script,
 and was announced to the world in 1996.
-There is some backward-incompatibility of syntax with 2.7 and previous
-because of a stricter <A HREF="#notes">note syntax</A>.
-The
-<A HREF="variables.html">ability to define variables</A>
-is introduced in version 3.1.
-The current version of <I>muscript</I> is <B>3.2f</B>.
+The <A HREF="variables.html">ability to define variables</A>
+was introduced in version 3.1<BR>
+<FONT COLOR="#800000" SIZE="+1"><B>New !</B>&nbsp;&nbsp;&nbsp;</FONT>
+The current version of <I>muscript</I> is <B>3.2h</B>,
+the first bilingual version, available in both <I>Perl</I> and <I>Lua</I>.
 </P><P>
 <FONT SIZE="+1"><B>
 This page describes the
@@ -1047,17 +1046,35 @@ See also the <A HREF="#tools">a42us</A> utility script.
 
 </P><P>Back <A HREF="#top">to the top</A> . . .
 
-</P><A NAME="download"><HR></A><H2>Download</H2>
-<P>The current version of <I>muscript</I> is available by http at
-<A HREF="http://www.pjb.com.au/muscript/muscript">
-www.pjb.com.au/muscript/muscript</A>.  To install <I>muscript</I>, save it
-to disc, move it into your $PATH, make it executable, and if necessary edit
-the first line to reflect where <I>perl</I> is installed on your system.
+</P><A NAME="download"><HR></A><H2>Download</H2><P>
+As from version 3.2h, <I>muscript</I> is available in two implementations,
+one in <I>Perl</I>, and a new translation into <I>Lua</I>.
+The intention is to support both, and keep their version-numbers in sync.
+It must be said that the <I>Lua</I> version runs more than twice as
+fast&nbsp;.&nbsp;.&nbsp;.
 </P><P>
-If you want to use the <CODE>-midi</CODE> option, you'll also need to install
-the <A HREF="http://interglacial.com/~sburke/midi-perl">MIDI-Perl</A> module
-written by <A HREF="http://search.cpan.org/~sburke">Sean&nbsp;Burke</A>.
-</P>
+The current version of <I>muscript</I> for <I>Perl</I>
+is available by http at
+<A HREF="http://www.pjb.com.au/muscript/muscript">
+www.pjb.com.au/muscript/muscript</A>.  To install it, save it to disc,
+move it into your $PATH, make it executable, and if necessary edit
+the first line to reflect where <I>perl</I> is installed on your system.
+<BR>
+You'll also need to install the
+<A HREF="http://search.cpan.org/perldoc?MIDI">MIDI</A>
+module from <I>cpan.org</I>
+</P><P>
+The current version of <I>muscript</I> for <I>Lua</I>
+is available by http at
+<A HREF="http://www.pjb.com.au/muscript/muscript_lua">
+www.pjb.com.au/muscript/muscript_lua</A>.  To install it, save it to disc,
+rename it <I>muscript</I> and move it into your $PATH,
+make it executable, and if necessary edit the first line
+to reflect where <I>lua</I> is installed on your system.
+<BR>
+You'll also need to install the
+<A HREF="http://www.pjb.com.au/comp/lua/MIDI.html">MIDI.lua</A> module, eg:
+<CODE> &nbsp; &nbsp; luarocks install midi</CODE>
 
 </P><A NAME="tools"><HR></A><H2>Tools</H2><P>
 Various tools exist to manipulate
