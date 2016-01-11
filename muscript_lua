@@ -8,13 +8,18 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2h for Lua5'
-VersionDate  = '09jan2016';
+Version = '3.2i for Lua5'
+VersionDate  = '11jan2016';
 
 --is_debug = false
 -- if is_debug then $|=1;  -- so you can 'tail -f' on the output file
-require 'DataDumper'
-concat = table.concat
+--require 'DataDumper'
+local concat = table.concat
+local find   = string.find
+local match  = string.match
+local gmatch = string.gmatch
+local sub    = string.sub 
+local gsub   = string.gsub 
 
 -- Beginning of Configuration Stuff: mostly relative to stave height ...
 SpaceAtBeginningOfBar = 0.60
@@ -819,16 +824,16 @@ function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
 	if maxNb and maxNb <2 then return {s} end
 	local result = { }
 	local theStart = 1
-	local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+	local theSplitStart,theSplitEnd = find(s,pattern,theStart)
 	local nb = 1
 	while theSplitStart do
-		table.insert( result, string.sub(s,theStart,theSplitStart-1) )
+		table.insert( result, sub(s,theStart,theSplitStart-1) )
 		theStart = theSplitEnd + 1
-		theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+		theSplitStart,theSplitEnd = find(s,pattern,theStart)
 		nb = nb + 1
 		if maxNb and nb >= maxNb then break end
 	end
-	table.insert( result, string.sub(s,theStart,-1) )
+	table.insert( result, sub(s,theStart,-1) )
 	return result
 end
 function printf (...) print(string.format(...)) end
@@ -846,20 +851,20 @@ end
 
 function parse_options(line)  -- delimits by '-' respects quoting by "
 	if not line or line == '' then return {} end
-	local quotedline = string.gsub(line, '"[^"]-"', function(s)
-		return string.gsub(s, '-', '\a')
+	local quotedline = gsub(line, '"[^"]-"', function(s)
+		return gsub(s, '-', '\a')
 	end)
 	local a = split(quotedline, '-')
-	for i=1,#a do a[i] = string.gsub( string.gsub(a[i],'\a','-'), '"','') end
+	for i=1,#a do a[i] = gsub( gsub(a[i],'\a','-'), '"','') end
 	return a
 end
 
 function parse_line(line, keep)   -- only respects quoting by "
-	local quotedline = string.gsub(line, '%a"[^"]-"', function(s)
-		return string.gsub(s, '[- ]', {[' ']='\a', ['-']='\b'})
+	local quotedline = gsub(line, '%a"[^"]-"', function(s)
+		return gsub(s, '[- ]', {[' ']='\a', ['-']='\b'})
 	end)
 	local a = split(quotedline, '%s+')
-	for i=1,#a do a[i]=string.gsub(a[i],'[\a\b]',{['\a']=' ',['\b']='-'}) end
+	for i=1,#a do a[i]=gsub(a[i],'[\a\b]',{['\a']=' ',['\b']='-'}) end
 	return a
 end
 
@@ -917,8 +922,7 @@ function initialise ()
 	end
 	for k,v in pairs(a) do Nbeats[k]=v end
 	a = {} ; for k,v in pairs(Nbeats) do   -- tremolandi
-		if string.find(k,'^cro') or
-		  string.find(k,'^min') or string.find(k,'^smb') then
+		if find(k,'^cro') or find(k,'^min') or find(k,'^smb') then
 			a[k..'/'  ] = v   -- tremolandi
 			a[k..'//' ] = v
 			a[k..'///'] = v
@@ -934,10 +938,10 @@ function initialise ()
 	for i,key in pairs(sorted_keys(Nbeats)) do -- International-style rhythm
 		-- sort means smb gets overwritten by smq, so 16-s maps to smq-s, 2.9n
 		local s1,s2
-		s1,s2 = string.match(key, '^([a-u][a-u][a-u])([2-6].*)$') ; if s2 then
+		s1,s2 = match(key, '^([a-u][a-u][a-u])([2-6].*)$') ; if s2 then
 			if en2intl[s1] then Intl2en[en2intl[s1]..s2] = key end
 		else
-			s1,s2 = string.match(key, '^([a-u][a-u][a-u])(.*)$') ; if s2 then
+			s1,s2 = match(key, '^([a-u][a-u][a-u])(.*)$') ; if s2 then
 				if en2intl[s1] then Intl2en[en2intl[s1]..s2] = key end
 			end
 		end
@@ -991,8 +995,7 @@ function initialise ()
 		end
 		for k,v in pairs(a) do XmlDuration[k]=v end
 		a = {} ; for k,v in pairs(XmlDuration) do
-			if string.find(k,'^cro') or string.find(k,'^min') or
-			  string.find(k,'^smb') then
+			if find(k,'^cro') or find(k,'^min') or find(k,'^smb') then
 				a[k..'/'  ] = v
 				a[k..'//' ] = v
 				a[k..'///'] = v
@@ -1000,10 +1003,9 @@ function initialise ()
 		end
 		for k,v in pairs(a) do XmlDuration[k]=v end
 		a = {} ; for k,v in pairs(XmlDuration) do
-			if string.find(k,'^hds') or string.find(k,'^dsq') or
-			  string.find(k,'^smq') or string.find(k,'^qua') or
-			  string.find(k,'^cro') or string.find(k,'^min') or
-			  string.find(k,'^smb') then
+			if find(k,'^hds') or find(k,'^dsq') or find(k,'^smq') or
+			  find(k,'^qua') or find(k,'^cro') or find(k,'^min') or
+			  find(k,'^smb') then
 				a[k..'-s']  = v   -- small notes
 			end
 		end
@@ -1037,13 +1039,13 @@ local function is_a_clef (s)
 end
 
 local function is_a_note (s)
-	s = string.gsub(s, "[{}()][',]*%d?", "") -- strip slurs and ties off
-	s = string.gsub(s, "[%[%]]%d?", "") -- strip [ ] [1 [1 beam characters off
-	s = string.gsub(s, "[<>]", "")      -- strip < and > chord characters off
-	s = string.gsub(s, "-.*$", "")      -- strip -xxx options off
-	if string.find(s,"^[A-Ga-g][nbrl#,'x+]*$") then return true end
-	if string.find(s,"^[A-G][_nbrl#,'x+]*$")   then return true end
-	if string.find(s,"^[a-g][~nbrl#,'x+]*$")   then return true end
+	s = gsub(s, "[{}()][',]*%d?", "") -- strip slurs and ties off
+	s = gsub(s, "[%[%]]%d?", "") -- strip [ ] [1 [1 beam characters off
+	s = gsub(s, "[<>]", "")      -- strip < and > chord characters off
+	s = gsub(s, "-.*$", "")      -- strip -xxx options off
+	if find(s,"^[A-Ga-g][nbrl#,'x+]*$") then return true end
+	if find(s,"^[A-G][_nbrl#,'x+]*$")   then return true end
+	if find(s,"^[a-g][~nbrl#,'x+]*$")   then return true end
 	return false
 end
 
@@ -1068,7 +1070,7 @@ function print_quoted (s)  -- PiL p.210
 	-- WARNING! only works for global variables :-(
 	-- stackoverflow.com/questions/9483741/read-dynamic-variable-names-in-lua
 	-- note that  load('local tmp = '..n)  evaluates n in the global context
-	local qs = string.gsub(s, "$(%w+)", function(n) return tostring(_G[n]) end)
+	local qs = gsub(s, "$(%w+)", function(n) return tostring(_G[n]) end)
 	print(qs)  -- reject gsub's 2nd return-val
 end
 
@@ -1334,27 +1336,27 @@ end
 
 local function escape_and_utf2iso (s)   -- 2.9b
 	if XmlOpt then
-		s = string.gsub(s, '& ', '&amp;')
-		s = string.gsub(s, '" ', '&quot;')
-		s = string.gsub(s, '< ', '&lt;')
-		s = string.gsub(s, '> ', '&gt;')
+		s = gsub(s, '& ', '&amp;')
+		s = gsub(s, '" ', '&quot;')
+		s = gsub(s, '< ', '&lt;')
+		s = gsub(s, '> ', '&gt;')
 	else
-		s = string.gsub(s, '([()])', '\\%1')
+		s = gsub(s, '([()])', '\\%1')
 	end
 	-- UTF-8 to ISO 8859-1, from "perldoc perluniintro"
 	-- This mangles a legit ISO &acirc;[\x80-\xBF] - but that's very rare!
 	-- http://lua-users.org/lists/lua-l/2015-02/msg00172.html
-	-- s = string.gsub(s, utf8.charpattern, function (c)
+	-- s = gsub(s, utf8.charpattern, function (c)
 	-- s =~ s/([\xC2\xC3])([\x80-\xBF])/chr(ord($1)<<6&0xC0|ord($2)&0x3F)/eg;
-	s = string.gsub(s, '[\xC2\xC3][\x80-\xBF]', function (c)
+	s = gsub(s, '[\xC2\xC3][\x80-\xBF]', function (c)
 		local iso_byte = 128
-		if string.sub(c,1,1) == '\xC3' then iso_byte = 192 end
+		if sub(c,1,1) == '\xC3' then iso_byte = 192 end
 		iso_byte = iso_byte + bit32.band(string.byte(c,2),63)
 		return string.char(iso_byte)
 	end)
-	s = string.gsub(s, '\xC5\x92([a-z])', 'Oe%1')
-	s = string.gsub(s, '\xC5\x92', 'OE')
-	s = string.gsub(s, '\xC5\x93', 'oe')
+	s = gsub(s, '\xC5\x92([a-z])', 'Oe%1')
+	s = gsub(s, '\xC5\x92', 'OE')
+	s = gsub(s, '\xC5\x93', 'oe')
 	return s
 end
 
@@ -1435,9 +1437,9 @@ local function ps_pagenum (str)
 	if MIDI or XmlOpt then die("ps_pagenum called with MIDI or Xml set ") end
 	-- if Xml, could also generate <print new-page="yes" page-number=""/>
 	-- See Mario Lang in ~/Mail/musicxml ...
-	str = string.gsub(str or '', '^%s+', '')
+	str = gsub(str or '', '^%s+', '')
 	if str=='' then PageNum = PageNum + 1
-	elseif string.find(str, '^%d+$')	then PageNum = tonumber(str)
+	elseif find(str, '^%d+$')	then PageNum = tonumber(str)
 	else warn_ln('pagenum '..str..' is not numeric'); return nil
 	end
 	RememberHeader['pagenum'] = PageNum
@@ -1451,7 +1453,7 @@ local function ps_pagenum (str)
 end
 local function title (str)
 	if MIDI then return end
-	str = string.gsub(str, '^title%s*', '')
+	str = gsub(str, '^title%s*', '')
 	if XmlOpt then
 		-- XXX out of its xml place; can also be multiple. Maybe just print:
 		-- print "\t<work>\n\t\t<work-title>$str</work-title>\n\t</work>\n";
@@ -1536,8 +1538,6 @@ local function parse_note (s)
 	if not s then return end
 	local scopy = s -- just in case there's a warning-message
 	local r = {}    -- will return this
-	local find  = string.find ;  local  gsub  = string.gsub
-	local match = string.match ; local gmatch = string.gmatch
 	if find(s,']$')  then r['endbeam']=']';    s=gsub(s,']$','') end
 	if find(s,'>$')  then r['endchord']='>';   s=gsub(s,'>$','') end
 	-- local len = 1 + string.len(notebit)
@@ -1603,9 +1603,9 @@ end
 local function dypitch (pitch)
 	local y = Ytable[pitch]
 	if not y then warn_ln('unrecognisable pitch: ',pitch) ; return 0 end
-	if string.find(Stave2clef[Istave], '^treble') then y = y + 0.125
+	if find(Stave2clef[Istave], '^treble') then y = y + 0.125
 	elseif Stave2clef[Istave] == 'tenor' then y = y + 0.25
-	elseif string.find(Stave2clef[Istave], '^bass') then y = y - 0.125
+	elseif find(Stave2clef[Istave], '^bass') then y = y - 0.125
 	end
 	return y  -- how far is the pitch above the top line, in staveheights
 end
@@ -1618,8 +1618,8 @@ end
 local function is_stemup (noteref)
 	local stem = noteref['stem'] ; local pitch = noteref['pitch']
 	local stemup = false
-	if     stem and string.find(stem, "'") then stemup = true
-	elseif stem and string.find(stem, ",") then stemup = false
+	if     stem and find(stem, "'") then stemup = true
+	elseif stem and find(stem, ",") then stemup = false
 	elseif DefaultStem == "'" then stemup = true
 	elseif DefaultStem == "," then stemup = false
 	else
@@ -1631,8 +1631,8 @@ local function is_stemup (noteref)
 end
 
 local function ps_is_stemless ()
-	if string.find(CurrentPulseText,'^smb') or
-	   string.find(CurrentPulseText,'^bre') then return true
+	if find(CurrentPulseText,'^smb') or
+	   find(CurrentPulseText,'^bre') then return true
 	else return false end
 end
 
@@ -1682,8 +1682,8 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 	for i,option in ipairs(Opt_Cache[options]) do -- doesnt clobber the cache
 		local option_is_above = true
 		if OptionMustGoBelow[option] then option_is_above = false end
-		if string.find(option, ',$') then -- 3.1d,e,n
-			option = string.gsub(option, ',$', '')
+		if find(option, ',$') then -- 3.1d,e,n
+			option = gsub(option, ',$', '')
 			option_is_above = false
 		end
 		local x = X
@@ -1695,18 +1695,18 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 		local text = '';  local shortoption = ''
 		if option ==  'blank' or option ==  '' then
 			shortoption = 'blank'
-		elseif string.find(option,"^[Ibir]s?.+$") then  -- text option
-			shortoption,text = string.match(option,"^([Ibir]s?)(.+)$") 
-		elseif string.find(option,"^s.+$") then
-			shortoption = 'rs' ; text = string.match(option,"^s(.+)$")
-		elseif string.find(option,"^gs.+$") then
-			shortoption = 'gs' ; text = string.match(option,"^gs(.+)$")
-		elseif string.find(option,"^dim") then
+		elseif find(option,"^[Ibir]s?.+$") then  -- text option
+			shortoption,text = match(option,"^([Ibir]s?)(.+)$") 
+		elseif find(option,"^s.+$") then
+			shortoption = 'rs' ; text = match(option,"^s(.+)$")
+		elseif find(option,"^gs.+$") then
+			shortoption = 'gs' ; text = match(option,"^gs(.+)$")
+		elseif find(option,"^dim") then
 			shortoption = 'dim'
-		elseif string.find(option,"^cre") then
+		elseif find(option,"^cre") then
 			shortoption = 'cre'
 		else
-			shortoption = string.gsub(option,"[,']", "")
+			shortoption = gsub(option,"[,']", "")
 			shortoption = Options[shortoption] or shortoption
 		end
 		local optiondy = StvHgt
@@ -1715,11 +1715,11 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 		else
 			optiondy = optiondy * OptionDyDflt
 		end
-		if string.find(text, "^[aceimnorsuvwxz]+$") then
+		if find(text, "^[aceimnorsuvwxz]+$") then
 			optiondy = optiondy * 0.85
 		end
 		if option_is_above then
-			option = string.gsub(option, "'$", "")
+			option = gsub(option, "'$", "")
 			y = ytop + dytop + 0.5*optiondy
 			dytop = dytop + optiondy
 		else
@@ -1739,23 +1739,23 @@ local function ps_note_options (X,ybot,ytop,stem,options)
 		elseif option == 'blank' or option == '' then
 		elseif text and string.len(text)>0.5 then  -- text option
 			local font ;  local fontsize = TextSize*StvHgt
-			if     string.find(shortoption,"^I") then font = BoldItalicFont
-			elseif string.find(shortoption,"^i") then font = ItalicFont
-			elseif string.find(shortoption,"^b") then font = BoldFont
+			if     find(shortoption,"^I") then font = BoldItalicFont
+			elseif find(shortoption,"^i") then font = ItalicFont
+			elseif find(shortoption,"^b") then font = BoldFont
 			else font = RegularFont
 			end
-			if string.find(shortoption,"s") then
+			if find(shortoption,"s") then
 				fontsize = fontsize * SmallFontRatio
 			end
-			if string.find(text,"[(){}][',]*%d$") then -- 3.0d
+			if find(text,"[(){}][',]*%d$") then -- 3.0d
 				warn("\nline "..tostring(LineNum)..": dubious text-option "
 				..text.." (slurs and ties must precede options!)")
 			end
-			s1 = string.match(text,'^"(.*)"$') ; if s1 then text = s1 end
+			s1 = match(text,'^"(.*)"$') ; if s1 then text = s1 end
 			printf("%g %g /%s %g (%s) centreshow",
 			 x, y, font, fontsize, escape_and_utf2iso(text))
-		elseif string.find(option,'^cre') or string.find(option,'^dim') then
-		elseif string.find(option,'^Pe?d?$') then   -- 3.0b
+		elseif find(option,'^cre') or find(option,'^dim') then
+		elseif find(option,'^Pe?d?$') then   -- 3.0b
 			-- should be a more consistent distance beneath the stave
 			local fontsize = TextSize*StvHgt
 			printf("%g %g /%s %g (%s) centreshow",x,y,PedalFont,fontsize,"Ped")
@@ -1790,46 +1790,46 @@ local function ps_rest (currentpulse, symbol, X)
 	local options
 	symbol,options = table.unpack(split(symbol,'-',2)) -- rest-fermata etc
 	local dy = -0.5  -- default middle stave-line
-	local s1 = string.match(symbol, "^rest([,']*)")
+	local s1 = match(symbol, "^rest([,']*)")
 	local n = 0.5 * string.len(s1)  -- 3.0a
-	if     string.find(s1, ",") then dy = dy - n
-	elseif string.find(s1, "'") then dy = dy + n
+	if     find(s1, ",") then dy = dy - n
+	elseif find(s1, "'") then dy = dy + n
 	end
 	local Y = Ystv + dy*StvHgt;
 	local smallstvhgt = StvHgt   -- 3.1o
-	if string.find(currentpulse,"-s$") then
+	if find(currentpulse,"-s$") then
 		smallstvhgt = smallstvhgt * SmallStemRatio
 	end
-	if string.find(currentpulse, "^smb") then
+	if find(currentpulse, "^smb") then
 		Y = Y + 0.25*StvHgt ;  dy = dy + 0.25  -- 4th stave-line
 		printf("%g %g %g smbrest", X,Y,StvHgt)
 		if dy > 0.2 or dy < -1.2 then  -- 2.7t
 			printf("%g %g %g ledger", X,Y,StvHgt)
 		end
-	elseif string.find(currentpulse, "^min") then
+	elseif find(currentpulse, "^min") then
 		printf("%g %g %g minimrest", X,Y,StvHgt)
 		if dy > 0.2 or dy < -1.2 then  -- 2.7t
 			printf("%g %g %g ledger", X,Y,StvHgt)
 		end
-	elseif string.find(currentpulse, "^cro") then
+	elseif find(currentpulse, "^cro") then
 		printf("%g %g %g crochetrest", X,Y,smallstvhgt)
-	elseif string.find(currentpulse, "^qua") then
+	elseif find(currentpulse, "^qua") then
 		printf("%g %g %g quaverrest", X,Y,smallstvhgt)
-	elseif string.find(currentpulse, "^bre") then
+	elseif find(currentpulse, "^bre") then
 		printf("%g %g %g breverest", X,Y,StvHgt)
-	elseif string.find(currentpulse, "^dsq") then
+	elseif find(currentpulse, "^dsq") then
 		printf("%g %g %g demisemiquaverrest",X,Y,smallstvhgt)
-	elseif string.find(currentpulse, "^hds") then
+	elseif find(currentpulse, "^hds") then
 		printf("%g %g %g hemidemisemiquaverrest",X,Y,smallstvhgt)
 	else
 		printf("%g %g %g semiquaverrest", X,Y,smallstvhgt)
 	end
-	if string.find(currentpulse, "%.%.$") then  -- print the dot, if any
+	if find(currentpulse, "%.%.$") then  -- print the dot, if any
 		local x_plus  = X + DotRightOfNote * StvHgt
 		-- should only raise dot if note on line ...
 		local y_minus = Y + DotAboveNote * StvHgt 
 		printf("%g %g %g doubledot", x_plus,y_minus,StvHgt)
-	elseif string.find(currentpulse, "%.$") then
+	elseif find(currentpulse, "%.$") then
 		local x_plus  = X + DotRightOfNote * StvHgt;
 		-- should only raise dot if note on line ...
 		local y_minus = Y + DotAboveNote * StvHgt 
@@ -1866,7 +1866,6 @@ local function ps_ledger_lines (x, dy)
 end
 
 local function ps_tails_or_beams (text)
-	local find = string.find
 	if not text then
 		warn_ln('ps_tails_or_beams: BUG: text=nil CrosSoFar=',CrosSoFar)
 		print(_G.debug.traceback())
@@ -1912,7 +1911,7 @@ local function ps_note (noteref, X, height2cross)
 			acc_shift*StvHgt*AccidentalShift
 	end
 	local acc_size = StvHgt
-	if string.find(CurrentPulseText,'-s$') then
+	if find(CurrentPulseText,'-s$') then
 		accidental_before_note = accidental_before_note * SmallNoteRatio
 		acc_size = acc_size * SmallNoteRatio
 	end
@@ -1933,10 +1932,10 @@ local function ps_note (noteref, X, height2cross)
 		die("BUG! pitch = ",pitch," wierd accidental ",accidental)
 	end
 	-- print the blob, white or black
-	if string.find(CurrentPulseText,'^bre') then -- 2.9a bre can now be small
+	if find(CurrentPulseText,'^bre') then -- 2.9a bre can now be small
 		printf ("%g %g %g breve", X, Y, acc_size)
-	elseif string.find(CurrentPulseText,'^min') or
-	  string.find(CurrentPulseText,'^smb') then
+	elseif find(CurrentPulseText,'^min') or
+	  find(CurrentPulseText,'^smb') then
 		printf ("%g %g %g whiteblob", X, Y, acc_size)
 	else
 		printf ("%g %g %g blackblob", X, Y, acc_size)
@@ -1945,15 +1944,15 @@ local function ps_note (noteref, X, height2cross)
 	ps_ledger_lines(X, dypitch(noteref['pitch']))
 	do -- print the dot, if any
 		local sh = StvHgt
-		if string.find(CurrentPulseText,'-s$') then
+		if find(CurrentPulseText,'-s$') then
 			sh = sh * SmallNoteRatio
 		end
 		-- should really only raise dot if note is on a line ...
-		if string.find(CurrentPulseText,'%.%.') then
+		if find(CurrentPulseText,'%.%.') then
 			local x_plus  = X + DotRightOfNote*sh; 
 			local y_minus = Y + DotAboveNote*sh; 
 			printf("%g %g %g doubledot", x_plus,y_minus,sh)
-		elseif string.find(CurrentPulseText,'%.') then
+		elseif find(CurrentPulseText,'%.') then
 			local x_plus  = X + DotRightOfNote*sh
 			local y_minus = Y + DotAboveNote*sh
 			printf("%g %g %g dot", x_plus, y_minus, sh)
@@ -2046,10 +2045,10 @@ local function ps_note (noteref, X, height2cross)
 				Xstart[key] = X + 0.5*BlackBlobHalfWidth*StvHgt
 			elseif stemup then
 				Xstart[key] = X + 1.6*BlackBlobHalfWidth*StvHgt -- too far?
-				if #BeamUp==0 and (string.find(CurrentPulseText,'^smq')
-				  or string.find(CurrentPulseText,'^qua')
-				  or string.find(CurrentPulseText,'^dsq')
-				  or string.find(CurrentPulseText,'^hds')) then
+				if #BeamUp==0 and (find(CurrentPulseText,'^smq')
+				  or find(CurrentPulseText,'^qua')
+				  or find(CurrentPulseText,'^dsq')
+				  or find(CurrentPulseText,'^hds')) then
 					Xstart[key] = Xstart[key] + BlackBlobHalfWidth*StvHgt
 				end
 			else
@@ -2119,16 +2118,15 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 	for i,str in ipairs(beamupordown) do
 		x,ylowblob,yhighblob,duration,direction,accidental,options =
 		  table.unpack(split(str,"\t"))
-		duration = string.gsub(duration, '%.+$', '') -- ignore dots for beam
+		duration = gsub(duration, '%.+$', '') -- ignore dots for beam
 		if ps_tails_or_beams(duration) == 0 then  -- ZZZ
 			warn(' ps_beam: ',str,': unknown duration ',duration)
 			return false
 		end
-		if not string.find(duration,'-s$') then
+		if not find(duration,'-s$') then
 			smallness = 1.0 -- only small if ALL notes under beam are small
 		end
-		if not string.find(direction,'^up') and
-		   not string.find(direction,'^down') then
+		if not find(direction,'^up') and not find(direction,'^down') then
 			warn(' ps_beam: ',str,': unknown direction ',direction)
 			return false
 		end
@@ -2153,7 +2151,7 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 	x1         = xes[1];        xn         = xes[n]
 	ylowblob1  = ylowblobs[1] ;  ylowblobn  = ylowblobs[n]
 	yhighblob1 = yhighblobs[1] ; yhighblobn = yhighblobs[n]
-	if string.find(Direction,'^up') then
+	if find(Direction,'^up') then
 		y1 = yhighblob1 + stem_length
 		yn = yhighblobn + stem_length
 		-- check the beams don't sink into ledger lines ... 2.7v,2.7x,2.8x,2.9u
@@ -2431,17 +2429,17 @@ local function ps_event (symbols)
 
 	for i,symbol in ipairs(symbols) do
 		local Y
-		if string.find(symbol, '^blank') then
+		if find(symbol, '^blank') then
 			Y = Ystv - 0.5*StvHgt
 			if Y > HighestNoStem then HighestNoStem = Y end
 			if Y < LowestNoStem  then LowestNoStem  = Y end
 			local a = split(symbol, '-', 2);
 			total_chord_options = append_options(total_chord_options,a[2])
-		elseif string.find(symbol, "^rest[,']*") then
-			local s1 = string.match(symbol, "^rest([,']*)")
+		elseif find(symbol, "^rest[,']*") then
+			local s1 = match(symbol, "^rest([,']*)")
 			local n = 0.5 * string.len(s1)  -- 3.0a
-			if string.find(s1, ",")     then Y = Ystv - (0.65+n)*StvHgt;
-			elseif string.find(s1, "'") then Y = Ystv + (n-0.35)*StvHgt
+			if find(s1, ",")     then Y = Ystv - (0.65+n)*StvHgt;
+			elseif find(s1, "'") then Y = Ystv + (n-0.35)*StvHgt
 			else Y = Ystv - 0.5*StvHgt
 			end
 			if Y > HighestNoStem then HighestNoStem = Y end
@@ -2528,8 +2526,8 @@ local function ps_event (symbols)
 	local stem_from_blob_centre  = StemFromBlobCentre * StvHgt
 	for i,symbol in pairs(symbols) do
 		local is_note = type(symbol)=="table"
-		if is_note or string.find(symbol,'^rest') or
-		  string.find(symbol,'^blank') then
+		if is_note or find(symbol,'^rest') or
+		  find(symbol,'^blank') then
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 		end
 		if not is_note and Nbeats[symbol] then  -- it's smb min cro etc
@@ -2537,10 +2535,10 @@ local function ps_event (symbols)
 			if Nbeats[symbol] < shortest then shortest=Nbeats[symbol] end
 			CurrentPulse = Nbeats[symbol]
 			CurrentPulseText = symbol
-		elseif not is_note and string.find(symbol,'^blank') then
+		elseif not is_note and find(symbol,'^blank') then
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 			ps_blank(CurrentPulseText,symbol,X)
-		elseif not is_note and string.find(symbol,'^rest') then
+		elseif not is_note and find(symbol,'^rest') then
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 			ps_rest(CurrentPulseText,symbol,X)
 		elseif not is_note and (is_a_clef(symbol) or symbol=='clefspace') then
@@ -2548,10 +2546,10 @@ local function ps_event (symbols)
 			local noteref = symbol  -- why ?
 			local stemup = is_stemup(noteref)
 			local shift = 0
--- if string.find(CurrentPulseText,'-s$') then acc=acc*SmallNoteRatio end
+-- if find(CurrentPulseText,'-s$') then acc=acc*SmallNoteRatio end
 			if noteref['cross'] then
 				local d = stem_from_blob_centre * 2.0
-				if string.find(CurrentPulseText, '-s$') then
+				if find(CurrentPulseText, '-s$') then
 					 d = d*SmallNoteRatio
 				end
 				if ps_is_stemless() then
@@ -2584,13 +2582,13 @@ local function ps_event (symbols)
 		local halfstemlength = 0.6 * StemLength * StvHgt
 		local smb_x = X + smb_rightshift * note_shift
 --		local stemup = is_stemup(noteref)
-		if string.find(CurrentPulseText,'/+') then
-			s1 = string.match(CurrentPulseText,'(/+)')
+		if find(CurrentPulseText,'/+') then
+			s1 = match(CurrentPulseText,'(/+)')
 --			if stemup then -- XXX but $stemup has not been set ?! :-(
 				printf("%d %g %g %g tremolando", string.len(s1),
 				  smb_x, HighestNoStem+halfstemlength, StvHgt)
 --			else -- stemdown
---				s1 = string.match(CurrentPulseText,'(/+)')
+--				s1 = match(CurrentPulseText,'(/+)')
 --				printf("%d %g %g %g tremolando", string.len(s1),
 --				  smb_x, LowestNoStem-halfstemlength,  StvHgt)
 --			end
@@ -2601,7 +2599,7 @@ local function ps_event (symbols)
 			xstem = X + stem_from_blob_centre
 			xstem = xstem + stemup_rightshift*note_shift
 			local smallness = 1.0
-			if string.find(shortestuptext,'-s$') then
+			if find(shortestuptext,'-s$') then
 				xstem = xstem-BlackBlobHalfWidth*(1.0-SmallNoteRatio)*StvHgt
 				smallness = SmallStemRatio
 			end
@@ -2633,8 +2631,8 @@ local function ps_event (symbols)
 					 xstem,LowestStemUp,HighestStemUp, shortestuptext,
 					 accidentalup, total_chord_options);
 				else   -- an independent, non-beamed qua smq or dsq
-					if string.find(CurrentPulseText,'/+') then   -- smallness?
-						s1 = string.match(CurrentPulseText,'(/+)')
+					if find(CurrentPulseText,'/+') then   -- smallness?
+						s1 = match(CurrentPulseText,'(/+)')
 						printf("%g %g %g %g notestem",
 						 xstem, ystemend, LowestStemUp, StvHgt)
 						printf("%d %g %g %g tremolando\n", string.len(s1),
@@ -2658,8 +2656,8 @@ local function ps_event (symbols)
 				printf("%g %g %g %g notestem",
 				 xstem, ystemend, LowestStemUp, StvHgt)
 				-- print the tremolandi, if any
-				if string.find(CurrentPulseText,'/+') then   -- ZZZ
-					s1 = string.match(CurrentPulseText, '(/+)')
+				if find(CurrentPulseText,'/+') then   -- ZZZ
+					s1 = match(CurrentPulseText, '(/+)')
 					printf("%d %g %g %g tremolando", string.len(s1),
 					  xstem, 0.5 * (ystemend+HighestStemUp), StvHgt)
 				end
@@ -2669,7 +2667,7 @@ local function ps_event (symbols)
 		if HighestStemDown > 0 then  -- also, if there are some stemdown notes
 			xstem = X - stem_from_blob_centre + stemdown_rightshift*note_shift
 			local smallness = 1.0
-			if string.find(shortestdowntext, '-s$') then
+			if find(shortestdowntext, '-s$') then
 				xstem = xstem + BlackBlobHalfWidth*(1.0-SmallNoteRatio)*StvHgt
 				smallness = SmallStemRatio
 			end
@@ -2686,8 +2684,8 @@ local function ps_event (symbols)
 					 xstem,LowestStemDown,HighestStemDown, shortestdowntext,
 					 accidentaldown, total_chord_options)
 				else   -- an independent, non-beamed qua smq or dsq
-					if string.find(CurrentPulseText,'/+') then   -- smallness?
-						s1 = string.match(CurrentPulseText,'(/+)')
+					if find(CurrentPulseText,'/+') then   -- smallness?
+						s1 = match(CurrentPulseText,'(/+)')
 						printf("%g %g %g %g notestem",
 				 		  xstem, HighestStemDown, ystemend, StvHgt)
 						printf("%d %g %g %g tremolando\n", string.len(s1),
@@ -2710,8 +2708,8 @@ local function ps_event (symbols)
 			else	-- crochets and minims ...
 				printf("%g %g %g %g notestem",
 				 xstem, HighestStemDown, ystemend, StvHgt)
-				if string.find(CurrentPulseText,'/+') then   -- ZZZ
-					s1 = string.match(CurrentPulseText,'(/+)')
+				if find(CurrentPulseText,'/+') then   -- ZZZ
+					s1 = match(CurrentPulseText,'(/+)')
 					printf("%d %g %g %g tremolando", string.len(s1),
 					  xstem, 0.5 * (ystemend+LowestStemDown), StvHgt)
 				end
@@ -2756,18 +2754,18 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 	-- interpret ".48 some text" horizontal spacing
 	local str_by_pos = {} ; local pos = '0.0'
 	while true do
-		local n = string.find(text, '%s%.%d+%s')
+		local n = find(text, '%s%.%d+%s')
 		if not n then
-			if pos == '0.0' then str_by_pos[pos] = string.sub(text, 2, -1)
+			if pos == '0.0' then str_by_pos[pos] = sub(text, 2, -1)
 			else                 str_by_pos[pos] = text
 			end
 			break
 		end
-		if pos == '0.0' then str_by_pos[pos] = string.sub(text, 2, n-1)
-		else                 str_by_pos[pos] = string.sub(text, 1, n-1)
+		if pos == '0.0' then str_by_pos[pos] = sub(text, 2, n-1)
+		else                 str_by_pos[pos] = sub(text, 1, n-1)
 		end
-		pos = string.match(text, '%s(%.%d+)%s')
-		text=string.sub(text,n+string.len(string.match(text,'(%s%.%d+%s)')),-1)
+		pos = match(text, '%s(%.%d+)%s')
+		text=sub(text,n+string.len(match(text,'(%s%.%d+%s)')),-1)
 	end
 	local left ; local right
 	for pos,text in pairs(str_by_pos) do  -- order doesn't matter !
@@ -2783,7 +2781,7 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 			left = Xbar[Isyst][Ibar-1] + WhiteBlobHalfWidth*staveheight
 		end
 		right = Xbar[Isyst][Ibar] - WhiteBlobHalfWidth*staveheight
-		if string.find(text, "%S") then
+		if find(text, "%S") then
 			printf("%g %g /%s %g (%s) leftshow", (1.0-pn)*left + pn*right,
 			  ytext, font, size, escape_and_utf2iso(text))
 		end
@@ -2811,16 +2809,16 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		RememberNbars      = nbars
 	end
 	-- could extract strings for a leftgap from this ...
-	str = string.gsub(str, '^[^|]*', '')   -- delete up to first barline
-	str = string.gsub(str, '%s*$', '')
+	str = gsub(str, '^[^|]*', '')   -- delete up to first barline
+	str = gsub(str, '%s*$', '')
 	local last_terminator = ''; local n
 	BarType[Isyst] = {}
 	Nparts[Isyst]  = {}
-	if string.find(str, '^|?|?:') then
-	-- if string.find(str, '^:') then
+	if find(str, '^|?|?:') then
+	-- if find(str, '^:') then
 		BarType[Isyst][0] = 4; last_terminator='|:'
-		-- str = string.gsub(str, '^|?|?:%s*', '')
-		str = string.gsub(str, '^:%s*', '')
+		-- str = gsub(str, '^|?|?:%s*', '')
+		str = gsub(str, '^:%s*', '')
 	else
 		BarType[Isyst][0] = 0; last_terminator = '|'
 	end
@@ -2831,7 +2829,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 	local bars = split(str, '%s*:?||?:?%s*')  -- 2.7g
 	if bars[1]     == '' then table.remove(bars,1) end
 	if bars[#bars] == '' then table.remove(bars,#bars) end
-	local terminators = {} ; for w in string.gmatch(str, ':?||?:?') do
+	local terminators = {} ; for w in gmatch(str, ':?||?:?') do
 		-- here we have omitted the mandatory space before and after :-(
 		table.insert(terminators, w)
 	end
@@ -2856,31 +2854,31 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 		BarType[Isyst][ibar] = 0
 		spaceatstart[ibar] = SpaceAtBeginningOfBar*maxstvhgt -- 2.4c
 		if not terminator then BarType[Isyst][ibar]=16; terminator='' end
-		if string.find(terminator,'||') then
+		if find(terminator,'||') then
 			BarType[Isyst][ibar] = BarType[Isyst][ibar] + 1 end
-		if string.find(terminator,'^:') then
+		if find(terminator,'^:') then
 			BarType[Isyst][ibar] = bit32.bor(BarType[Isyst][ibar], 3)
 		end
-		if string.find(terminator,':$') then
+		if find(terminator,':$') then
 			BarType[Isyst][ibar] = bit32.bor(BarType[Isyst][ibar], 5)
 		end
-		if string.find(last_terminator, ':$') then
+		if find(last_terminator, ':$') then
 			spaceatstart[ibar] = spaceatstart[ibar] +
 			  SpaceForStartRepeat*maxstvhgt
 		end
 		last_terminator = terminator   -- ready for next bar
-		if string.find(tokens[1], 'Segno') then	-- skip segno ?
+		if find(tokens[1], 'Segno') then	-- skip segno ?
 			BarType[Isyst][ibar-1] = BarType[Isyst][ibar-1] + 8
 			table.remove(tokens, 1)
 		end
 		local ipart = 1;   local itoken = 1
 		if XmlOpt then goto nextbar end
-		s1 = string.match(tokens[1], '(%d+)[b#n]') ; if s1 then -- keysig
+		s1 = match(tokens[1], '(%d+)[b#n]') ; if s1 then -- keysig
 			spaceatstart[ibar] = spaceatstart[ibar] + maxstvhgt *
 				(tonumber(s1)*AccidentalDxInKeysig + SpaceAfterKeySig)
 			table.remove(tokens, 1)
 		end
-		if string.find(tokens[1], '%d+/%d+') then	-- timesig
+		if find(tokens[1], '%d+/%d+') then	-- timesig
 			local topnum, botnum = table.unpack(split(tokens[1],'/',2))
 			if tonumber(topnum)>9 or tonumber(botnum)>9 then  -- 2.0z
 				spaceatstart[ibar] = spaceatstart[ibar] +
@@ -2937,7 +2935,7 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 end
 
 local function changestave (stavestr)
-	local stave = string.match(tostring(stavestr), "^(%d+)")
+	local stave = match(tostring(stavestr), "^(%d+)")
 	stave = tonumber(stave)
 	if not MIDI and not XmlOpt then
 		if stave > Nstaves[Isyst] then
@@ -2958,13 +2956,13 @@ local function changestave (stavestr)
 		StvHgt = StaveHeight[Isyst][Istave]
 	end
 	Istave      = stave
-	DefaultStem = string.match(tostring(stavestr), "^%d+([,']?)$")
+	DefaultStem = match(tostring(stavestr), "^%d+([,']?)$")
 	return true
 end
 
 local function reset_accidentalled (s)
 	if not s or s == '' or s == '0' then Accidentalled = {} ; return end
-	local num,sign = string.match(s, '^([1-7])([#bn])$')
+	local num,sign = match(s, '^([1-7])([#bn])$')
 	-- warn('reset_accidentalled: s=',s,' num=',num,' sign=',sign)
 	if     sign == '#' then pitches = {'F','C','G','D','A','E','B'}
 	elseif sign == 'b' then pitches = {'B','E','A','D','G','C','F'}
@@ -2988,11 +2986,11 @@ local function midi_timesig (str)
 	-- should return here if !$str and midi_timesig has already been called.
 	local timesig, parts = table.unpack(split(str, ' +', 2))
 	local cc
-	local s1,s2 = string.match(timesig, '^(%d+)/(%d+)$')
+	local s1,s2 = match(timesig, '^(%d+)/(%d+)$')
 	if not timesig or timesig == '' then
 		timesig = MidiTimesig
 	elseif not s2 then
-		if string.find(timesig, '^[.%d]+$') then -- put it back
+		if find(timesig, '^[.%d]+$') then -- put it back
 			if parts then parts = timesig..' '..parts
 			else          parts = timesig
 			end
@@ -3078,8 +3076,8 @@ function xml_timesig (str)
 	end
 	local timesig, parts = table.unpack(split(str,' +',2))
 	if not timesig or timesig == '' then return end
-	if not string.find(timesig, '^%d+/%d+$') then
-		if string.find(timesig, '^[.%d]+$') then
+	if not find(timesig, '^%d+/%d+$') then
+		if find(timesig, '^[.%d]+$') then
 			parts = timesig..' '..parts -- put it back
 			timesig = XmlTimesig
 		else
@@ -3087,7 +3085,7 @@ function xml_timesig (str)
 		end
 	end
 	if not parts then return end
-	local nn,bottom = string.match(timesig, '^(%d+)/(%d+)$')
+	local nn,bottom = match(timesig, '^(%d+)/(%d+)$')
 	nn = tonumber(nn) ; bottom = tonumber(bottom)
 	local cro_per_bar = 4 * nn / bottom
 	parts = split(parts, ' +')
@@ -3182,7 +3180,7 @@ function xml_print_cache ()
 end
 
 function xml_time_attribute (timesig)
-	local beats,beat_type = string.match(timesig, '(%d+)/(%d+)')
+	local beats,beat_type = match(timesig, '(%d+)/(%d+)')
 	return '<time number="'..tostring(Istave)..'"><beats>'..beats..
 	  '</beats><beat-type>'..beat_type..'</beat-type></time>'
 end
@@ -3201,7 +3199,7 @@ local function newbar (line)
 	if MIDI then
 		TicksAtBarStart = TicksAtBarStart + TicksThisBar
 		Ibar = Ibar + 1; Istave = 0
-		-- if line and string.find(line,'%S') then midi_timesig(line) end
+		-- if line and find(line,'%S') then midi_timesig(line) end
 		midi_timesig(line)
 	elseif XmlOpt then
 		if Xml['measure_number'] ~= '0' then
@@ -3247,12 +3245,13 @@ end
 local function midi_expression (ticks, cha, val)
 	cha = tonumber(cha)
 	if MidiExpression[cha] == val then return end
+	if val>127 then val=127 end  -- 3.2i
 	table.insert(MidiScore, {'control_change', ticks, cha, 11, val})
 	MidiExpression[cha] = val
 end
 
 local function midi_global (s)
-	local a = split (string.gsub(s,'%s+#.*$',''), '%s*[ =]%s*')
+	local a = split (gsub(s,'%s+#.*$',''), '%s*[ =]%s*')
 	local str = {} ; for i=1,#a,2 do str[a[i]] = a[i+1] end
 	cha = str['channel'] or str['cha']
 	if XmlOpt then  -- the Parts mean MIDI-Tracks - we use one track
@@ -3313,12 +3312,12 @@ local function midi_global (s)
 		if str['bank'] then    -- 2.9r
 			-- 3.1g check for digits, and use $lsb or 0 (e.g. "Bank5")
 			local s1,s2
-			s1,s2 =  string.match(str['bank'],'^(%d+),(%d+)$')
+			s1,s2 =  match(str['bank'],'^(%d+),(%d+)$')
 			if s2 then
 				midi_cc_127(cha, 0, tonumber(s1))
 				midi_cc_127(cha,32, tonumber(s2))
 			else
-				s1 =  string.match(str['bank'],'^(%d+)$')
+				s1 =  match(str['bank'],'^(%d+)$')
 				if s1 then midi_cc_127(cha, 0, tonumber(s1))
 				else warn_ln("strange bank msb or msb,lsb in '"..s.."'")
 				end
@@ -3392,45 +3391,45 @@ end
 function midi_in_stave (str)
 	if not str then return end
 	local s1
-	if string.find(str,'^vol') then
+	if find(str,'^vol') then
 		-- warn('midi_in_stave: Istave = ',Istave,' str = "',str,'"')
-		s1 = string.match(str, '^vol(%d+)$') ; if s1 then -- 3.2a u?m?e?
+		s1 = match(str, '^vol(%d+)$') ; if s1 then -- 3.2a u?m?e?
 			local vol = tonumber(s1); if vol > 127 then vol = 127 end
 			Stave2volume[Istave] = vol; return true
 		end
-		s1 = string.match(str, '^vol%+(%d+)$') ; if s1 then -- 3.2a u?m?e?
+		s1 = match(str, '^vol%+(%d+)$') ; if s1 then -- 3.2a u?m?e?
 			local vol = current_volume() + tonumber(s1)
 			if vol > 127 then vol = 127 end
 			Stave2volume[Istave] = vol; return true
 		end
-		s1 = string.match(str, '^vol%-(%d+)$') ; if s1 then -- 3.2a u?m?e?
+		s1 = match(str, '^vol%-(%d+)$') ; if s1 then -- 3.2a u?m?e?
 			local vol = current_volume() - tonumber(s1)
 			if vol < 2 then vol = 1 end
 			Stave2volume[Istave] = vol; return true
 		end
 		warn_ln("strange vol command: ", str); return false
 	end
-	s1 = string.match(str, '^leg(%d+)$') ; if s1 then  -- 3.2 remove a?t?o?
+	s1 = match(str, '^leg(%d+)$') ; if s1 then  -- 3.2 remove a?t?o?
 		Stave2legato[Istave] = 0.01*tonumber(s1); return true
 	end
-	s1 = string.match(str, '^cha(%d[%+%d]*)$') ; if s1 then  -- 3.1v, 3.2
+	s1 = match(str, '^cha(%d[%+%d]*)$') ; if s1 then  -- 3.1v, 3.2
 		local channels = split(s1, '%+')     -- 3.1v
 		for i=1,#channels do channels[i] = tonumber(channels[i]) end
 		Stave2channels[Istave] = channels
 		return true
 	end
-	if string.find(str,'^pan') then
+	if find(str,'^pan') then
 		-- the logic in the Perl version seems suspect here...
 		local pan = 50
-		s1 = string.match(str, '^pan(%d+)$') ; if s1 then
+		s1 = match(str, '^pan(%d+)$') ; if s1 then
 			pan = tonumber(s1)
 			if pan > 100 then pan = 100 end
 		else
-			s1 = string.match(str, '^pan%+(%d+)$') ; if s1 then
+			s1 = match(str, '^pan%+(%d+)$') ; if s1 then
 				pan = (Stave2pan[Istave] or 50) + tonumber(s1)
 				if pan > 100 then pan = 100 end
 			else
-				s1 = string.match(str, '^pan-(%d+)$') ; if s1 then
+				s1 = match(str, '^pan-(%d+)$') ; if s1 then
 					pan = (Stave2pan[Istave] or 50) - tonumber(s1)
 					if pan < 2 then pan = 1 end
 				else
@@ -3444,7 +3443,7 @@ function midi_in_stave (str)
 		Stave2pan[Istave] = pan
 		return true
 	end
-	s1 = string.match(str, '^tra([-%+]?%d+)$') ; if s1 then
+	s1 = match(str, '^tra([-%+]?%d+)$') ; if s1 then
 		if XmlOpt then  -- 2.8u
 			local attributes = {}
 			attributes['transpose'] = xml_transpose(s1);
@@ -3456,7 +3455,7 @@ function midi_in_stave (str)
 		end
 		Stave2transpose[Istave] = tonumber(s1) ; return true
 	end
-	s1 = string.match(str, '^vib(%d+)$') ; if s1 then  -- 3.2 remove r?a?t?o?
+	s1 = match(str, '^vib(%d+)$') ; if s1 then  -- 3.2 remove r?a?t?o?
 		if XmlOpt then return true end
 		local ticks    = TicksAtBarStart + CrosSoFar*TicksPerCro
 		local val = round(tonumber(s1)*1.27)  -- 0..100 to 1..127
@@ -3466,7 +3465,7 @@ function midi_in_stave (str)
 		end
 		return true
 	end
-	s1,s2 = string.match(str, '^cc(%d+)=(%d+)$') ; if s2 then   -- 3.0e
+	s1,s2 = match(str, '^cc(%d+)=(%d+)$') ; if s2 then   -- 3.0e
 		if XmlOpt then return true end
 		local cc = tonumber(s1); local val = tonumber(s2)
 		if  cc>127 then cc=127 end
@@ -3477,24 +3476,24 @@ function midi_in_stave (str)
 		end
 		return true   -- 3.1w
 	end
-	s1 = string.match(str, '^bend') ; if s1 then  -- 3.0f   3.2a
+	s1 = match(str, '^bend') ; if s1 then  -- 3.0f   3.2a
 		if XmlOpt then return true end
 		-- 4 cent steps are usually OK; decimal points could be allowed
 		-- for finer steps; plus, a -bend note-option would use fine steps
 		-- though there we'll need bendup and benddown :-(
 		local val    -- 0..100
 		local bend   -- -8191..8192
-		s1 = string.match(str, '^bend(%d+)$') ; if s1 then
+		s1 = match(str, '^bend(%d+)$') ; if s1 then
 			val = tonumber(s1) ; if val>100 then val = 100 end
 			bend = round((val-50) * 163.82);
 			if bend>8192 then bend=8192 elseif bend<-8191 then bend=-8191 end
 		else
-			s1 = string.match(str, '^bend%+(%d+)$') ; if s1 then
+			s1 = match(str, '^bend%+(%d+)$') ; if s1 then
 				val = round(tonumber(s1) * 163.82)
 				bend = current_bend() + val
 				if bend > 8192 then bend = 8192 end
 			else
-				s1 = string.match(str, '^bend-(%d+)$') ; if s1 then
+				s1 = match(str, '^bend-(%d+)$') ; if s1 then
 					val = round(tonumber(s1) * 163.82)
 					bend = current_bend() - val
 					if bend < -8191 then bend = -8191 end
@@ -3571,7 +3570,7 @@ local function ps_keysig (num, sign, x)
 	else return false
 	end
 	local pitches = {}
-	if string.find(Stave2clef[Istave], '^treble') then
+	if find(Stave2clef[Istave], '^treble') then
 		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
 		elseif sign == 'b' then pitches = {'B','e','A','d','G','c','F'}
 		end
@@ -3583,7 +3582,7 @@ local function ps_keysig (num, sign, x)
 		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
 		elseif sign == 'b' then pitches = {'B','e','A','d','g','c','f'}
 		end
-	elseif string.find(Stave2clef[Istave], '^bass') then
+	elseif find(Stave2clef[Istave], '^bass') then
 		if sign == '#' then     pitches = {'f','c','g','d','A','e','B'}
 		elseif sign == 'b' then pitches = {'B','e','A','d','G','c','F'}
 		end
@@ -3604,8 +3603,8 @@ local function midi_event (symbols)
 	if type(symbols) == 'string' then symbols = { symbols, } end -- ?
 	for i,symbol in ipairs(symbols) do
 		local is_note = is_a_note(symbol)
-		if is_note or string.find(symbol,'^rest') or
-		  string.find(symbol,'^blank') then
+		if is_note or find(symbol,'^rest') or
+		  find(symbol,'^blank') then
 -- where do CurrentPulse and shortest come from ?
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 		end
@@ -3613,9 +3612,9 @@ local function midi_event (symbols)
 			-- we need to measure separately shortest stem-up and stem-down !
 			if Nbeats[symbol]<shortest then shortest=Nbeats[symbol] end
 			CurrentPulse = Nbeats[symbol]
-		elseif string.find(symbol, "^rest[,']*-%S") or
-		 string.find(symbol, "^blank[,']*-%S") then  -- 3.1i,n,q
-			local options = string.match(symbol, "^[a-z]+[,']*-(.+)$")
+		elseif find(symbol, "^rest[,']*-%S") or
+		 find(symbol, "^blank[,']*-%S") then  -- 3.1i,n,q
+			local options = match(symbol, "^[a-z]+[,']*-(.+)$")
 			if options then
 				local starttime  = TicksAtBarStart + CrosSoFar*TicksPerCro
 				for i,cha in ipairs(Stave2channels[Istave]) do   -- 3.1v
@@ -3655,7 +3654,7 @@ local function midi_event (symbols)
 				local velocity = current_volume()
 				local midiexpressions = {} -- array of cre and dim commands
 				for i,option in ipairs(parse_options(options)) do
-					option = string.gsub(option, "[,']$", "")
+					option = gsub(option, "[,']$", "")
 					if     option == 'fermata' then -- tempo down & up again
 		  			elseif option == 'mordent' then
 		  			elseif option == 'tr'   then  -- trill about 10 notes/sec
@@ -3663,7 +3662,7 @@ local function midi_event (symbols)
 		  			elseif option == 'trb'  then
 		  			elseif option == 'trn'  then
 		  			elseif option == 'turn' then
-		  			elseif option == '.' or string.find(option,'stacc?') then
+		  			elseif option == '.' or find(option,'stacc?') then
 						duration = round(0.55 * CurrentPulse * TicksPerCro)
 		  			elseif option == 'ten' then
 						starttime  = starttime - 3
@@ -3673,11 +3672,11 @@ local function midi_event (symbols)
 		  			elseif option == 'emph' then
 						velocity = round(1.3 * velocity)
 						if velocity > 127 then velocity = 127 end
-		  			elseif string.find(option, '^cre%d+$') then
-						local s1 = string.match(option, '^cre(%d+)$')
+		  			elseif find(option, '^cre%d+$') then
+						local s1 = match(option, '^cre(%d+)$')
 						table.insert(midiexpressions, tonumber(s1))
-		  			elseif string.find(option, '^dim%d+$') then
-						local s1 = string.match(option, '^dim(%d+)$')
+		  			elseif find(option, '^dim%d+$') then
+						local s1 = match(option, '^dim(%d+)$')
 						table.insert(midiexpressions, 0 - tonumber(s1))
 					else  -- pedal options that are also needed by rests...
 						midi_event_option(option, starttime, cha)
@@ -3742,14 +3741,17 @@ local function midi_event (symbols)
 					if starttie then duration = fullduration end
 					local ticks_per_section = round(duration / n)
 					local expression = 100
+					if midiexpressions[1] > 125 then expression = 1 -- 3.2i
+					elseif (expression+midiexpressions[1]) > 127 then
+						expression = 127 - midiexpressions[1]
+					end
 					for j,expr in ipairs(midiexpressions) do
 						if   (expression+expr) > 127 then expr=127-expression
-						elseif (expression+expr) < 0 then expr=0-expression
+						elseif (expression+expr) < 1 then expr=0-expression
 						end
 -- 20141104  should leave at least, say, 5ms  between each cc-change !
 						local step = math.floor(
 							1.01 + 5*math.abs(expr)/ticks_per_section)
--- 20141104  $step should correspond to at least, say, 5ms !
 -- $MidiTempo = uSec-per-cro ;    $TPC = ticks-per-cro
 -- ticks_per_5000uS = int(1.01 + 5000 * $TPC / $MidiTempo)
 						if expr < 0 then step = 0 - step end
@@ -3824,19 +3826,19 @@ function xml_header (line)
  "]]..dtd..[[">
 <score-partwise>]])
 	end
-	if string.find(line, '^%d+%s+system') then systems("") ; return true end
-	local s1 = string.match(line, '^title (%S.*)$') ; if s1 then
+	if find(line, '^%d+%s+system') then systems("") ; return true end
+	local s1 = match(line, '^title (%S.*)$') ; if s1 then
 		printf("\t<movement-title>%s</movement-title>",
 		 escape_and_utf2iso(s1))
 		return true
 	end
-	s1 = string.match(line, '^leftfoot (%S.*)$') ; if s1 then
+	s1 = match(line, '^leftfoot (%S.*)$') ; if s1 then
 		Xml['credit'] = escape_and_utf2iso(s1) ; return true
 	end
-	if string.find(line, '^left')    then return true end
-	if string.find(line, '^right')   then return true end
-	if string.find(line, '^inner')   then return true end
-	if string.find(line, '^pagenum') then return true end
+	if find(line, '^left')    then return true end
+	if find(line, '^right')   then return true end
+	if find(line, '^inner')   then return true end
+	if find(line, '^pagenum') then return true end
 	print([[
 	<identification>
 		<encoding>
@@ -3878,13 +3880,13 @@ local function xml_text (text_type, size, vertpos, text)
 	if not XmlOpt then return false end
 	text = escape_and_utf2iso(text)
 	local font_size = 'medium';
-	if     string.find(size,'l') then font_size = 'large'
-	elseif string.find(size,'s') then font_size = 'small'
+	if     find(size,'l') then font_size = 'large'
+	elseif find(size,'s') then font_size = 'small'
 	end
 	local font_weight = 'normal'
-	if string.find(text_type,'[bI]') then font_weight = 'bold' end
+	if find(text_type,'[bI]') then font_weight = 'bold' end
 	local font_style = 'normal'
-	if string.find(text_type,'[iI]') then font_style = 'italic' end
+	if find(text_type,'[iI]') then font_style = 'italic' end
 	if not vertpos then vertpos = TextBelowStave end
 	local ytext = 40.0 * vertpos - 80.0  -- should measure gap, like &ps_text
 	if Istave == 0 then   -- above the top stave in the system
@@ -3897,7 +3899,7 @@ local function xml_text (text_type, size, vertpos, text)
 	end
 	local t3 = "\t\t\t" ;     local t4 = "\t\t\t\t"
 	local t5 = "\t\t\t\t\t" ; local t6 = "\t\t\t\t\t\t"
-	text = string.gsub(text, '%.%d+ ', ' ')
+	text = gsub(text, '%.%d+ ', ' ')
 	-- $text =~ s/ /#x0020/g;  -- this xml hex notation not respected by mscore?
 	XmlCache[#XmlCache+1] = t3.."<direction>\n"
 	XmlCache[#XmlCache+1]=t4..'<direction-type>\n'..t5..'<words halign="left" '
@@ -3916,21 +3918,21 @@ local function xml_text (text_type, size, vertpos, text)
 end
 
 function xml_keysig  (keysig)
-	local s1,s2 = string.match(keysig,'(%d+)([#bn]*)')
+	local s1,s2 = match(keysig,'(%d+)([#bn]*)')
 	local fifths = s1 or '0' ;  local acc = s2 or ''
-	if     string.find(acc,'b$') then fifths = '-'..fifths
-	elseif string.find(acc,'n$') then fifths = '0'
+	if     find(acc,'b$') then fifths = '-'..fifths
+	elseif find(acc,'n$') then fifths = '0'
 	end
 	return
 	'<key number="'..tostring(Istave)..'"><fifths>'..fifths..'</fifths></key>';
 end
 
 function xml_pitch (pitch, accidental)
-	local step = string.gsub(pitch, '[a-g]',
+	local step = gsub(pitch, '[a-g]',
 	  function (c) return string.upper(c) end)
 	local octave = 4
-	if string.find(pitch, '[A-G]') then
-		pitch = string.gsub(pitch, '[A-G]',
+	if find(pitch, '[A-G]') then
+		pitch = gsub(pitch, '[A-G]',
 		  function (c) return string.lower(c) end)
 		octave = 3
 	end
@@ -3939,8 +3941,8 @@ function xml_pitch (pitch, accidental)
 	elseif Stave2clef[Istave] == 'bass'      then octave = octave - 1
 	elseif Stave2clef[Istave] == 'bass8vab'  then octave = octave - 2
 	end
-	local  nup  = 0 ; step, nup  = string.gsub(step, '~', '')
-	local ndown = 0 ; step,ndown = string.gsub(step, '_', '')
+	local  nup  = 0 ; step, nup  = gsub(step, '~', '')
+	local ndown = 0 ; step,ndown = gsub(step, '_', '')
 	octave = octave + nup - ndown
 	local alter = ''   -- 2.8u
 	if accidental and accidental ~= '' then
@@ -3962,7 +3964,7 @@ function xml_event (symbols)
 	for i,symbol in ipairs(symbols) do
 		is_note = is_a_note(symbol)
 		if is_note or
-		  string.find(symbol,'^rest') or string.find(symbol,'^blank') then
+		  find(symbol,'^rest') or find(symbol,'^blank') then
 			if CurrentPulse < shortest then shortest = CurrentPulse end
 		end
 		if Nbeats[symbol] then  -- it's smb min cro qua smq dsq etc
@@ -4015,25 +4017,25 @@ function xml_event (symbols)
 				local option = o   -- don't clobber the cache or the loopvar
 				--$option =~ s{\\'}{'}g;
 				local option_is_above = true
-				if string.find(option,',$') then
+				if find(option,',$') then
 					option_is_above = false
-					option = string.gsub(option, ',$', '')
+					option = gsub(option, ',$', '')
 				end
 				-- need to duplicate the 3.1d code below
 				local text = '' ; local shortoption = ''
 -- BUG ? these text-options seem to get ignored, in Perl and Lua :-(
-				if string.find(option,'^[Ibir]s?.+$') then  -- text option
-					local s1,s2 = string.match(option, '^([Ibir]s?)(.+)$')
+				if find(option,'^[Ibir]s?.+$') then  -- text option
+					local s1,s2 = match(option, '^([Ibir]s?)(.+)$')
 					shortoption = s1; text = escape_and_utf2iso(s2);
-				elseif string.find(option,'^s.+$') then
-					local s1 = string.match(option, '^s(.+)$')
+				elseif find(option,'^s.+$') then
+					local s1 = match(option, '^s(.+)$')
 					shortoption = 'rs'; text = escape_and_utf2iso(s1);
 				else
-					shortoption = string.gsub(option, "[,']", "")
+					shortoption = gsub(option, "[,']", "")
 					shortoption = Options['shortoption'] or shortoption
 				end
 				if option_is_above then
-					option = string.gsub(option, "'$", "")
+					option = gsub(option, "'$", "")
 				end
 				if Options[option] then
 					local updown = 'below'
@@ -4055,38 +4057,38 @@ function xml_event (symbols)
 					elseif opt == 'tenuto' then
 						articulations[#articulations+1] =
 						  '<tenuto placement="'..updown..'"/>'
-					elseif string.find(opt,'^tr') then
+					elseif find(opt,'^tr') then
 						ornaments[#ornaments+1] =
 						  '<trill-mark placement="'..updown..'"/>'
 					end
 				elseif option == 'blank' or option == '' then  -- 2.9c
-				elseif string.find(option,'/^gs%d') then  -- 3.1y
+				elseif find(option,'/^gs%d') then  -- 3.1y
 					-- BUG: what about -gs ?
 					-- See technical in ~/musicxml/musicxml3/note.dtd
 					-- but guitar-strings are not printed like violin-strings!
 				elseif string.len(text) > 0.5 then  -- text option
 					local font     = RegularFont
 					local fontsize = TextSize * StvHgt
-					if string.find(shortoption,'^I') then
+					if find(shortoption,'^I') then
 						if (XmlDynamics['text']) then
 							 notations[#notations+1] =
 							  '<dynamics><'..text..'/></dynamics>'
 						end
 						font = BoldItalicFont
-					elseif string.find(shortoption,'^i') then
+					elseif find(shortoption,'^i') then
 						font = ItalicFont
-					elseif string.find(shortoption,'^b') then
+					elseif find(shortoption,'^b') then
 						font = BoldFont
 					end
-					if string.find(shortoption,'s') then
+					if find(shortoption,'s') then
 						fontsize = fontsize * SmallFontRatio
 					end
 				elseif shortoption == 'fermata' then
 					local updown = 'inverted'
 					if option_is_above then updown = 'upright' end
 					notations[#notations+1] = '<fermata type="'..updown..'"/>'
-				elseif string.find(option,'^cre') then
-				elseif string.find(option,'^dim') then
+				elseif find(option,'^cre') then
+				elseif find(option,'^dim') then
 				elseif option == '*' then
 				elseif option == 'P' then
 				else
@@ -4097,7 +4099,7 @@ function xml_event (symbols)
 			local release = 0   -- legato = <note release="-ticks">
 			local legato = Stave2legato[Istave] or DefaultLegato
 			if is_staccato then legato = legato * 0.55 end
-			if CurrentPulse>1 and not string.find(CurrentPulseText,'-s$') then
+			if CurrentPulse>1 and not find(CurrentPulseText,'-s$') then
 			 	 release = round((legato-1.0) * TPC)
 			else release = round((legato-1.0) * CurrentPulse * TPC)
 			end
@@ -4110,14 +4112,14 @@ function xml_event (symbols)
 			note_attributes=note_attributes..' dynamics="'..tostring(vol)..'"'
 			for i,cha in ipairs(Stave2channels[Istave]) do   -- 3.1v
 				XmlCache[#XmlCache+1] = t3..'<note'..note_attributes..'>'
-				if string.find(CurrentPulseText,'-s$') then
+				if find(CurrentPulseText,'-s$') then
 					XmlCache[#XmlCache+1] = t4..'<grace/>'
 				end
 				if i_note>0.5 then XmlCache[#XmlCache+1] = t4..'<chord/>' end
 				local xml_pitch =
 				  xml_pitch(noteref['pitch'], noteref['accidental'])
 				XmlCache[#XmlCache+1] = t4..xml_pitch
-				if not string.find(CurrentPulseText,'-s$') then
+				if not find(CurrentPulseText,'-s$') then
 					-- no duration on grace notes
 					local duration = round(CurrentPulse * TPC)
 					XmlCache[#XmlCache+1] =
@@ -4146,7 +4148,7 @@ function xml_event (symbols)
 					   t4..'<accidental>'..acc..'</accidental>'
 					end
 				end
-				if string.find(CurrentPulseText,'3$') then  -- triplet 
+				if find(CurrentPulseText,'3$') then  -- triplet 
 					XmlCache[#XmlCache+1] = t4 ..
 					  '<time-modification><actual-notes>3</actual-notes>' ..
 					  '<normal-notes>2</normal-notes></time-modification>'
@@ -4157,9 +4159,9 @@ function xml_event (symbols)
 				XmlCache[#XmlCache+1] =
 				  t4..'<staff>'..tostring(Istave)..'</staff>'
 				local nbeams = 1
-				if     string.find(CurrentPulseText,'^smq') then nbeams = 2
-				elseif string.find(CurrentPulseText,'^dsq') then nbeams = 3
-				elseif string.find(CurrentPulseText,'^hds') then nbeams = 4
+				if     find(CurrentPulseText,'^smq') then nbeams = 2
+				elseif find(CurrentPulseText,'^dsq') then nbeams = 3
+				elseif find(CurrentPulseText,'^hds') then nbeams = 4
 				end
 				if noteref['startbeam'] then
 					for ibeam =1,nbeams do XmlCache[#XmlCache+1] = t4..
@@ -4201,14 +4203,14 @@ function xml_event (symbols)
 				end
 				XmlCache[#XmlCache+1] = t3..'</note>'
 			end
-		elseif string.find(symbol,'^rest') then
+		elseif find(symbol,'^rest') then
 			-- must handle fermata
 			local clef = Stave2clef[Istave]
 			local move = 0;  local display = ''
-			if string.find(symbol, "'") then
-				move = string.len(string.match(symbol, "('+)"))
-			elseif string.find(symbol, ",") then
-				move = 0 - string.len(string.match(symbol, "(,+)"))
+			if find(symbol, "'") then
+				move = string.len(match(symbol, "('+)"))
+			elseif find(symbol, ",") then
+				move = 0 - string.len(match(symbol, "(,+)"))
 			end
 			if move > 0.5 then
 				local line = 4*move + Midline[clef]
@@ -4226,7 +4228,7 @@ function xml_event (symbols)
 			XmlCache[#XmlCache+1] = t4..XmlDuration[CurrentPulseText]
 			XmlCache[#XmlCache+1] = t4..'<staff>'..tostring(Istave)..'</staff>'
 			XmlCache[#XmlCache+1] = t3..'</note>'
-		elseif string.find(symbol,'^blank') then
+		elseif find(symbol,'^blank') then
 			local duration = round(CurrentPulse * TPC)
 			Xml['backup'] = tostring(tonumber(Xml['backup'] + duration))
 			XmlCache[#XmlCache+1] = t3..'<forward><duration>'..
@@ -4238,14 +4240,14 @@ end
 function xml_clef_attribute (clef)
 	local sign = 'C'
 	local line = '3'
-	if     string.find(clef,'^treble') then sign = 'G' line = '2'
-	elseif string.find(clef,'^bass')   then sign = 'F' line = '4'
-	elseif string.find(clef,'^tenor')  then line = '4'
+	if     find(clef,'^treble') then sign = 'G' line = '2'
+	elseif find(clef,'^bass')   then sign = 'F' line = '4'
+	elseif find(clef,'^tenor')  then line = '4'
 	end
 	local clef_octave_change = ''
-	if     string.find(clef,'8vab$')   then
+	if     find(clef,'8vab$')   then
 		clef_octave_change = '<clef-octave-change>-1</clef-octave-change>'
-	elseif string.find(clef,'8va$')    then
+	elseif find(clef,'8va$')    then
 		clef_octave_change = '<clef-octave-change>1</clef-octave-change>'
 	end
 	return '<clef number="'..tostring(Istave)..'"><sign>'..sign..
@@ -4275,8 +4277,8 @@ function leibnitz (list)   -- NB 1st arg is n !
 	end
 	if not list then list = {} end
 	return function (newlist)
-		if newlist and #newlist==1 and string.find(newlist[1],'^%?.*%?') then
-			local s1 = string.match(newlist[1], '^%?(.*)%?')
+		if newlist and #newlist==1 and find(newlist[1],'^%?.*%?') then
+			local s1 = match(newlist[1], '^%?(.*)%?')
 			list = split(s1,'%s*:%s*') ; n = #list
 		elseif newlist then list=newlist; n = #list end -- but i remains
 		local icopy = i
@@ -4293,8 +4295,8 @@ function morse_thue (list)
 	local i = 0; local n = #list
 	if not list then list = {} end
 	return function (newlist)
-		if newlist and #newlist==1 and string.find(newlist[1],'^%?.*%?') then
-			local s1 = string.match(newlist[1], '^%?(.*)%?')
+		if newlist and #newlist==1 and find(newlist[1],'^%?.*%?') then
+			local s1 = match(newlist[1], '^%?(.*)%?')
 	 	   list = split(s1,'%s*:%s*') ; n = #list
 		elseif newlist then list=newlist; n = #list end -- but i remains.
 		local icopy = i
@@ -4353,15 +4355,15 @@ end
 function substitute (text, infinite_depth)
 	-- It takes a single line as arg, returns a list of perhaps more than 1
 	if type(text) == 'table' then die "substitute called with an table\n" end
-	if string.find(text,VariableFindRE) then
+	if find(text,VariableFindRE) then
 		 die("substitute called on ",text) 
 	end
-	while string.find(text,VariableGetRE_f) do  -- 3.0h
-		local var = string.match(text,VariableGetRE_m)
+	while find(text,VariableGetRE_f) do  -- 3.0h
+		local var = match(text,VariableGetRE_m)
 		local val = Vars[var]
 --warn('substitute: text=',text,' var=',var,' val=',dump(val))
 		if type(val) == 'function' then
-			text=string.gsub(text,VariableGetRE_f, function() return val() end)
+			text=gsub(text,VariableGetRE_f, function() return val() end)
 --warn('substitute: text=',text)
 		elseif type(val) == 'table' then  -- multiline, stored as arrayref
 			local raw_lines = {} ;
@@ -4371,7 +4373,7 @@ function substitute (text, infinite_depth)
 				local raw_line = table.remove(raw_lines, 1)
 --warn('substitute: raw_line=',dump(raw_line))
 				if not raw_line or raw_line=='' then break end
-				if string.find(raw_line, VariableSetRE_f) then
+				if find(raw_line, VariableSetRE_f) then
 					table.insert(raw_lines, 1, raw_line)
 					local n = set_var(raw_lines, 1, infinite_depth)
 					for i = n,#raw_lines do raw_lines[i-n+1]=raw_lines[i] end
@@ -4383,12 +4385,12 @@ function substitute (text, infinite_depth)
 				end
 			end
 			local subst_str = table.concat(subst_lines, "\n").."\n"
-			text = string.gsub(text, VariableGetRE_m, subst_str)
+			text = gsub(text, VariableGetRE_m, subst_str)
 		elseif not val or #val == 0 then
 			warn_ln("variable ",var," is undefined")
-			text = string.gsub(text, VariableGetRE_m, '')
+			text = gsub(text, VariableGetRE_m, '')
 		elseif val then
-			text = string.gsub(text, '%$'..var, val)
+			text = gsub(text, '%$'..var, val)
 		end
 	end
 	return split(text,"\n")  -- returns a list, because of multiline vars
@@ -4398,31 +4400,31 @@ function set_var (stackref, i, infinite_depth)
 	-- not always called on Stack!
 	-- needs an i=linenum param, and returns new_linenum
 	local line = stackref[i]
-	local var,equals_sign,val = string.match(line, VariableSetRE_m)
+	local var,equals_sign,val = match(line, VariableSetRE_m)
 	local substitute_now = equals_sign == '=='
 --warn('0.5): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
-	if val and string.find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
+	if val and find(val,'^{%s*#?.*$') then   -- allow comments 3.1b
 		-- loop until closing brace, then set_var; store in %Vars as an arrayref
 		local lines_of_var = {}
 		while i<#stackref do
 			i = i+1
 			local line = stackref[i]
 --warn('0.7) i=',i,' line=',line)
-			while string.find(line,'\\$') do
-				line = string.gsub(line,'\\$','')
+			while find(line,'\\$') do
+				line = gsub(line,'\\$','')
 				i = i+1
 				line = line .. stackref[i]
 			end
-			line = string.gsub(line, '^%s+', '', 1)  -- strip leading space
-			if not line or string.find(line, '^}') then break end
+			line = gsub(line, '^%s+', '', 1)  -- strip leading space
+			if not line or find(line, '^}') then break end
 -- warn('1) i=',i,' line=',line)
 			if not substitute_now then
 				lines_of_var[#lines_of_var+1] = line
 				goto nextline
-			elseif string.find(line, VariableSetRE_f) then
+			elseif find(line, VariableSetRE_f) then
 -- warn('1.9): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
 				if substitute_now or
-				  (infinite_depth and string.find(line,VariableGetRE_f)) then
+				  (infinite_depth and find(line,VariableGetRE_f)) then
 --warn('2) about to call set_var  i=',i)
 -- This omitted the next line after $B == $A $A  :-(
 					i = set_var(stackref, i, infinite_depth);
@@ -4432,7 +4434,7 @@ function set_var (stackref, i, infinite_depth)
 					warn_ln("set_var: line=",line)
 				end
 			elseif substitute_now or infinite_depth then
-				if string.find(line, VariableGetRE_f) then
+				if find(line, VariableGetRE_f) then
 --warn('3) about to call substitute i=',i,' line=',line)
 					local a = substitute(line,infinite_depth)
 --warn('3.5)  substitute returned i=',i,' a=',dump(a))
@@ -4445,10 +4447,10 @@ function set_var (stackref, i, infinite_depth)
 			::nextline::
 		end
 		Vars[var] = lines_of_var
-	elseif val and string.find(val, '^cycle%?%s*.*%S%s*%?' )      then
+	elseif val and find(val, '^cycle%?%s*.*%S%s*%?' )      then
 		-- we write these cases out separately we don't need to load() ...
 		-- but we could save some lines with a String2function table...
-		local s2 = string.match(val, '^cycle%?%s*(.*%S)%s*%?')
+		local s2 = match(val, '^cycle%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 --warn('4) about to call substitute line=',line)
@@ -4458,9 +4460,9 @@ function set_var (stackref, i, infinite_depth)
 		if #a>0.5 then   Vars[var] = cycle(a)
 		else warn_ln("empty argument list in ",val)
 		end
-	elseif val and (string.find(val, '^morse_thue%?%s*.*%S%s*%?' )  or
-	                string.find(val, '^thue_morse%?%s*.*%S%s*%?' )) then
-		local s2 = string.match(val, '^[morsethu_]+%?%s*(.*%S)%s*%?')
+	elseif val and (find(val, '^morse_thue%?%s*.*%S%s*%?' )  or
+	                find(val, '^thue_morse%?%s*.*%S%s*%?' )) then
+		local s2 = match(val, '^[morsethu_]+%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 			rhs = substitute(s2, infinite_depth)  -- 3.1i
@@ -4469,8 +4471,8 @@ function set_var (stackref, i, infinite_depth)
 		if #a>0.5 then   Vars[var] = morse_thue(a)
 		else warn_ln("empty argument list in ",val)
 		end
-	elseif val and string.find(val, '^leibnitz%?%s*.*%S%s*%?' )   then
-		local s2 = string.match(val, '^leibnitz%?%s*(.*%S)%s*%?')
+	elseif val and find(val, '^leibnitz%?%s*.*%S%s*%?' )   then
+		local s2 = match(val, '^leibnitz%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 			rhs = substitute(s2, infinite_depth)  -- 3.1i
@@ -4479,9 +4481,9 @@ function set_var (stackref, i, infinite_depth)
 		if #a>0.5 then   Vars[var] = leibnitz(a)
 		else warn_ln("empty argument list in ",val)
 		end
-	elseif val and (string.find(val, '^rabbit%?%s*.*%S%s*%?' )      or
-	                string.find(val, '^fibonacci%?%s*.*%S%s*%?' ))  then
-		local s2 = string.match(val, '^[rabitfonac]+%?%s*(.*%S)%s*%?')
+	elseif val and (find(val, '^rabbit%?%s*.*%S%s*%?' )      or
+	                find(val, '^fibonacci%?%s*.*%S%s*%?' ))  then
+		local s2 = match(val, '^[rabitfonac]+%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 			rhs = substitute(s2, infinite_depth)  -- 3.1i
@@ -4490,8 +4492,8 @@ function set_var (stackref, i, infinite_depth)
 		if #a>0.5 then   Vars[var] = rabbit(a)
 		else warn_ln("empty argument list in ",val)
 		end
-	elseif val and string.find(val, '^random%?%s*.*%S%s*%?' )     then
-		local s2 = string.match(val, '^random%?%s*(.*%S)%s*%?')
+	elseif val and find(val, '^random%?%s*.*%S%s*%?' )     then
+		local s2 = match(val, '^random%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 			rhs = substitute(s2, infinite_depth)  -- 3.1i
@@ -4500,8 +4502,8 @@ function set_var (stackref, i, infinite_depth)
 		if #a>0.5 then   Vars[var] = random(a)
 		else warn_ln("empty argument list in ",val)
 		end
-	elseif val and string.find(val, '^aaba%?%s*.*%S%s*%?' )       then
-		local s2 = string.match(val, '^aaba%?%s*(.*%S)%s*%?')
+	elseif val and find(val, '^aaba%?%s*.*%S%s*%?' )       then
+		local s2 = match(val, '^aaba%?%s*(.*%S)%s*%?')
 		local rhs = { s2 }
 		if substitute_now or infinite_depth then
 			rhs = substitute(s2, infinite_depth)  -- 3.1i
@@ -4518,10 +4520,10 @@ function set_var (stackref, i, infinite_depth)
 				local j = 1 ; while j <= #val do
 					local line = val[j]
 					-- one of those lines might involve a variable setting...
-					if string.find(line, VariableSetRE_f) then
+					if find(line, VariableSetRE_f) then
 --warn('5) about to call set_var')
 						j = set_var(stackref, j, infinite_depth)
-					elseif string.find(line, '^}') then j=j+1 ; break
+					elseif find(line, '^}') then j=j+1 ; break
 					else
 						local a =  substitute(line, false)
 --warn('6) substitute line=',line,' returned a=',dump(a))
@@ -4530,10 +4532,10 @@ function set_var (stackref, i, infinite_depth)
 					end
 				end
 			else
-				if string.find(val, VariableSetRE_f) then
+				if find(val, VariableSetRE_f) then
 --					table.insert(stackref, i, val)
 					i = set_var(stackref, i, infinite_depth);
-				elseif string.find(val, VariableGetRE_f) then
+				elseif find(val, VariableGetRE_f) then
 --warn('7) about to call substitute val=',val)
 					lines = substitute(val, false)
 --warn('8)    substitute returned lines=',dump(lines))
@@ -4577,8 +4579,8 @@ end
 ------------------------ general muscript stuff ------------------------
 
 local function newstave (line)
-	local newstave,remainder = string.match(line, "^(%d+[,']?)(.*)$")
-	local tmp = string.gsub(newstave, "[,']", "")
+	local newstave,remainder = match(line, "^(%d+[,']?)(.*)$")
+	local tmp = gsub(newstave, "[,']", "")
 	Istave = tonumber(tmp)   -- why not Istave directly ?
 	if not Stave2channels[Istave] then Stave2channels[Istave] = {} end
 	local maxstvhgt = MaxStaveHeight[Isyst] -- for speed ...
@@ -4602,24 +4604,24 @@ local function newstave (line)
 		print_sp('% page',PageNum,'sys',Isyst,' bar',Ibar,' stave',Istave)
 		-- surely all the measurement loop should also be part of this "else" ?
 	end
-	remainder = string.gsub(remainder, "^%s+", "")
-	remainder = string.gsub(remainder, "%s+$", "")
+	remainder = gsub(remainder, "^%s+", "")
+	remainder = gsub(remainder, "%s+$", "")
 	local array = parse_line(remainder,false)   -- true ?
 	for i,v in ipairs(array) do array[i] = Intl2en[v] or v end
 	-- count up the total beats in this bar, and calculate spacings ...
 	CrosSoFar = 0  -- global
 	local i=1 ; while i <= #array do  -- for all fields
 		local token = array[i]
-		if string.find(token, '<') then -- begins a set of simultaneous notes
-			token = string.gsub(token, '<', '')
+		if find(token, '<') then -- begins a set of simultaneous notes
+			token = gsub(token, '<', '')
 			local shortest = 99    -- find the shortest note
 			while true do
-				if string.find(token, '>') then
-					token = string.gsub(token, '>', '') ;
+				if find(token, '>') then
+					token = gsub(token, '>', '') ;
 					break
 				end
-				if is_a_note(token) or string.find(token,'^rest') or
-				  string.find(token,'^blank') then
+				if is_a_note(token) or find(token,'^rest') or
+				  find(token,'^blank') then
 					if CurrentPulse<shortest then shortest=CurrentPulse end
 				elseif Nbeats[token] then  -- it's a smb, min, etc
 					if Nbeats[token]<shortest then shortest=Nbeats[token] end
@@ -4635,8 +4637,8 @@ local function newstave (line)
 		if Nbeats[token] then  -- smb, min, cro, qua etc
 			CurrentPulse     = Nbeats[token]
 		elseif token == 'clefspace' then -- should reserve space by xgap hash..
-		elseif is_a_note(token) or string.find(token,'^rest') or
-		  string.find(token,'^blank') then
+		elseif is_a_note(token) or find(token,'^rest') or
+		  find(token,'^blank') then
 			-- if note contains "+", should build up xgap hash ...
 			CrosSoFar = CrosSoFar + CurrentPulse
 		end
@@ -4742,7 +4744,7 @@ local function newstave (line)
 	if midi_in_stave(array[i]) then i = i + 1 end
 	local xmlkeysig = ''
 	if array[i] and
-	 (string.find(array[i],'^[1-7][#bn]$') or array[i] == '0') then -- keysig
+	 (find(array[i],'^[1-7][#bn]$') or array[i] == '0') then -- keysig
 		must_null_the_keysig = false   -- 2.8o
 		if MIDI then
 			reset_accidentalled(array[i])
@@ -4768,24 +4770,24 @@ local function newstave (line)
 			end
 			if array[i] == '0' then  -- 2.8c cancel keysig, back to Cmaj
 				-- XXX if 2 lines on same stave, only the 1st reserves space :-(
-				s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
+				s1,s2 = match(Keysig[Istave], '^([1-7])([#bn])$')
 				if s2 then
 					ps_keysig('-'..s1, s2, x)
 				else
 					Xpart[1] = Xpart[1] + (Stave2nullkeysigDx[Istave] or 0)
 				end
 			else
-				s1,s2 = string.match(array[i], '^([1-7])([#bn])$')
+				s1,s2 = match(array[i], '^([1-7])([#bn])$')
 				ps_keysig(s1, s2, x)
 			end
 		end
 		Keysig[Istave] = array[i]
 		i = i + 1
 	elseif Ibar==1 and retain_clef and
-	  string.find(Keysig[Istave],'^[1-7][#bn]$') then
+	  find(Keysig[Istave],'^[1-7][#bn]$') then
 		must_null_the_keysig = false   -- 2.8o
 		if not MIDI and not XmlOpt then
-			s1,s2 = string.match(Keysig[Istave], '^([1-7])([#bn])$')
+			s1,s2 = match(Keysig[Istave], '^([1-7])([#bn])$')
 			ps_keysig(s1, s2, Xbar[Isyst][Ibar-1] + SpaceForClef*maxstvhgt)
 		end
 	end
@@ -4794,7 +4796,7 @@ local function newstave (line)
 	-- if new timesig, print it and adjust beginning of bar, xpart{1}
 	-- BUG: should actually adjust all the bars in the whole line ...
 	if midi_in_stave(array[i]) then i = i + 1 end
-	if array[i] and string.find(array[i], '%d+/%d+') then -- new timesig
+	if array[i] and find(array[i], '%d+/%d+') then -- new timesig
 		if MIDI then
 		elseif XmlOpt then
 			local k = "timesig "..tostring(Istave)
@@ -4848,15 +4850,15 @@ local function newstave (line)
 	while i <= #array do
 		symbol = array[i]
 		if symbol == '' then break end
-		if string.find(symbol, '<') then   -- 2.7w
-			symbol = string.gsub(symbol, '<', '')
+		if find(symbol, '<') then   -- 2.7w
+			symbol = gsub(symbol, '<', '')
 			-- start of bracketed simultaneous notes
 			-- extract list of simultaneous things to pass to &ps_event ...
 			local things = {}; local is_end_of_bracket = false
 			while true do
-				if string.find(array[i],'>') then
+				if find(array[i],'>') then
 					is_end_of_bracket=true
-					array[i] = string.gsub(array[i], '>', '')
+					array[i] = gsub(array[i], '>', '')
 				end
 				table.insert(things, array[i])
 				if is_end_of_bracket then is_end_of_bracket=false; break end
@@ -4890,12 +4892,12 @@ local function newstave (line)
 				printf("%g %g %g %g barline",
 				  x, Ystv, Ystv-StvHgt, StvHgt)
 			end
-		elseif string.find(symbol, "^=%d+[,']?$") then
-			s1 = string.match(symbol, "^=(%d+[,']?)$") ; changestave(s1)
+		elseif find(symbol, "^=%d+[,']?$") then
+			s1 = match(symbol, "^=(%d+[,']?)$") ; changestave(s1)
 		elseif midi_in_stave(symbol) then   -- ignore it
 		elseif CrosPerPart or MIDI or XmlOpt then -- a note, blank or rest
-			if is_a_note(symbol) or string.find(symbol,'^rest') or
-	 		  string.find(symbol,'^blank') then
+			if is_a_note(symbol) or find(symbol,'^rest') or
+	 		  find(symbol,'^blank') then
 				if MIDI       then midi_event(symbol)  -- ?? array?
 				elseif XmlOpt then xml_event({symbol})
 				else                ps_event({symbol})
@@ -4911,20 +4913,20 @@ end
 
 local function interpret_syntax (line)
 	::redo::
-	line = string.gsub(line, "^%s*(.-)%s*$", "%1") -- strip PiL p.209
+	line = gsub(line, "^%s*(.-)%s*$", "%1") -- strip PiL p.209
 	-- invoked both per input-line, and from each line within a multiline var
 	if PrePro then print(line); return end
 	local s1, s2, s3, s4
-	s1 = string.match(line, '^=%s*(.+)$') ; if s1 then
+	s1 = match(line, '^=%s*(.+)$') ; if s1 then
 		if not MIDI or not Midi_off then newstave(s1) end ; return
 	end
-	s1,s2 = string.match(line, '^boundingbox%s+(%d+)%s+(%d+)$') ; if s2 then
+	s1,s2 = match(line, '^boundingbox%s+(%d+)%s+(%d+)$') ; if s2 then
 		boundingbox(s1,s2); return
 	end
 	if not MIDI and not XmlOpt and not PS_prologAlready then ps_prolog() end
-	s1,s2 = string.match(line, '^([1-9][0-9]*)%s+systems%s+(.*)$')
+	s1,s2 = match(line, '^([1-9][0-9]*)%s+systems%s+(.*)$')
 	if s2 then systems(s1,s2); return end
-	s1 = string.match(line,'^midi%s*(.*)$') ; if s1 then   -- 3.1f
+	s1 = match(line,'^midi%s*(.*)$') ; if s1 then   -- 3.1f
 		if      s1 == 'on'  then Midi_off = false
 		elseif  s1 == 'off' then Midi_off = true
 		elseif not Midi_off then midi_global(s1)   -- 2.9l
@@ -4939,44 +4941,44 @@ local function interpret_syntax (line)
 		end
 	end
 	local ps = not MIDI and not XmlOpt -- either PS or EPS
-	s1 = string.match(line,'^rightfoot%s(.*)$')
+	s1 = match(line,'^rightfoot%s(.*)$')
 	if s1 then if ps then ps_rightfoot(s1) end; return end
-	s1 = string.match(line,'^leftfoot%s(.*)$')
+	s1 = match(line,'^leftfoot%s(.*)$')
 	if s1 then if ps then ps_leftfoot(s1) end;  return end
-	s1 = string.match(line, '^innerhead%s(.*)$')
+	s1 = match(line, '^innerhead%s(.*)$')
 	if s1 then if ps then ps_innerhead(s1) end; return end
-	s1 = string.match(line, '^lefthead%s(.*)$')
+	s1 = match(line, '^lefthead%s(.*)$')
 	if s1 then if ps then ps_lefthead(s1) end;  return end
-	s1 = string.match(line, '^righthead%s(.*)$')
+	s1 = match(line, '^righthead%s(.*)$')
 	if s1 then if ps then ps_righthead(s1) end; return end
-	s1 = string.match(line, '^pagenum(.*)$')
+	s1 = match(line, '^pagenum(.*)$')
 	if s1 then if ps then ps_pagenum(s1) end;   return end
-	if string.match(line, '^title') then title(line) ; return end
-	s1 = string.match(line, '^%%%s*(.*)'); if s1 then comment(s1); return end
-	if string.find(line,'^#') or string.find(line,'^muscript%s')
-	  or string.find(line,'^EOT$') then return end
-	s1 = string.match(line, '^/%s*$')
+	if match(line, '^title') then title(line) ; return end
+	s1 = match(line, '^%%%s*(.*)'); if s1 then comment(s1); return end
+	if find(line,'^#') or find(line,'^muscript%s')
+	  or find(line,'^EOT$') then return end
+	s1 = match(line, '^/%s*$')
 	if s1 then newsystem(line) ; return end
-	s1,s2 =  string.match(line, '^/%s*([1-9][0-9]*)%s*bars?%s*(.*)$')
+	s1,s2 =  match(line, '^/%s*([1-9][0-9]*)%s*bars?%s*(.*)$')
 	if s2 then newsystem('/'); bars(s1,s2); Ibar=0; return end -- on same line
-	s1,s2 =  string.match(line, '^([1-9][0-9]*)%s*bars?%s*(.*)$')
+	s1,s2 =  match(line, '^([1-9][0-9]*)%s*bars?%s*(.*)$')
 	if s2 then bars(s1,s2); Ibar=0 return end
-	s1,s2 = string.match(line, '^(|%s*[^=]*)(%s*=%d.*)$') ; if s2 then
-		newbar(string.gsub(s1, '^|%s*', ''))  -- p.206 bottom
-		newstave(string.gsub(s2, '^%s*=', ''))
+	s1,s2 = match(line, '^(|%s*[^=]*)(%s*=%d.*)$') ; if s2 then
+		newbar(gsub(s1, '^|%s*', ''))  -- p.206 bottom
+		newstave(gsub(s2, '^%s*=', ''))
 		return
 	end
-	s1 = string.match(line, '^(|%s*[^=]*)$')  -- p.206 bottom
-	if s1 then newbar(string.gsub(s1, '^|%s*', '')) ; return end
-	s1,s2,s3,s4 = string.match(line,'^([rbiI])([ls]?)(%d?%.?%d*)(%s.*)$')
+	s1 = match(line, '^(|%s*[^=]*)$')  -- p.206 bottom
+	if s1 then newbar(gsub(s1, '^|%s*', '')) ; return end
+	s1,s2,s3,s4 = match(line,'^([rbiI])([ls]?)(%d?%.?%d*)(%s.*)$')
 	if s4 then
 		if XmlOpt then xml_text(s1,s2,s3,s4) ; return end
 		if MIDI then return end
 		ps_text(s1,s2,s3,s4) ; return
 	end
-	if string.find(line,'^play%s+.*$') then
+	if find(line,'^play%s+.*$') then
 		if  MIDI then
-			midi_play_wav(string.match(line,'^play%s+(.*)$')) ; return
+			midi_play_wav(match(line,'^play%s+(.*)$')) ; return
 		end
 	end
 	warn_ln("not recognised: "..line)   -- 2.9j
@@ -4985,7 +4987,7 @@ end
 
 -- Command-line options ...
 local iarg=1; while arg[iarg] ~= nil do
-	if not string.find(arg[iarg], '^-[a-z]+') then break end
+	if not find(arg[iarg], '^-[a-z]+') then break end
 	if (arg[iarg] == '-v') then  -- version
 		print ("Muscript "..Version.." "..VersionDate
 		  .." http://www.pjb.com.au/muscript")
@@ -5027,7 +5029,7 @@ For sample source see http://www.pjb.com.au/muscript/samples]=]
 		if not MIDI then
 			die("you'll need to install the MIDI module from luarocks");
 		end
-	elseif string.find(arg[iarg], '^-') then
+	elseif find(arg[iarg], '^-') then
 		print [=[
 Usage: muscript [filenames]  # converts filenames to PostScript
        muscript -a4          # forces A4 output (default)
@@ -5074,41 +5076,41 @@ if #Stack == 0 then os.exit(1) end
 while LineNum < #Stack do  -- the main loop through the input-file
 	LineNum = LineNum + 1
 	local line = Stack[LineNum]
-	while string.find(line, '\\$') do
+	while find(line, '\\$') do
 		LineNum = LineNum + 1
-		line = string.gsub(line, '\\$', '') .. Stack[LineNum]
+		line = gsub(line, '\\$', '') .. Stack[LineNum]
 	end
-	if string.find(line, '^%s*$') then goto nextline end
-	if string.find(line, '^%s*#P') then
+	if find(line, '^%s*$') then goto nextline end
+	if find(line, '^%s*#P') then
 		if not PrePro then   -- 3.2c keep #P and expand them
 			if MIDI then goto nextline end
-			line = string.gsub(line, '^%s*#P', '')   -- 3.1h 3.2c
+			line = gsub(line, '^%s*#P', '')   -- 3.1h 3.2c
 		end
-	elseif string.find(line, '^%s*#M') then  -- 3.2c keep #M and expand them
+	elseif find(line, '^%s*#M') then  -- 3.2c keep #M and expand them
 		if not PrePro then
 			if not MIDI then goto nextline end
-			line = string.gsub(line, '^%s*#M', '')
+			line = gsub(line, '^%s*#M', '')
 		end
-	elseif string.find(line, '^%s*#')  then  -- 3.2c
+	elseif find(line, '^%s*#')  then  -- 3.2c
 		if PrePro then print(line) end
 		goto nextline
 	end
-	if string.find(line, '^%s*%%') then      -- 3.1c 
+	if find(line, '^%s*%%') then      -- 3.1c 
 		interpret_syntax(line)
 		goto nextline
 	end
-	if string.find(line, VariableFindRE) then -- 3.0g
+	if find(line, VariableFindRE) then -- 3.0g
 		LineNum = set_var(Stack, LineNum, false)
 		goto nextline
 	end
-	local s1,s2,s3,s4,s5 = string.match(line, VarArraySetRE) ; if s1 then
+	local s1,s2,s3,s4,s5 = match(line, VarArraySetRE) ; if s1 then
 		set_array(s1,s2,s3,s4,s5)
 		goto nextline
 	end
 	local lines = substitute(line,true)   -- now here in mainloop
 	for i,subline in ipairs(lines) do
-		if string.match(subline, '^%s*$') then goto nextsubline end
-		if string.match(subline, VariableFindRE) then
+		if match(subline, '^%s*$') then goto nextsubline end
+		if match(subline, VariableFindRE) then
 			die("a $VAR= line remains in the text:\n"..line.."\n")
 		else
 			interpret_syntax(subline)
