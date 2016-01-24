@@ -8,11 +8,9 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2i for Lua5'
-VersionDate  = '11jan2016';
+Version = '3.2j for Lua5'
+VersionDate  = '23jan2016';
 
---is_debug = false
--- if is_debug then $|=1;  -- so you can 'tail -f' on the output file
 --require 'DataDumper'
 local concat = table.concat
 local find   = string.find
@@ -26,7 +24,7 @@ SpaceAtBeginningOfBar = 0.60
 AccidentalBeforeNote  = 0.40
 AccidentalDxInKeysig  = 0.20
 BlackBlobHalfWidth    = 0.17
-BlackBlobHalfHeight   = 0.113  -- gives -w warning, but needed in DATA
+BlackBlobHalfHeight   = 0.113
 WhiteBlobHalfWidth    = 0.183
 BlobQuarterWidth      = 0.085   -- 2.8z
 WhiteBlobHalfHeight   = 0.122
@@ -4879,7 +4877,8 @@ local function newstave (line)
 				-- 2.8m If last symbol in bar, omit SpaceRightOfClef
 				local x = ps_beat2x(CrosSoFar,CrosPerPart)
 				if i == #array then x = x - 0.6*SpaceForClef*StvHgt
-				else x = x - SpaceRightOfClef*StvHgt
+				-- else x=x- SpaceRightOfClef*StvHgt usually inconvenient
+				else x = x - 0.7*SpaceForClef*StvHgt  -- 3.2j
 				end
 				printf("%g %g %g %sclef",x,Ystv,StvHgt,symbol)
 			end
