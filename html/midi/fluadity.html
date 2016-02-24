@@ -101,6 +101,16 @@ and works around several quirks in the <I>fluidsynth</I>-library. &nbsp;
 Raw <I>fluidsynth</I>-compatible behaviour can be restored with the
 <B><A HREF="#option_c">-c</A></B> option.
 </p><p>
+Since <A HREF="#changes">version 2.0</A>
+<I>fluadity</I> offers the <I>cc126</I> controller which sets Monophonic mode,
+and the <I>cc127</I> controller which restores Polyphonic mode.
+This behaviour is not very conformant to
+<A HREF="http://www.blitter.com/~russtopia/MIDI/~jglatt/tech/midispec.htm">
+the rarely-used MIDI-standard behaviour</A> :-( &nbsp;
+but it is useful, and respects at least
+<A HREF="http://www.pjb.com.au/muscript/gm.html#cc">
+the names of these controllers</A>.
+</p><p>
 It uses the
 <A HREF="../comp/lua/midialsa.html">midialsa</A> and
 <A HREF="../comp/lua/fluidsynth.html">fluidsynth</A> Lua modules,
@@ -202,6 +212,7 @@ and ignores all the soundfonts in the config file.
 <hr />
 <H2><a name="changes">CHANGES</a></H2>
 <pre>
+ 20160224 2.0  in daemon mode: interprets cc126 as Monophonic, 127 as Polyphonic
  20150413 1.9  handles notes-off and sounds-off events and disconnects correctly
  20150206 1.8  in deamon mode: sosped, maxnotes=20, and nested note_ons
  20140904 1.7  if -s is given, use the fluidsynth.lua 1.7 syntax

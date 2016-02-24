@@ -6,9 +6,9 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.9'  -- handles allnotesoff, allsoundsoff and disconnects
-local VersionDate  = '15apr2015';
--- 2.0 now it needs the same workarounds for the midi-to-wav case ...
+local Version = '2.0' -- interprets cc126 as Monophonic, 127 as Polyphonic
+local VersionDate  = '22feb2016';
+-- 2.1 it still needs all the 1.9 and 2.0 stuff for the midi-to-wav case...
 local Synopsis = [[
  fluadity &                     # a simple alsa-client , o/p to soundcard
  fluadity -i ProKeys &          # likewise, and connects from the ProKeys
@@ -130,6 +130,7 @@ local Cha2sospedNotes  = { } -- notes being sustained by sostenuto-pedal
 --  or 3) perhaps only pedal-held notes need this mechanism anyway ? ADOPT!
 local Cha2notesByTime  = { } -- rotating list of 20 indexed by noteindex%20
 local Cha2noteIndex    = { } -- indexes for the above
+local Cha2monoPhonic   = { } -- 2.0  cc126 and 127
 local MaxNoteIndex     = 20
 for cha = 0,15 do   -- initialise:
 	Cha2fingerNotes[cha] = {}
@@ -330,16 +331,32 @@ function daemon_client()
 							Cha2fingerNotes[cha][note] = 0
 						end
 						FS.play_event(Synth, alsaevent)
+					elseif param == 126 then   -- 2.0  Mono On
+						Cha2monoPhonic[cha] = true
+					elseif param == 127 then   -- 2.0  Mono Off
+						Cha2monoPhonic[cha] = false
 					else
 						FS.play_event(Synth, alsaevent)
 					end
 				elseif is_noteoff(alsaevent) then -- 1.8
 					local cha     = alsaevent[8][1]
-					local note    = alsaevent[8][2]
-					my_note_off(cha, note)
+					if not Cha2monoPhonic[cha] then -- 2.0 ignore it !
+						local note    = alsaevent[8][2]
+						my_note_off(cha, note)
+					end
 				elseif alsaevent[1]==ALSA.SND_SEQ_EVENT_NOTEON then -- 1.8
 					local cha     = alsaevent[8][1]
 					local note    = alsaevent[8][2]
+					if Cha2monoPhonic[cha] then -- 2.0 switch other notes off
+						for oldnote = 0,127 do
+							if Cha2fingerNotes[cha][oldnote] > 0.5 then
+								FS.play_event(
+								  Synth, ALSA.noteoffevent(cha,oldnote,1)
+								)
+								Cha2fingerNotes[cha][oldnote] = 0
+							end
+						end
+					end
 					local howmany = Cha2fingerNotes[cha][note] or 0
 					if Cha2ped[cha] then
 						Cha2pedNotes[cha][note] = Cha2pedNotes[cha][note] + 1
