@@ -49,8 +49,8 @@ $Data::Dumper::Terse     = 1;
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2j for Perl'; # clefs within bar not so left-spaced
-$VersionDate           = '23jan2016';
+$Version               = '3.2k for Perl'; # warn_ln if no | before newstave
+$VersionDate           = '07mar2016';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $Istave
@@ -1135,6 +1135,8 @@ sub newstave { $[=1;
 			$CrosPerPart = $CrosSoFar / $nparts{$Isyst, $Ibar};
 		} else { print
 			"% ERROR: no | before stave line, page $PageNum, sys $Isyst\n";
+			warn_ln('bad syntax: no | before stave line');
+			$Ibar = 1;
 			$CrosPerPart = 10; # ugly but legal
 		}
 	
@@ -1573,6 +1575,9 @@ sub current_bend {   # 3.2  should this be cha2bend ? for incremental bend+2
 	} else {
 		return 0;  # bend is -8191..8192
 	}
+}
+sub warn_ln {
+	warn(" line $LineNum: @_\n");
 }
 
 # ----------------- sequence-generator infrastructure --------------

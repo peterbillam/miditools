@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2j for Lua5'
-VersionDate  = '23jan2016';
+Version = '3.2k for Lua5'
+VersionDate  = '07mar2016';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -4655,7 +4655,9 @@ local function newstave (line)
 		if Nparts[Isyst][Ibar] then
 			CrosPerPart = CrosSoFar / Nparts[Isyst][Ibar]
 		else print_sp(
-		  '% ERROR: no | before stave line, page',PageNum,', sys',Isyst)
+			  '% ERROR: no | before stave line, page',PageNum,', sys',Isyst)
+			warn_ln('bad syntax: no | before stave line')
+			Ibar = 1
 			CrosPerPart = 10 -- ugly but legal
 		end
 		-- so what are the corresponding x positions ?
