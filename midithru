@@ -6,13 +6,38 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.5'
-local VersionDate  = '28may2015';
+local Version = '1.6'
+local VersionDate  = '24mar2016';
+-- I need some way to map cc64 to cc66, to cope with the Keystation49
+--   an option? -c 4 -r 64=66   or better   -c3cc64=66
+--   a sysex? "}!channel 4 remap cc64 to cc66"
+-- I also need some way to even out the volumes of the various notes of
+--   the ProKeys; perhaps a measurement-mode, where the user plays 88-note
+--   chromatic scales several times as evenly as possible, and midithru
+--   measures the velocities by note, stores the results in a config file,
+--   and thereafter compensates accordingly when that keyboard is detected.
+--   That way the config file could always be edited by hand...
+--   ~/.config/midithru/'ProKeys Sono 88'
+-- I also need to be able to output cha0,1 to Fluadity but cha3 to ProKeys
+--   -c0,1-to-Fluadity -c3-to-Pro
+--   -c0,1toFluadity -c3toPro
+--   -c0,1=Fluadity -c3=Pro
+--   -c0,1-o-Fluadity -c3-o-Pro
+--   -c0,1-oFluadity -c3-oPro
+-- I also need to play with rhythms of one channel and pitch(es) of another
+--   (eg enliven a clicktrack with moving pitches)   (a separate midigate ?)
+--   -c0,1-gatedby-c4   or   -c9-gates-c0,1   or  -c9gates0,1
+--   Better: rhythms of one channel and pitches of another mix to a third
+--   Better: an output channel = patches, pitches and ccs of one channel,
+--   and times of another (which should be a single line, even a single note)
+--   -c5-p0t10 -c1-p1t11 -c2-p2t12-cc64=66-oRoland
+-- I could also provide a (non-conformant) 'Monophonic Mode' cc126
+--   This is in fluadity 2.0; but in midithru it would work on all synths.
 
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
 
--- require 'DataDumper'
+require 'DataDumper'
 
 local ALSA   = nil
 pcall(function() ALSA = require 'midialsa' end)
@@ -32,6 +57,12 @@ pcall(function() POSIX = require 'posix' end)
 if not POSIX then
 	die([[you need to install luaposix, e.g.:
   luarocks install luaposix]])
+end
+
+function homedir(user)
+	if not user and os.getenv('HOME') then return os.getenv('HOME') end
+	if not user then user = POSIX.getpid('euid') end
+	return POSIX.getpasswd(user, 'dir') or '/tmp'
 end
 
 local stdscr
@@ -62,6 +93,8 @@ local ColCha   = 2
 local ColFrom  = 10
 local ColPatch = 29
 local ColCC    = 56
+local ConfigDir      = homedir()..'/.config/midithru/' -- 1.6
+local VolumeAdjusts  = {} -- 1.6 needs to be VolumeAdjusts[clientnum][pitch]
 
 --------------------- infrastructure from MIDI.lua ---------------------
 
@@ -258,7 +291,11 @@ local function which(s)
 	return nil
 end
 
-local function warn(str) io.stderr:write(str,'\n') end
+function warn(...)
+	local a = {}
+	for k,v in pairs{...} do table.insert(a, tostring(v)) end
+	io.stderr:write(table.concat(a),'\n') ; io.stderr:flush()
+end
 local function round(x) return math.floor(x+0.5) end
 
 function GetTerminalSize()  -- from ~/lua/lib/readkey.lua
@@ -499,8 +536,29 @@ if InputPort then
 		if not ALSA.connectfrom( 0, port ) then
 			die("  can't connect from "..port)
 		end
+		local fh = io.open(ConfigDir..port..'.volumes')   -- 1.6
+-- print('reading '..port..'.volumes')
+		local clientnum, portnum = ALSA.parse_address(port)
+-- print('clientnum =',clientnum,' portnum =',portnum)
+		if fh then
+			-- here it should invoke parse_address to remember which
+			-- client_numbers connect from client_names with Config files
+			-- should do start-do-string matching, just like parse_address()
+			VolumeAdjusts[clientnum] = {}
+			for line in fh:lines() do
+				local pitch,adjust = string.match(line, '^%s*(%d+)%s+(-?%d+)')
+				if adjust then
+					-- VolumeAdjusts needs to be [clientnum][pitch]
+					VolumeAdjusts[clientnum][tonumber(pitch)]=tonumber(adjust)
+				end
+			end
+			fh:close()
+		end
 	end
 end
+-- print(DataDumper(VolumeAdjusts))
+-- os.exit()
+
 -- see comp.music.midi 20140413
 --  "SND_SEQ_EVENT_PORT_UNSUBSCRIBED v. listconnectedto()"
 local HaveSystemConnection = true
@@ -514,6 +572,7 @@ if OutputPort then
 		end
 	end
 end
+
 
 CURSES.initscr()
 CURSES.cbreak()
@@ -548,6 +607,18 @@ while true do  -- the event loop
 		if HaveSystemConnection then display_connectedto() end
 		park_and_refresh()
 	else
+		if alsaevent[1]==ALSA.SND_SEQ_EVENT_NOTEON and alsaevent[8][3]>0.5 then
+			local client = alsaevent[6][1]  -- 1.6
+			local pitch  = alsaevent[8][2]
+			if VolumeAdjusts[client] and VolumeAdjusts[client][pitch] then
+				local vol = alsaevent[8][3]
+				vol = vol + VolumeAdjusts[client][pitch]
+				if vol<0.5 then vol=1 elseif vol>127 then vol=127 end
+-- warn('client=',client, ' pitch=',pitch,
+--   ' old_vol=',alsaevent[8][3],' new_vol=',vol)
+				alsaevent[8][3] = vol -- 1.6
+			end
+		end
 		ALSA.output( alsaevent )  -- straight-through
 	end
 	local source_client = alsaevent[6][1]
@@ -560,6 +631,7 @@ while true do  -- the event loop
 	end
 
 	if not Clientnumber2Clientname[source_client] then reread_clientnames() end
+
 
 	if alsaevent[1] == ALSA.SND_SEQ_EVENT_CONTROLLER then
 		if     alsaevent[8][5] == 0  then
@@ -717,6 +789,7 @@ The documentation is on the web at
 
 =head1 CHANGES
 
+ 20160324 1.6 ~/.config/midithru/Synth.volumes adjusts velocities for old kbds
  20150528 1.5 double-output of play-sysex fixed
  20150527 1.4 secret play-sysex interpreted and not through-put
  20150525 1.3 secret "}!play file.wav\xF7" sysex introduced
