@@ -9,12 +9,14 @@
 # Simulates (very roughly) a tape-delay echo on a particular MIDI-channel
 # in a MIDI-file, or, since 2.0. on real-time-MIDI,
 # by issuing repeated note_on events with diminishing volume.  YMMV!
+#
+# Given -c 0 -e 1, I need an option to also echo cc64 on cha0 to cc64 on cha1
 
 use Term::ReadKey;
 use bytes;
 
-my $Version      = '4.3';   # -N option to set the ALSA-Client name
-my $VersionDate  = '04jul2014';
+my $Version      = '4.4';   # -i 0 option doesn't connect from anything
+my $VersionDate  = '26mar2016';
 my %Channel      = ('0',1); # MIDI channel on which the echoes will be added
 my %EchoNotes    = ();      # MIDI notes to which the echoes will be added
 my @Delays       = (300);   # incremental milliseconds of the various delays
@@ -142,7 +144,7 @@ if ($RealTimeMode) {
 	}
 	MIDI::ALSA::client( $AlsaName, 1, 1, 1 );
 	foreach my $cl_po (split /,/, $InputPort) {  # 3.6
-    	if (! MIDI::ALSA::connectfrom( 0, $cl_po )) {
+    	if ($cl_po ne '0' and ! MIDI::ALSA::connectfrom( 0, $cl_po )) {
         	die "can't connect from ALSA client $cl_po\n";
     	}
 	}
