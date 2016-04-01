@@ -608,15 +608,14 @@ sub set_array { my ($base, $digit1, $digit2, $equals, $values) = @_;  # 3.1m
 	# 20130305 XXX should we just expand and let set_var take care of it ?
 	# or should we impose a no-frills, end-of-line constraint ?
 	if ($digit1 >= $digit2) {
-		warn " line $LineNum: $digit1-$digit2 is not a valid range\n"; return;
+		warn_ln("$digit1-$digit2 is not a valid range"); return;
 	}
 	my $n = $digit2 - $digit1 + 1;
 	my @vals = split /\s*:\s*/, $values;
 	if ($n > scalar @vals) {
 		@vals = split /\s+/, $values;
 		if ($n > scalar @vals) {
-			warn " line $LineNum: can't see $n variables in \"$values\"\n";
-			return;
+			warn_ln("can't see $n variables in \"$values\""); return;
 		}
 	}
 	foreach my $i ($digit1 .. $digit2) { $Vars{"$base$i"} = shift @vals; }
@@ -943,8 +942,7 @@ sub bars { my $nbars = shift; my $str = shift; # eg. $str='| 4.5 | 2 3 | 4 ||'
 		while (1) {
 			last if $ipart > $nparts{$Isyst,$ibar};
 			if ($tokens[$itoken] == 0) {
-				warn " line $LineNum: bars: '$tokens[$itoken]' "
-				. "should be numeric and nonzero\n";
+			 warn_ln("bars: '$tokens[$itoken]' should be numeric and nonzero");
 				$nparts{$Isyst,$ibar} --;
 				$itoken++;
 			}
@@ -1104,7 +1102,7 @@ sub newstave { $[=1;
 					$currentpulsetext = $token;
 				}
 				$i++;
-				if ($i>$nfields) { warn " line $LineNum: missing >\n"; last; }
+				if ($i>$nfields) { warn_ln("missing >"); last; }
 				$token = $array[$i];
 			}
 			$CrosSoFar += $shortest;
@@ -1372,7 +1370,7 @@ sub newstave { $[=1;
 				} else { &ps_event($symbol);
 				}
 			} else {
-				warn " line $LineNum: not a note: $symbol\n";
+				warn_ln("not a note: $symbol");
 			}
 		}
 	}
@@ -1411,7 +1409,7 @@ sub substitute { my ($text, $infinite_depth) = @_;
 			my $subst_str = join("\n", @subst_lines)."\n";
 			$text =~ s/$VariableGetRE/$subst_str/o;
 		} elsif (! $val) {
-			warn " line $LineNum: variable \$$var is undefined\n";
+			warn_ln("variable \$$var is undefined");
 			$text =~ s/$VariableGetRE//o;
 		} else {
 			$text =~ s/$VariableGetRE/$val/;
@@ -1429,7 +1427,7 @@ sub changestave { my ($stave, $stem) = $_[$[] =~ /^(\d+)([,']?)$/;
 			$stave = $Nstaves{$Isyst};
 		} elsif ($stave < 1) {
 			print "% ERROR: stave = $stave, should be at least one\n";
-			warn " line $LineNum: stavenumber $stave too small\n";
+			warn_ln("stavenumber $stave too small");
 			$stave = 1;
 		}
 		$Ystv      = $Ystave{$Isyst,$stave};      # timesaver
@@ -1545,7 +1543,7 @@ sub parse_note { my $s = $_[$[];
 		}
 	}
 	if ($notebit =~ /\G(.+)/gc) {
-		warn " line $LineNum: bad note syntax in \"$scopy\" at \"$1\"\n";
+		warn_ln("bad note syntax in \"$scopy\" at \"$1\"");
 	}
 	return \%r;
 }
@@ -1843,7 +1841,7 @@ sub xml_event {
 				} elsif ($option =~ /^cre/ || $option =~ /^dim/) {
 				} elsif ($option =~ /^\*$|^P$/) {   # 3.0b
 				} else {
-					warn " line $LineNum: unrecognised option $option\n";
+					warn_ln("unrecognised option $option");
 				}
 			}
 
@@ -2057,7 +2055,7 @@ sub xml_timesig { return unless $XmlOpt; my $str = $_[$[];
 			$parts = "$timesig $parts"; # put it back
 			$timesig = $XmlTimesig;
 		} else {
-			warn " line $LineNum: strange timesig $timesig\n"; return 0;
+			warn_ln("strange timesig $timesig"); return 0;
 		}
 	}
 	return unless $parts;
@@ -2082,7 +2080,7 @@ sub xml_timesig { return unless $XmlOpt; my $str = $_[$[];
 			}
 		}
 		if ($secs_this_part < 0.1) {
-			warn " line $LineNum: warning: secs_this_part=$secs_this_part\n";
+			warn_ln("warning: secs_this_part=$secs_this_part");
 			next;
 		}
 		my $tempo_this_part = 60 * $cro_per_part / $secs_this_part;
@@ -2355,8 +2353,7 @@ sub midi_event {
 							$startslur = $starttie;
 						}
 					} else {
-						warn " line $LineNum: tie )$endtie has no "
-						. "corresponding (\n";
+						warn_ln("tie )$endtie has no corresponding (");
 					}
 				} elsif ($MidiExpression{$cha} != 100) {
 					# we're already within a loop over channels
@@ -2438,7 +2435,7 @@ sub midi_timesig { return unless $Midi; my $str = $_[$[];
 		$timesig = $MidiTimesig;
 	} elsif ($timesig !~ m{^(\d+)/(\d+)$}) {
 		if ($timesig =~ /^[.\d]+$/) { $parts = "$timesig $parts"; # put back
-		} else { warn " line $LineNum: strange timesig $timesig\n"; return 0;
+		} else { warn_ln("strange timesig $timesig"); return 0;
 		}
 	} elsif ($timesig ne $MidiTimesig) {
 		# time signature ...  could be in a sub
@@ -2522,7 +2519,7 @@ sub midi_global { my $str = $_[$[];
 				$TicksAtBarStart += 100;
 			} else {
 				my $s = join(q{, }, sort keys %sysex);
-				warn " line $LineNum: gm should be one of $s in '$str'\n";
+				warn_ln("gm should be one of $s in '$str'");
 			}
 		}
 		if (defined $str{'temperament'})   {  # 2.9s
@@ -2538,7 +2535,7 @@ sub midi_global { my $str = $_[$[];
 				 $sysex.$tuning{$str{'temperament'}}."\xF7"];
 				$TicksAtBarStart += 50;
 			} else {
-				warn " line $LineNum: strange temperament in '$str'\n";
+				warn_ln("strange temperament in '$str'");
 				warn " should be one of: ".join(q{ }, sort keys %tuning)."\n";
 			}
 		}
@@ -2549,7 +2546,7 @@ sub midi_global { my $str = $_[$[];
 				midi_cc_127($cha, 0,0+$msb);  midi_cc_127($cha,32,0+$lsb);
 				# $TicksAtBarStart += 5;
 			} else {
-				warn " line $LineNum: strange bank msb or msb,lsb in '$str'\n";
+				warn_ln("strange bank msb or msb,lsb in '$str'");
 			}
 		}
 		if (defined $str{'cents'})   {  # 2.9s, 3.1u
@@ -2599,7 +2596,7 @@ sub midi_global { my $str = $_[$[];
 			return unless $MidiTempo;  # uSec per crochet 
 			$TicksAtBarStart += round($str{pause}*$TPC*1000000/$MidiTempo);
 		} else {  # 3.2g no need now to except gm, transpose, temperament
-			warn " line $LineNum: strange midi_global $str\n";
+			warn_ln("strange midi_global $str");
 		}
 	}
 }
@@ -2639,7 +2636,7 @@ sub midi_in_stave { my $str = $_[$[];
 			if ($vol < 2) { $vol = 1; }
 			$Stave2volume{$currentstavenum} = $vol; return 1;
 		} else {
-			warn " line $LineNum: strange vol command\n"; return 0;
+			warn_ln("strange vol command"); return 0;
 		}
 	} elsif ($str =~ /^leg(\d+)$/) {   # 3.2 remove a?t?o?
 		$Stave2legato{$currentstavenum} = 0.01*$1; return 1;
@@ -2657,7 +2654,7 @@ sub midi_in_stave { my $str = $_[$[];
 			} elsif ($str =~ /^pan-(\d+)$/) {
 				$pan = current_pan() - $1; if ($pan < 2) { $pan = 1; }
 			} else {
-				warn " line $LineNum: strange pan command\n"; return 0;
+				warn_ln("strange pan command"); return 0;
 			}
 			midi_cc_100($cha,10,$pan);
 		}
@@ -2711,7 +2708,7 @@ sub midi_in_stave { my $str = $_[$[];
 			$bend = current_bend() - $val;
 			if ($bend < -8191) { $bend = -8191; }
 		} else {
-			warn " line $LineNum: strange bend command '$str'\n"; return 1;
+			warn_ln("strange bend command '$str'"); return 1;
 		}
 		$Stave2bend{$currentstavenum} = $bend;
 		my $ticks = $TicksAtBarStart + $CrosSoFar*$TicksPerCro;
@@ -2975,17 +2972,13 @@ sub ps_event {
 			$ystemend = $higheststemup + $StemLength*$StvHgt*$smallness;
 			if (ps_tails_or_beams($shortestuptext)) { # tails or beams ?
 				if ($StartBeamUp) {
-					if (@BeamUp) {
-						warn " line $LineNum: nested stem-up beams\n";
-					}
+					if (@BeamUp) { warn_ln("nested stem-up beams"); }
 					@BeamUp =
 					 (sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
 					 $xstem,$loweststemup,$higheststemup,
 					 $accidentalup, $total_chord_options));
 				} elsif ($startcrossbeam) {
-					if (@crossbeam) {
-						warn " line $LineNum: nested crossbeams\n";
-					}
+					if (@crossbeam) { warn_ln("nested crossbeams"); }
 					@crossbeam =
 					 (sprintf("%g\t%g\t%g\t$shortestuptext\tup\t%s\t%s",
 					 $xstem,$loweststemup, $higheststemup,
@@ -3046,9 +3039,7 @@ sub ps_event {
 
 			if (ps_tails_or_beams($shortestdowntext)) { # tails or beams ?
 				if ($StartBeamDown) {
-					if (@BeamDown) {
-						warn " line $LineNum: nested stem-down beams\n";
-					}
+					if (@BeamDown) { warn_ln("nested stem-down beams"); }
 					@BeamDown = (
 					 sprintf("%g\t%g\t%g\t$shortestdowntext\tdown\t%s\t%s",
 					 $xstem,$loweststemdown,$higheststemdown,
@@ -3427,7 +3418,7 @@ sub ps_note_options { my ($X,$ybot,$ytop,$stem,$options) = @_;
 			printf "%g %g /$PedalFont %g (%s) centreshow\n",
 				$x, $y, $fontsize, $option;
 		} else {
-			warn " line $LineNum: unrecognised option $option\n";
+			warn_ln("unrecognised option $option");
 		}
 	}
 }
@@ -3976,7 +3967,7 @@ sub ps_pagenum { my $str = shift;
 	$str =~ s/^\s+//;
 	if (! $str) { $PageNum++;
 	} elsif ($str =~ /^\d+$/)	{ $PageNum = $str + 0;
-	} else { warn " line $LineNum: pagenum $str is not numeric\n"; return 0;
+	} else { warn_ln("pagenum $str is not numeric"); return 0;
 	}
 	$RememberHeader{'pagenum'} = $PageNum;
 	if ($PageNum % 2) {	# odd page number

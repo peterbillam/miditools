@@ -135,8 +135,8 @@ if ($RealTimeMode) {
 		die "you need to install the MIDI::ALSA module from www.cpan.org\n";
 	}
 
-	if (!$OutputPort) { $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'}; }
-	if (!$OutputPort) {
+	if (! defined $OutputPort) { $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'}; }
+	if (! defined $OutputPort) {   # 4.4
     	warn "OutputPort not specified and ALSA_OUTPUT_PORTS not set\n";
 	}
 	if ($Quiet and !$InputPort) {  # 3.1
@@ -144,12 +144,12 @@ if ($RealTimeMode) {
 	}
 	MIDI::ALSA::client( $AlsaName, 1, 1, 1 );
 	foreach my $cl_po (split /,/, $InputPort) {  # 3.6
-    	if ($cl_po ne '0' and ! MIDI::ALSA::connectfrom( 0, $cl_po )) {
+    	if ($cl_po ne '0' and ! MIDI::ALSA::connectfrom(0, $cl_po)) { # 4.4
         	die "can't connect from ALSA client $cl_po\n";
     	}
 	}
 	foreach my $cl_po (split /,/, $OutputPort) {  # 3.6
-    	if (! MIDI::ALSA::connectto( 1, $cl_po )) {
+    	if ($cl_po ne '0' and ! MIDI::ALSA::connectto(1, $cl_po)) { # 4.4
         	die "can't connect to ALSA client $cl_po\n";
     	}
 	}
@@ -160,7 +160,7 @@ if ($RealTimeMode) {
 	display_alsa(); display_channel(); display_keystrokes(); display_echoes();
 
 	# output the patch-change events on the channels that need them
-#warn "Patches=@Patches\n";
+	#warn "Patches=@Patches\n";
 	foreach my $i_echo ($[ .. $#Patches) {
 		MIDI::ALSA::output(MIDI::ALSA::pgmchangeevent(
 			$Echoes[$i_echo],$Patches[$i_echo],));
