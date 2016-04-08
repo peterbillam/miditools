@@ -2765,7 +2765,7 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 		pos = match(text, '%s(%.%d+)%s')
 		text=sub(text,n+string.len(match(text,'(%s%.%d+%s)')),-1)
 	end
-	local left = 0; local right  -- missing barline leaves left = nil
+	local left = 0; local right -- 20160402 missing barline leaves left=nil
 	for pos,text in pairs(str_by_pos) do  -- order doesn't matter !
 		-- should maybe handle $SpaceRightOfClef,$SpaceForClef,$SpaceForTimeSig,
 		-- $SpaceAfterKeySig, $SpaceForStartRepeat, $SpaceForEndRepeat,

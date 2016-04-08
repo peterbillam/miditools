@@ -447,7 +447,7 @@ sub initialise {
 	 qua=>'8', cro=>'4',min=>'2',smb=>'1');
 	foreach my $key (sort keys %Nbeats) { # International-style rhythm notation
 		# sort means smb gets overwritten by smq, so 16-s maps to smq-s, 2.9n
-		if ($key =~ /^([a-u][a-u][a-u])([2-6].*)$/) {
+		if ($key =~ /^([a-u][a-u][a-u])([2-7].*)$/) {
 			my $intl = $en2intl{$1};
 			next unless $intl;
 			$Intl2en{"$intl$2"} = $key;
