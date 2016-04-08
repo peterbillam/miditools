@@ -6,8 +6,8 @@
 #            modify it under the same terms as Perl itself.             #
 #########################################################################
 #
-my $Version       = '3.5'; # bend recognised as midi-in-stave
-my $VersionDate   = '29mar2015';
+my $Version       = '3.6'; # hds and 64 recognised
+my $VersionDate   = '08apr2016';
 use Text::ParseWords;
 
 my $Amount = 0;
@@ -124,7 +124,8 @@ foreach my $k (keys %st) {   # 2.8
 $pitch2keysig{1} = '5b';
 
 # note durations, taken from muscript ...
-%en=( dsq=>.125,smq=>.25,qua=>.5,cro=>1.0,min=>2.0,smb=>4.0,bre=>8.0);
+%en=(hds=>.0625,dsq=>.125,smq=>.25,
+  qua=>.5,cro=>1.0,min=>2.0,smb=>4.0,bre=>8.0);
 foreach my $key (keys %en) {
     $nbeats{$key}     = $en{$key};
     $nbeats{$key.'2'} = $en{$key}*0.75;       # duplet
@@ -147,9 +148,9 @@ foreach $key (grep (/^cro|^min|^smb/, keys %nbeats)) { # tremolandi
 foreach $key (keys %nbeats) {
 	$nbeats{$key . '-s'}  = $nbeats{$key};   # small notes
 }
-my %en2intl=(dsq=>'32',smq=>'16',qua=>'8',cro=>'4',min=>'2',smb=>'1');
+my %en2intl=(hds=>'64',dsq=>'32',smq=>'16',qua=>'8',cro=>'4',min=>'2',smb=>'1');
 foreach my $key (keys %nbeats) {   # International-style rhythm notation
-	if ($key =~ /^([a-u][a-u][a-u])([2-6].*)$/) {
+	if ($key =~ /^([a-u][a-u][a-u])([2-7].*)$/) {
 		my $intl = $en2intl{$1};
 		next unless $intl;
 		$intl2en{"$intl$2"} = $key;
@@ -762,6 +763,7 @@ For example,
 
 =head1 CHANGES
 
+ 20160408 3.6 hds and 64 recognised
  20150329 3.5 bend recognised as midi-in-stave
  20141012 3.4 -i option implies also -A
  20141004 3.3 -i Invert option inverts around c
