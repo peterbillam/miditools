@@ -49,8 +49,8 @@ $Data::Dumper::Terse     = 1;
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2k for Perl'; # warn_ln if no | before newstave
-$VersionDate           = '07mar2016';
+$Version               = '3.2m for Perl'; # 64 rest and hds7
+$VersionDate           = '09apr2016';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $Istave
@@ -1628,12 +1628,12 @@ sub rabbit   { my @list = @_; # 3.1e
 	my $i = 0; my $n = scalar @list;
 	return sub {
 		if (@_) { @list=@_; $n = scalar @list; }  # but i remains.
-    	if ($i > @RabbitSequence) {
+		if ($i > @RabbitSequence) {
 			my @a = @RabbitSequence;
 			push @RabbitSequence, @OldRabbitSequence;
 			@OldRabbitSequence = @a;
 		}
-    	my $x = $list[$[+ $RabbitSequence[$[+$i]];
+		my $x = $list[$[+ $RabbitSequence[$[+$i]];
 		$i += 1;
 		return $x;
 	}
@@ -1642,7 +1642,7 @@ sub random   { my @list = @_; # 3.1k
 	my $n = scalar @list;
 	return sub {
 		if (@_) { @list=@_; $n = scalar @list; }
-    	my $x = $list[$[+ int(rand($n))];
+		my $x = $list[$[+ int(rand($n))];
 		return $x;
 	}
 }
@@ -4549,14 +4549,26 @@ __END__
 	closepath fill grestore
 } bind def
 
-/demisemiquaverrest {	% usage: x y staveheight demisemiquaverrest
+/hemidemisemiquaverrest {  % x y staveheight hemidemisemiquaverrest  3.2m
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125 0.1425 0.048 0 360 arc fill
-	newpath  0 0.33 0.22  245 295 arc -0.05 -0.23 lineto stroke
-	newpath -0.135 0.017 0.048 0 360 arc fill
-	newpath -0.04 0.22 0.22 245 295 arc stroke
-	newpath -0.145 -0.10 0.048 0 360 arc fill
-	newpath -0.08 0.11 0.22 245 295 arc stroke grestore
+	newpath -0.125  0.180  0.048 0 360 arc fill
+	newpath  0      0.37   0.22  245 295 arc -0.05 -0.29 lineto stroke
+	newpath -0.137  0.065  0.048 0 360 arc fill
+	newpath -0.03   0.27   0.22 245 295 arc stroke
+	newpath -0.149 -0.060  0.048 0 360 arc fill
+	newpath -0.06   0.135  0.21 245 292 arc stroke
+	newpath -0.161 -0.175  0.048 0 360 arc fill
+	newpath -0.08   0.02   0.20 245 290 arc stroke grestore
+} bind def
+
+/demisemiquaverrest {   % usage: x y staveheight demisemiquaverrest
+	gsave 3 1 roll translate dup scale 0.03 setlinewidth
+	newpath -0.125  0.18   0.048 0 360 arc fill
+	newpath  0      0.37   0.22  245 295 arc -0.05 -0.21 lineto stroke
+	newpath -0.135  0.065  0.048 0 360 arc fill
+	newpath -0.04   0.275  0.22 245 295 arc stroke
+	newpath -0.145 -0.065  0.048 0 360 arc fill
+	newpath -0.07   0.135  0.21 245 292 arc stroke grestore
 } bind def
 
 /semiquaverrest {	% usage: x y staveheight semiquaverrest

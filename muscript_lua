@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2k for Lua5'
-VersionDate  = '07mar2016';
+Version = '3.2m for Lua5'  -- 64 rest and hds7
+VersionDate  = '09apr2016';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -336,15 +336,14 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 	/staveheight_t exch def /y_mid exch def /x_mid exch def /n exch def
    	/dy staveheight_t $BeamWidth mul def  /dx dy 1.6 mul def
 	n 1 eq {
-    	x_mid dx sub y_mid dy sub x_mid dx add y_mid dy add
-    	staveheight_t 0.85 mul beam
+		x_mid dx sub y_mid dy sub x_mid dx add y_mid dy add
+		staveheight_t 0.85 mul beam
 	} if
 	n 2 eq {
-    	x_mid dx sub y_mid dy 0.0 mul add x_mid dx add y_mid dy 1.4 mul add
-    	staveheight_t 0.75 mul beam
-    	x_mid dx sub y_mid dy 1.4 mul sub x_mid dx add y_mid dy 0.0 mul sub
-    	staveheight_t 0.75 mul beam
-
+		x_mid dx sub y_mid dy 0.0 mul add x_mid dx add y_mid dy 1.4 mul add
+		staveheight_t 0.75 mul beam
+		x_mid dx sub y_mid dy 1.4 mul sub x_mid dx add y_mid dy 0.0 mul sub
+		staveheight_t 0.75 mul beam
 	} if
 	n 3 eq {
 		/dy dy 0.7 mul def
@@ -549,28 +548,41 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 	closepath fill grestore
 } bind def
 
+/hemidemisemiquaverrest {  % x y staveheight hemidemisemiquaverrest  3.2m
+	gsave 3 1 roll translate dup scale 0.03 setlinewidth
+	newpath -0.125  0.180  0.048 0 360 arc fill
+	newpath  0      0.37   0.22  245 295 arc -0.05 -0.29 lineto stroke
+	newpath -0.137  0.065  0.048 0 360 arc fill
+	newpath -0.03   0.27   0.22 245 295 arc stroke
+	newpath -0.149 -0.060  0.048 0 360 arc fill
+	newpath -0.06   0.135  0.21 245 292 arc stroke
+	newpath -0.161 -0.175  0.048 0 360 arc fill
+	newpath -0.08   0.02   0.20 245 290 arc stroke grestore
+} bind def
+
 /demisemiquaverrest {	% usage: x y staveheight demisemiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125 0.1425 0.048 0 360 arc fill
-	newpath  0 0.33 0.22  245 295 arc -0.05 -0.23 lineto stroke
-	newpath -0.135 0.017 0.048 0 360 arc fill
-	newpath -0.04 0.22 0.22 245 295 arc stroke
-	newpath -0.145 -0.10 0.048 0 360 arc fill
-	newpath -0.08 0.11 0.22 245 295 arc stroke grestore
+	newpath -0.125  0.18   0.048 0 360 arc fill
+	newpath  0      0.37   0.22  245 295 arc -0.05 -0.21 lineto stroke
+	newpath -0.135  0.065  0.048 0 360 arc fill
+	newpath -0.04   0.275  0.22 245 295 arc stroke
+	newpath -0.145 -0.065  0.048 0 360 arc fill
+	newpath -0.07   0.135  0.21 245 292 arc stroke grestore
 } bind def
 
 /semiquaverrest {	% usage: x y staveheight semiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125 0.0625 0.05 0 360 arc fill
-	newpath 0 0.25 0.22 245 295 arc -0.05 -0.22 lineto stroke
-	newpath -0.135 -0.07 0.05 0 360 arc fill
-	newpath -0.04 0.14 0.22 245 295 arc stroke grestore
+	newpath -0.125  0.0625 0.05 0 360 arc fill
+	newpath  0 0.25 0.22   245 295 arc -0.05 -0.22 lineto stroke
+	newpath -0.135 -0.07   0.05 0 360 arc fill
+	newpath -0.04   0.14   0.22 245 295 arc stroke grestore
 } bind def
 
 /quaverrest {	% usage: x y staveheight quaverrest
-	gsave 3 1 roll translate dup scale newpath
-	-0.125 0.0625 0.05 0 360 arc fill newpath 0.04 setlinewidth
-	0 0.25 0.22 245 295 arc -0.05 -0.2 lineto stroke grestore
+	gsave 3 1 roll translate dup scale 0.04 setlinewidth
+	newpath -0.125 0.0625 0.05 0 360 arc fill
+	newpath 0 0.25 0.22 245 295 arc -0.05 -0.2 lineto stroke
+	grestore
 } bind def
 
 /crochetrest {	% usage: x y staveheight crochetrest
@@ -814,7 +826,7 @@ end
 function round(x) return math.floor(x+0.5) end
 function abs(x) if x<0 then return 0-x else return x end end
 function is_empty(t)
-    local n=0 ; for k,v in pairs(t) do n=n+1; break end ; return n == 0
+	local n=0 ; for k,v in pairs(t) do n=n+1; break end ; return n == 0
 end
 function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
 	if not s or string.len(s)<2 then return {s} end
@@ -836,9 +848,9 @@ function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
 end
 function printf (...) print(string.format(...)) end
 function print_sp (...)  -- like print() but uses spaces not tabs
-    local a2 = {}
-    for i,v in ipairs({...}) do table.insert(a2, tostring(v)) end
-    print(concat(a2, ' '))
+	local a2 = {}
+	for i,v in ipairs({...}) do table.insert(a2, tostring(v)) end
+	print(concat(a2, ' '))
 end
 function sorted_keys(t, f)
 	local a = {}
@@ -970,10 +982,10 @@ function initialise ()
 		TicksThisBar     = 0      -- so as not to delay the start
 		MidiBarParts     = '2.4'  -- default guesses 4/4 at 100 cro/min
 		Stave2channels   = {}
-		Istave  = '1'
+		Istave           = '1'
 	elseif XmlOpt then
 		Stave2channels   = {}
-		XmlTimesig      = '4/4';
+		XmlTimesig      = '4/4'
 		XmlDuration={
 			hds='64th',dsq='32nd',smq='16th',qua='eighth',
 			cro='quarter', min='half',smb='whole',bre='breve'
@@ -2146,7 +2158,7 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 	local stem_length   = StemLength*smallstaveheight;
 	local max_beam_stub = MaxBeamStub*smallstaveheight;
 	local x1,xn, ylowblob1,ylowblobn, yhighblob1,yhighblobn, y1,yn
-	x1         = xes[1];        xn         = xes[n]
+	x1         = xes[1];         xn         = xes[n]
 	ylowblob1  = ylowblobs[1] ;  ylowblobn  = ylowblobs[n]
 	yhighblob1 = yhighblobs[1] ; yhighblobn = yhighblobs[n]
 	if find(Direction,'^up') then
@@ -4335,19 +4347,19 @@ function random (list) -- 3.1k
 	end
 end
 function aaba (list) -- 3.1k
-    local i = 0; local n = #list
-    return function (newlist)
-        if newlist then list=newlist; n = #list end  -- but i remains.
-        if (i >= #AabaSequence) then
-            local n = #AabaSequence
-            for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
-            for i = 1,n do table.insert(AabaSequence, 1-AabaSequence[i]) end
-            for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
-        end
-        local x = list[1+ AabaSequence[1+i] ]
-        i = i + 1
-        return x
-    end
+	local i = 0; local n = #list
+	return function (newlist)
+		if newlist then list=newlist; n = #list end  -- but i remains.
+		if (i >= #AabaSequence) then
+			local n = #AabaSequence
+			for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
+			for i = 1,n do table.insert(AabaSequence, 1-AabaSequence[i]) end
+			for i = 1,n do table.insert(AabaSequence,  AabaSequence[i])  end
+		end
+		local x = list[1+ AabaSequence[1+i] ]
+		i = i + 1
+		return x
+	end
 end
 
 function substitute (text, infinite_depth)
