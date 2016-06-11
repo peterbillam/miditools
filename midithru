@@ -34,6 +34,8 @@ local VersionDate  = '24mar2016';
 -- I could also provide a (non-conformant) 'Monophonic Mode' cc126
 --   This is in fluadity 2.0; but in midithru it would work on all synths.
 
+-- 1.7 should reread the volumes config file on SIGHUP !
+
 -- only useful in initial error-checking, before curses starts
 local function die(str) io.stderr:write(str,'\n') ;  os.exit(1) end
 
@@ -544,6 +546,7 @@ if InputPort then
 			-- here it should invoke parse_address to remember which
 			-- client_numbers connect from client_names with Config files
 			-- should do start-do-string matching, just like parse_address()
+			-- 1.7 And this should be in a function, and invoked by SIGHUP !
 			VolumeAdjusts[clientnum] = {}
 			for line in fh:lines() do
 				local pitch,adjust = string.match(line, '^%s*(%d+)%s+(-?%d+)')
