@@ -49,8 +49,8 @@ $Data::Dumper::Terse     = 1;
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version               = '3.2m for Perl'; # 64 rest and hds7
-$VersionDate           = '09apr2016';
+$Version      = '3.2p for Perl'; # fix ps_beam stemup beams over accidentals
+$VersionDate  = '16apr2016';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $Istave
@@ -67,7 +67,8 @@ $WhiteBlobHalfHeight   = 0.122;
 $SmallNoteRatio        = 0.61;
 $SmallStemRatio        = 0.76;
 $StemFromBlobCentre    = 0.176;
-$DotRightOfNote        = 0.38;
+$DotRightOfNote        = 0.36;  # 3.2m
+$DotRightOfRest        = 0.29;  # 3.2m
 $DotAboveNote          = 0.06;
 $NoteShift             = 0.28;
 $AccidentalShift       = 0.19;
@@ -99,13 +100,13 @@ $OptionDy              = 0.35;
 	blank=>0.25, Is=>0.35, is=>0.33, bs=>0.35, rs=>0.33, I=>0.47, i=>0.45,
 	b=>0.47, r=>0.45, dim=>0.0, cre=>0.0, '*'=>0.35); # should be in initialise
 $MinBeamClearance      = 0.70;
-$FlatHalfHeight        = 0.10; # 2.9z; was .2
-$SharpHalfHeight       = 0.15;
-$BeamWidth             = 0.13; # gives -w warning, but needed in DATA
-$BeamWidth             += 0.0; # avoids warning, I hate being forced to this
+$FlatHalfHeight        = 0.42; # 3.2p
+$SharpHalfHeight       = 0.28; # 3.2p
+$BeamWidth             = 0.13; # used in ps_beam and in DATA
+# $BeamWidth           += 0.0; # avoids warning, I hate being forced to this
 $BeamSpacing           = 0.22;
 $MaxBeamStub           = 0.35;
-$BeamGapMult           = 0.5;  # 2.9t
+$BeamGapMult           = 0.85; # 3.2p
 $TailSpacing           = 0.24;
 $MaxBeamGradient       = 0.45; # dimensionless; dy/dx
 $SegnoHeight           = 0.90;
@@ -3170,14 +3171,18 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 	{
 		my $sh = $StvHgt;
 		if ($currentpulsetext =~ /-s$/) { $sh *= $SmallNoteRatio; }
-		# should really only raise dot if note is on a line ...
+		# 3.2o only raise dot if the note is on a line ...
+		my $dot_above_note = 0.0;  # 3.2o
+		if (int(0.01 + abs(8*$ytable{$note_ref->{pitch}})) % 2 > 0.5) {
+			$dot_above_note = $DotAboveNote*$sh;
+		}
 		if ($currentpulsetext =~ /\.\./) {
 			my $x_plus  = $X + $DotRightOfNote*$sh; 
-			my $y_minus = $Y + $DotAboveNote*$sh; 
+			my $y_minus = $Y + $dot_above_note; 
 			printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $sh);
 		} elsif ($currentpulsetext =~ /\./) {
 			my $x_plus  = $X + $DotRightOfNote*$sh; 
-			my $y_minus = $Y + $DotAboveNote*$sh; 
+			my $y_minus = $Y + $dot_above_note;
 			printf ("%g %g %g dot\n", $x_plus, $y_minus, $sh);
 		}
 	}
@@ -3536,9 +3541,10 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 	my $min_beam_clearance = $MinBeamClearance * $StvHgt;
 	my $sharp_half_height  = $SharpHalfHeight  * $StvHgt;
 	my $flat_half_height   = $FlatHalfHeight   * $StvHgt;
+	my $beam_width         = $BeamWidth        * $StvHgt;
 
 	my ($x,$ylowblob,$yhighblob,$duration,$direction,$accidental,$options);
-	my (@duration, $Direction, @x, @ylowblob, @yhighblob, @accidental, $n);
+	my (@duration, $Direction, @x, @ylowblobs, @yhighblobs, @accidental, $n);
 	my (@options);
 	$n = scalar @_; return unless $n;
 	if ($n < 2) {
@@ -3567,19 +3573,19 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 			$Direction = $direction;
 		}
 		push (@x, $x);
-		push (@ylowblob, $ylowblob);
-		push (@yhighblob, $yhighblob);
+		push (@ylowblobs, $ylowblob);
+		push (@yhighblobs, $yhighblob);
 		push (@duration, $duration);
 		push (@accidental, $accidental);  # $note_ref->{accidental} ?
 		push (@options, $options);
 	}
-	my $smallstaveheight = $StvHgt * $smallness;   # for speed
-	my $stem_length   = $StemLength*$smallstaveheight;
-	my $max_beam_stub = $MaxBeamStub*$smallstaveheight;
+	my $smallstaveheight = $StvHgt  * $smallness;   # for speed
+	my $stem_length   = $StemLength * $smallstaveheight;
+	my $max_beam_stub = $MaxBeamStub* $smallstaveheight;
 	my ($x1,$xn, $ylowblob1,$ylowblobn, $yhighblob1,$yhighblobn, $y1,$yn);
 	$x1         = $x[$[];         $xn         = $x[$[+$n-1];
-	$ylowblob1  = $ylowblob[$[];  $ylowblobn  = $ylowblob[$[+$n-1];
-	$yhighblob1 = $yhighblob[$[]; $yhighblobn = $yhighblob[$[+$n-1];
+	$ylowblob1  = $ylowblobs[$[];  $ylowblobn  = $ylowblobs[$[+$n-1];
+	$yhighblob1 = $yhighblobs[$[]; $yhighblobn = $yhighblobs[$[+$n-1];
 
 	if ($Direction =~ /^up/) {
 		$y1 = $yhighblob1 + $stem_length;
@@ -3614,18 +3620,18 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		$too_high = 0;
 		foreach $i (($[+1) .. ($[+$n-2)) {
 			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymin = $yhighblob[$i] + $min_beam_clearance
+			$ymin = $yhighblobs[$i] + $min_beam_clearance
 			 + $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
 			if ($y < $ymin) { $too_high = 1; last; }
 			if ($accidental[$i] ne '-') {
 				$x = $x[$i] - $accidental_before_note;
 				$y = $y1 + $dydx * ($x-$x1);
-				$ymin = $yhighblob[$i]+$min_beam_clearance+$sharp_half_height;
+				$ymin = $yhighblobs[$i]+$min_beam_clearance+$sharp_half_height;
 				if ($y < $ymin) { $too_high = 1; last; }
 			}
 		}
 		if ($too_high && $n>2) {
-			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@yhighblob);
+			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@yhighblobs);
 			if ((abs $best_fit_gradient) < $MaxBeamGradient) {
 				if ($best_fit_gradient > 0.0) {	# positive gradient
 					$ymin = $yn - $best_fit_gradient * ($xn-$x1);
@@ -3637,19 +3643,30 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 			}
 		}
 
-		# raise beam if any notes are too high ... 2.9v
+		# raise beam if any notes are too high ... 2.9v 3.2p
 		$dy = $yn - $y1; $dydx = $dy / $dx;
-		foreach $i ($[ .. ($[+$n-1)) {
+		my $half_a_space = 0.125*$StvHgt;
+		foreach $i ($[ .. ($[+$n-1)) {  # 3.2 shouldn't $[ really be $[+1 ?
 			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymin = $yhighblob[$i] + $min_beam_clearance
-			 + $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
+			$ymin = $yhighblobs[$i] + $min_beam_clearance
+			 + 0.6 * $gap * (ps_tails_or_beams($duration[$i])-1); # 3.2p
 			if ($y < $ymin) { $y1 += $ymin-$y; $yn += $ymin-$y; }
-			if ($accidental[$i] ne '-') {
+			if ($accidental[$i] ne '-') {   # we have an accidental...
 				$x = $x[$i] - $accidental_before_note;
 				$y = $y1 + $dydx * ($x-$x1);
-				# 2.9z should detect if accidental is flat or sharp...
-				$ymin = $yhighblob[$i]+$min_beam_clearance+$flat_half_height;
-				if ($y < $ymin) { $y1 += $ymin-$y; $yn += $ymin-$y; }
+				# detect if accidental is flat or sharp... 2.9z 3.2p
+				my $acc_half_height = $sharp_half_height;
+				if ($accidental[$i] =~ /b/) {   # 3.2p
+					$acc_half_height = $flat_half_height;
+				}
+				# detect if accidental touches the lowest beam 3.2p
+# it's not as easy as duration[i] ! ; eg i=2 with  8 [G# 32 A B c d]
+				my $y_clearance = $y - $acc_half_height - $yhighblobs[$i]
+				  - $BeamGapMult*$gap *(ps_tails_or_beams($duration[$i])-1)
+				  - $beam_width - $half_a_space;  # 3.2p
+				if ($y_clearance < 0) {
+					$y1 = $y1 - $y_clearance ; $yn = $yn - $y_clearance;
+				}
 			}
 		}
 
@@ -3702,9 +3719,9 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		foreach $i (($[+1) .. ($[+$n-2)) {
 			$x = $x[$i]; $y = $y1 + $dy * ($x-$x1) / $dx;
 			printf "%g %g %g %g notestem\n",
-			 $x, $y, $ylowblob[$i], $StvHgt;
+			 $x, $y, $ylowblobs[$i], $StvHgt;
 			ps_note_options($x - $BlackBlobHalfWidth*$StvHgt,
-			 $ylowblob[$i]-($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
+			 $ylowblobs[$i]-($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
 			 $y + ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
 			 'up', $options[$i]);   # 2.9d
 		}
@@ -3748,18 +3765,18 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		$too_low = 0;
 		foreach $i (($[+1) .. ($[+$n-2)) {
 			$x = $x[$i]; $y = $y1 + $dy * ($x-$x1) / $dx;
-			$ymax = $ylowblob[$i] - $min_beam_clearance
+			$ymax = $ylowblobs[$i] - $min_beam_clearance
 			 - $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
 			if ($y > $ymax) { $too_low = 1; last; }
 			if ($accidental[$i] ne '-') {
 				$x = $x[$i] - $accidental_before_note;
 				$y = $y1 + $dydx * ($x-$x1);
-				$ymax = $ylowblob[$i]-$min_beam_clearance+$sharp_half_height;
+				$ymax = $ylowblobs[$i]-$min_beam_clearance+$sharp_half_height;
 				if ($y > $ymax) { $too_low = 1; last; }
 			}
 		}
 		if ($too_low && $n>2) {
-			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@ylowblob);
+			my $best_fit_gradient = ps_best_fit_gradient(\@x,\@ylowblobs);
 			if ((abs $best_fit_gradient) < $MaxBeamGradient) {
 				if ($best_fit_gradient > 0.0) {	# positive gradient
 					$ymax = $y1 + $best_fit_gradient * ($xn-$x1);
@@ -3775,13 +3792,13 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		$dy = $yn - $y1; $dydx = $dy / $dx;
 		foreach $i ($[ .. ($[+$n-1)) {
 			$x = $x[$i]; $y = $y1 + $dydx * ($x-$x1);
-			$ymax = $ylowblob[$i] - $min_beam_clearance
+			$ymax = $ylowblobs[$i] - $min_beam_clearance
 			 - $BeamGapMult * $gap * (ps_tails_or_beams($duration[$i])-1);
 			if ($y > $ymax) { $y1 -= $y-$ymax; $yn -= $y-$ymax; }
 			if ($accidental[$i] ne '-') {
 				$x = $x[$i] - $accidental_before_note;
 				$y = $y1 + $dydx * ($x-$x1);
-				$ymax = $ylowblob[$i]-$min_beam_clearance+$sharp_half_height;
+				$ymax = $ylowblobs[$i]-$min_beam_clearance+$sharp_half_height;
 				if ($y > $ymax) { $y1 -= $y-$ymax; $yn -= $y-$ymax; }
 			}
 		}
@@ -3835,10 +3852,10 @@ sub ps_beam { # usage: &ps_beam(@BeamUp)
 		foreach $i (($[+1) .. ($[+$n-2)) {
 			$x = $x[$i]; $y = $y1 + $dy * ($x - $x1) / $dx;
 			printf "%g %g %g %g notestem\n",
-			 $x, $y, $yhighblob[$i], $StvHgt;
+			 $x, $y, $yhighblobs[$i], $StvHgt;
 			ps_note_options($x + $BlackBlobHalfWidth*$StvHgt,
 			 $y - ($OptionClearance+$WhiteBlobHalfHeight) * $StvHgt,
-		 $yhighblob[$i]+($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
+		 $yhighblobs[$i]+($OptionClearance+$WhiteBlobHalfHeight)*$StvHgt,
 			 'down', $options[$i]);   # 2.9d
 		}
 		printf "%g %g %g %g notestem\n", $xn, $yn, $yhighblobn, $StvHgt;
@@ -4074,12 +4091,16 @@ sub ps_rest { my ($currentpulse, $symbol, $X) = @_;
 	my $Y = $Ystv + $dy*$StvHgt;
 	my $smallstaveheight = $StvHgt;   # 3.1o
 	if ($currentpulse =~ /-s$/) { $smallstaveheight *= $SmallStemRatio; }
+	my $dot_above_note    = $DotAboveNote;    # 3.2n
+	my $dot_right_of_rest = $DotRightOfRest;  # 3.2n
 	if ($currentpulse =~ /^smb/) {
 		$Y += 0.25 * $StvHgt; $dy += 0.25;  # 4th stave-line
 		printf "%g %g %g smbrest\n",     $X, $Y, $StvHgt;
 		if ($dy>0.2 || $dy <-1.2) {  # 2.7t
 			printf "%g %g %g ledger\n",  $X, $Y, $StvHgt;
 		}
+		$dot_above_note    = 0.0 - $DotAboveNote;  # 3.2n
+		$dot_right_of_rest = $DotRightOfNote;      # 3.2n
 	} elsif ($currentpulse =~ /^min/) {
 		printf "%g %g %g minimrest\n",   $X, $Y, $StvHgt;
 		if ($dy>0.2 || $dy <-1.2) {  # 2.7t
@@ -4091,6 +4112,7 @@ sub ps_rest { my ($currentpulse, $symbol, $X) = @_;
 		printf "%g %g %g quaverrest\n",  $X, $Y, $smallstaveheight;
 	} elsif ($currentpulse =~ /^bre/) {
 		printf "%g %g %g breverest\n",   $X, $Y, $StvHgt;
+		$dot_above_note    = 0.125;   # 3.2n
 	} elsif ($currentpulse =~ /^dsq/) {
 		printf "%g %g %g demisemiquaverrest\n", $X, $Y, $smallstaveheight;
 	} elsif ($currentpulse =~ /^hds/) {
@@ -4100,14 +4122,12 @@ sub ps_rest { my ($currentpulse, $symbol, $X) = @_;
 	}
 	# print the dot, if any
 	if ($currentpulse =~ /\.\.$/) {
-		my $x_plus  = $X + $DotRightOfNote * $StvHgt; 
-		# should only raise dot if note on line ...
-		my $y_minus = $Y + $DotAboveNote * $StvHgt; 
+		my $x_plus  = $X + $dot_right_of_rest * $StvHgt;  # 3.2n
+		my $y_minus = $Y + $dot_above_note * $StvHgt;     # 3.2n
 		printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $StvHgt);
 	} elsif ($currentpulse =~ /\.$/) {
-		my $x_plus  = $X + $DotRightOfNote * $StvHgt; 
-		# should only raise dot if note on line ...
-		my $y_minus = $Y + $DotAboveNote * $StvHgt; 
+		my $x_plus  = $X + $dot_right_of_rest * $StvHgt;  # 3.2n
+		my $y_minus = $Y + $dot_above_note * $StvHgt;     # 3.2n
 		printf ("%g %g %g dot\n", $x_plus, $y_minus, $StvHgt);
 	}
 	if ($options) {
@@ -4228,10 +4248,10 @@ __END__
 %%Creator: muscript version $Version
 %%EndComments
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This music was typeset by muscript version $Version. Muscript was written %
-% by Peter Billam, and is available from http://www.pjb.com.au/muscript %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     This music was typeset by muscript,  version: $Version.     %
+% Muscript was written by Peter Billam.  See:  www.pjb.com.au/muscript %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %%BeginProlog
 %%BeginResource: procset muscript
@@ -4551,38 +4571,39 @@ __END__
 
 /hemidemisemiquaverrest {  % x y staveheight hemidemisemiquaverrest  3.2m
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125  0.180  0.048 0 360 arc fill
-	newpath  0      0.37   0.22  245 295 arc -0.05 -0.29 lineto stroke
-	newpath -0.137  0.065  0.048 0 360 arc fill
-	newpath -0.03   0.27   0.22 245 295 arc stroke
-	newpath -0.149 -0.060  0.048 0 360 arc fill
-	newpath -0.06   0.135  0.21 245 292 arc stroke
-	newpath -0.161 -0.175  0.048 0 360 arc fill
-	newpath -0.08   0.02   0.20 245 290 arc stroke grestore
+	newpath -0.10   0.180  0.048 0 360 arc fill
+	newpath  0.03   0.37   0.22  245 295 arc -0.02 -0.29 lineto stroke
+	newpath -0.107  0.065  0.048 0 360 arc fill
+	newpath -0.00   0.27   0.22 245 295 arc stroke
+	newpath -0.120 -0.060  0.048 0 360 arc fill
+	newpath -0.03   0.135  0.21 245 292 arc stroke
+	newpath -0.131 -0.175  0.048 0 360 arc fill
+	newpath -0.05   0.02   0.20 245 290 arc stroke grestore
 } bind def
 
 /demisemiquaverrest {   % usage: x y staveheight demisemiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125  0.18   0.048 0 360 arc fill
-	newpath  0      0.37   0.22  245 295 arc -0.05 -0.21 lineto stroke
-	newpath -0.135  0.065  0.048 0 360 arc fill
-	newpath -0.04   0.275  0.22 245 295 arc stroke
-	newpath -0.145 -0.065  0.048 0 360 arc fill
-	newpath -0.07   0.135  0.21 245 292 arc stroke grestore
+	newpath -0.09   0.18   0.048 0 360 arc fill
+	newpath  0.02   0.37   0.22  245 295 arc -0.01 -0.21 lineto stroke
+	newpath -0.10   0.065  0.048 0 360 arc fill
+	newpath -0.00   0.275  0.22 245 295 arc stroke
+	newpath -0.11  -0.065  0.048 0 360 arc fill
+	newpath -0.03   0.135  0.21 245 292 arc stroke grestore
 } bind def
 
-/semiquaverrest {	% usage: x y staveheight semiquaverrest
+/semiquaverrest {   % usage: x y staveheight semiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125 0.0625 0.05 0 360 arc fill
-	newpath 0 0.25 0.22 245 295 arc -0.05 -0.22 lineto stroke
-	newpath -0.135 -0.07 0.05 0 360 arc fill
-	newpath -0.04 0.14 0.22 245 295 arc stroke grestore
+    newpath -0.09   0.07  0.05 0 360 arc fill
+    newpath  0.03   0.29  0.25   245 290 arc -0.02 -0.22 lineto stroke
+    newpath -0.11  -0.07  0.05 0 360 arc fill
+    newpath -0.01   0.14  0.22 245 285 arc stroke grestore
 } bind def
 
-/quaverrest {	% usage: x y staveheight quaverrest
-	gsave 3 1 roll translate dup scale newpath
-	-0.125 0.0625 0.05 0 360 arc fill newpath 0.04 setlinewidth
-	0 0.25 0.22 245 295 arc -0.05 -0.2 lineto stroke grestore
+/quaverrest {   % usage: x y staveheight quaverrest
+	gsave 3 1 roll translate dup scale 0.035 setlinewidth
+	newpath -0.10   0.08  0.05 0 360 arc fill
+	newpath  0.02   0.29  0.24 245 290 arc -0.03 -0.2 lineto stroke
+	grestore
 } bind def
 
 /crochetrest {	% usage: x y staveheight crochetrest

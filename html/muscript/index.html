@@ -28,7 +28,7 @@ and was announced to the world in 1996.
 The <A HREF="variables.html">ability to define variables</A>
 was introduced in version 3.1<BR>
 <FONT COLOR="#800000" SIZE="+1"><B>New !</B>&nbsp;&nbsp;&nbsp;</FONT>
-The current version of <I>muscript</I> is <B>3.2m</B>,
+The current version of <I>muscript</I> is <B>3.2p</B>,
 a bilingual version, available in both <I>Perl</I> and <I>Lua</I>.
 </P><P>
 <FONT SIZE="+1"><B>
@@ -114,7 +114,8 @@ then <I>muscript</I> will generate output in Encapsulated PostScript
 (EPS) format, 65 points wide and 53 points high in this example.
 This EPS output can then be inserted into word-processor or
 desktop-publishing documents, or it can be converted into JPG format
-and used in web pages. See the <A HREF="#eps2jpg">eps2jpg</A> script,
+and used in web pages. See the <A HREF="#eps2jpg">eps2jpg</A>
+and <A HREF="#eps2jpg">eps2png</A> script,
 and the <I>kdf.txt</I> file in <A HREF="samples/index.html">the samples</A>.
 
 </P><A NAME="systems"><HR></A><H2>Systems</H2><P>
@@ -964,8 +965,8 @@ are done with the <CODE>-cre</CODE> and <CODE>-dim</CODE>
 controller.
 </DD>
 
-<DT><CODE>leg100</CODE></DT><DD>
-This sets the legato, to 100 or to 85 in these examples.
+<DT><CODE>leg99</CODE></DT><DD>
+This sets the legato, to 99 in this example.
 <CODE>leg100</CODE> produces a full legato;
 you can actually go beyond 100, producing an over-legato.
 The default legato is 85, a sort of medium-d&eacute;tach&eacute;.
@@ -1077,6 +1078,11 @@ to reflect where <I>lua</I> is installed on your system.
 You'll also need to install the
 <A HREF="http://www.pjb.com.au/comp/lua/MIDI.html">MIDI.lua</A> module, eg:
 <CODE> &nbsp; &nbsp; luarocks install midi</CODE>
+</P><P>
+All these files are now on
+<I>git</I>
+and can be downloaded by:<BR>
+<CODE> &nbsp; git clone https://github.com/peterbillam/muscript</CODE>
 
 </P><A NAME="tools"><HR></A><H2>Tools</H2><P>
 Various tools exist to manipulate
@@ -1180,14 +1186,27 @@ It needs the SVG Perl module, available from
 search.cpan.org</A>
 
 </DD><DT>
-<CODE><A HREF= "http://www.pjb.com.au/muscript/eps2jpg">
-eps2jpg</A></CODE></DT>
+<CODE>
+<A HREF= "http://www.pjb.com.au/muscript/eps2jpg">eps2jpg</A>
+and
+<A HREF= "http://www.pjb.com.au/muscript/eps2png">eps2png</A>
+</CODE></DT>
 <DD>
-When the input file contains a <CODE>boundingbox</CODE> command,
+When the input file contains a <CODE>
+<A HREF="#boundingbox">boundingbox</A>
+</CODE> command,
 then <I>muscript</I> will generate Encapsulated-PostScript (EPS) output,
-which can be inserted into word-processing documents. 
-This script <I>eps2jpg</I> converts this Encapsulated-PostScript
-into JPG format, which can be used in web pages.
+which can be inserted into word-processing or desktop-publishing documents.<BR>
+The Perl script <I>eps2jpg</I> converts this EPS
+into JPG format (with a white background), which can be used in web pages
+especially if they also have white backgrounds.<BR>
+Or when called under the name <I>eps2png</I> it converts the
+EPS into PNG format (with a transparent background),
+which can be used in web pages even if they have non-white backgrounds.<BR>
+They're the same script, so you can download just one and use <CODE>ln</CODE>
+to link it to the other.<BR>
+It produces its output on <CODE>stdout</CODE>,
+so you can redirect it wherever you want it.
 
 </DD><DT>
 <CODE><A HREF="http://www.pjb.com.au/muscript/a42us">

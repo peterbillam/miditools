@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2m for Lua5'  -- 64 rest and hds7
-VersionDate  = '09apr2016';
+Version = '3.2p for Lua5'  -- fixed ps_beam with stemup beams over accidentals
+VersionDate  = '16apr2016';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -31,7 +31,8 @@ WhiteBlobHalfHeight   = 0.122
 SmallNoteRatio        = 0.61
 SmallStemRatio        = 0.76
 StemFromBlobCentre    = 0.176
-DotRightOfNote        = 0.38
+DotRightOfNote        = 0.36    -- 3.2m
+DotRightOfRest        = 0.29    -- 3.2m
 DotAboveNote          = 0.06
 NoteShift             = 0.28
 AccidentalShift       = 0.19
@@ -63,12 +64,12 @@ OptionDy              = { dot=0.25, tenuto=0.26, upbow=0.43, gs=0.55,
 	blank=0.25, Is=0.35, is=0.33, bs=0.35, rs=0.33, I=0.47, i=0.45,
 	b=0.47, r=0.45, dim=0.0, cre=0.0, ['*']=0.35 }
 MinBeamClearance      = 0.70
-FlatHalfHeight        = 0.10   -- 2.9z; was .2
-SharpHalfHeight       = 0.15
-BeamWidth             = 0.13   -- needed in DATA
+FlatHalfHeight        = 0.42   -- 3.2p
+SharpHalfHeight       = 0.28   -- 3.2p
+BeamWidth             = 0.13   -- used in ps_beam and in DATA
 BeamSpacing           = 0.22
 MaxBeamStub           = 0.35
-BeamGapMult           = 0.5   -- 2.9t
+BeamGapMult           = 0.85   -- 3.2p
 TailSpacing           = 0.24
 MaxBeamGradient       = 0.45   -- dimensionless; dy/dx
 SegnoHeight           = 0.90
@@ -228,10 +229,10 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 %%Creator: muscript $Version
 %%EndComments
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This music was typeset by muscript $Version. Muscript was written %
-% by Peter Billam, and is available from  http://www.pjb.com.au/muscript %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     This music was typeset by muscript,   version: $Version.    %
+% Muscript was written by Peter Billam.  See:  www.pjb.com.au/muscript %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %%BeginProlog
 %%BeginResource: procset muscript
@@ -550,45 +551,45 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 
 /hemidemisemiquaverrest {  % x y staveheight hemidemisemiquaverrest  3.2m
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125  0.180  0.048 0 360 arc fill
-	newpath  0      0.37   0.22  245 295 arc -0.05 -0.29 lineto stroke
-	newpath -0.137  0.065  0.048 0 360 arc fill
-	newpath -0.03   0.27   0.22 245 295 arc stroke
-	newpath -0.149 -0.060  0.048 0 360 arc fill
-	newpath -0.06   0.135  0.21 245 292 arc stroke
-	newpath -0.161 -0.175  0.048 0 360 arc fill
-	newpath -0.08   0.02   0.20 245 290 arc stroke grestore
+	newpath -0.10   0.180  0.048 0 360 arc fill
+	newpath  0.03   0.37   0.22  245 295 arc -0.02 -0.29 lineto stroke
+	newpath -0.107  0.065  0.048 0 360 arc fill
+	newpath -0.00   0.27   0.22 245 295 arc stroke
+	newpath -0.120 -0.060  0.048 0 360 arc fill
+	newpath -0.03   0.135  0.21 245 292 arc stroke
+	newpath -0.131 -0.175  0.048 0 360 arc fill
+	newpath -0.05   0.02   0.20 245 290 arc stroke grestore
 } bind def
 
 /demisemiquaverrest {	% usage: x y staveheight demisemiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125  0.18   0.048 0 360 arc fill
-	newpath  0      0.37   0.22  245 295 arc -0.05 -0.21 lineto stroke
-	newpath -0.135  0.065  0.048 0 360 arc fill
-	newpath -0.04   0.275  0.22 245 295 arc stroke
-	newpath -0.145 -0.065  0.048 0 360 arc fill
-	newpath -0.07   0.135  0.21 245 292 arc stroke grestore
+	newpath -0.09   0.18   0.048 0 360 arc fill
+	newpath  0.02   0.37   0.22  245 295 arc -0.01 -0.21 lineto stroke
+	newpath -0.10   0.065  0.048 0 360 arc fill
+	newpath -0.00   0.275  0.22 245 295 arc stroke
+	newpath -0.11  -0.065  0.048 0 360 arc fill
+	newpath -0.03   0.135  0.21 245 292 arc stroke grestore
 } bind def
 
 /semiquaverrest {	% usage: x y staveheight semiquaverrest
 	gsave 3 1 roll translate dup scale 0.03 setlinewidth
-	newpath -0.125  0.0625 0.05 0 360 arc fill
-	newpath  0 0.25 0.22   245 295 arc -0.05 -0.22 lineto stroke
-	newpath -0.135 -0.07   0.05 0 360 arc fill
-	newpath -0.04   0.14   0.22 245 295 arc stroke grestore
+	newpath -0.09   0.07  0.05 0 360 arc fill
+	newpath  0.03   0.29  0.25   245 290 arc -0.02 -0.22 lineto stroke
+	newpath -0.11  -0.07  0.05 0 360 arc fill
+	newpath -0.01   0.14  0.22 245 285 arc stroke grestore
 } bind def
 
 /quaverrest {	% usage: x y staveheight quaverrest
-	gsave 3 1 roll translate dup scale 0.04 setlinewidth
-	newpath -0.125 0.0625 0.05 0 360 arc fill
-	newpath 0 0.25 0.22 245 295 arc -0.05 -0.2 lineto stroke
+	gsave 3 1 roll translate dup scale 0.035 setlinewidth
+	newpath -0.10   0.08  0.05 0 360 arc fill
+	newpath  0.02   0.29  0.24 245 290 arc -0.03 -0.2 lineto stroke
 	grestore
 } bind def
 
 /crochetrest {	% usage: x y staveheight crochetrest
 	gsave 3 1 roll translate dup scale newpath
-	newpath 0.04 setlinewidth -0.1 0.3 moveto 0.1 0.1 lineto stroke
-	newpath 0.08 setlinewidth 0.03 0.17 moveto -0.07 0.07 lineto stroke
+	newpath 0.04 setlinewidth -0.1   0.3 moveto 0.1 0.1 lineto stroke
+	newpath 0.08 setlinewidth  0.03  0.17 moveto -0.07 0.07 lineto stroke
 	newpath 0.04 setlinewidth -0.098 0.098 moveto 0.08 -0.08 lineto
 	-0.1 -0.05 -0.2 -0.24 0.08 -0.3 curveto stroke grestore
 } bind def
@@ -1613,6 +1614,7 @@ end
 local function dypitch (pitch)
 	local y = Ytable[pitch]
 	if not y then warn_ln('unrecognisable pitch: ',pitch) ; return 0 end
+	if not Stave2clef[Istave] then return y end  -- 3.2m
 	if find(Stave2clef[Istave], '^treble') then y = y + 0.125
 	elseif Stave2clef[Istave] == 'tenor' then y = y + 0.25
 	elseif find(Stave2clef[Istave], '^bass') then y = y - 0.125
@@ -1810,12 +1812,16 @@ local function ps_rest (currentpulse, symbol, X)
 	if find(currentpulse,"-s$") then
 		smallstvhgt = smallstvhgt * SmallStemRatio
 	end
+	local dot_above_note    = DotAboveNote  -- 3.2n
+	local dot_right_of_rest = DotRightOfRest  -- 3.2n
 	if find(currentpulse, "^smb") then
 		Y = Y + 0.25*StvHgt ;  dy = dy + 0.25  -- 4th stave-line
 		printf("%g %g %g smbrest", X,Y,StvHgt)
 		if dy > 0.2 or dy < -1.2 then  -- 2.7t
 			printf("%g %g %g ledger", X,Y,StvHgt)
 		end
+		dot_above_note    = 0.0 - DotAboveNote  -- 3.2n
+		dot_right_of_rest = DotRightOfNote      -- 3.2n
 	elseif find(currentpulse, "^min") then
 		printf("%g %g %g minimrest", X,Y,StvHgt)
 		if dy > 0.2 or dy < -1.2 then  -- 2.7t
@@ -1827,6 +1833,7 @@ local function ps_rest (currentpulse, symbol, X)
 		printf("%g %g %g quaverrest", X,Y,smallstvhgt)
 	elseif find(currentpulse, "^bre") then
 		printf("%g %g %g breverest", X,Y,StvHgt)
+		dot_above_note    = 0.125   -- 3.2n
 	elseif find(currentpulse, "^dsq") then
 		printf("%g %g %g demisemiquaverrest",X,Y,smallstvhgt)
 	elseif find(currentpulse, "^hds") then
@@ -1835,14 +1842,15 @@ local function ps_rest (currentpulse, symbol, X)
 		printf("%g %g %g semiquaverrest", X,Y,smallstvhgt)
 	end
 	if find(currentpulse, "%.%.$") then  -- print the dot, if any
-		local x_plus  = X + DotRightOfNote * StvHgt
+		-- should give breverest more space, probably DotRightOfNote
+		local x_plus  = X + dot_right_of_rest * StvHgt -- 3.2m 3.2n
 		-- should only raise dot if note on line ...
-		local y_minus = Y + DotAboveNote * StvHgt 
+		local y_minus = Y + dot_above_note * StvHgt 
 		printf("%g %g %g doubledot", x_plus,y_minus,StvHgt)
 	elseif find(currentpulse, "%.$") then
-		local x_plus  = X + DotRightOfNote * StvHgt;
+		local x_plus  = X + dot_right_of_rest * StvHgt -- 3.2m 3.2n
 		-- should only raise dot if note on line ...
-		local y_minus = Y + DotAboveNote * StvHgt 
+		local y_minus = Y + dot_above_note * StvHgt    -- 3.2m 3.2n
 		printf("%g %g %g dot", x_plus,y_minus,StvHgt)
 	end
 	if options and option~='' then
@@ -1957,14 +1965,18 @@ local function ps_note (noteref, X, height2cross)
 		if find(CurrentPulseText,'-s$') then
 			sh = sh * SmallNoteRatio
 		end
-		-- should really only raise dot if note is on a line ...
+		-- 3.2o only raise dot if the note is on a line ...
+		local dot_above_note = 0.0  -- 3.2o
+		if math.floor(0.01 + Ytable[noteref['pitch']]*8.0) % 2 > 0.5 then
+			dot_above_note = DotAboveNote*sh
+		end
 		if find(CurrentPulseText,'%.%.') then
-			local x_plus  = X + DotRightOfNote*sh; 
-			local y_minus = Y + DotAboveNote*sh; 
+			local x_plus  = X + DotRightOfNote*sh
+			local y_minus = Y + dot_above_note
 			printf("%g %g %g doubledot", x_plus,y_minus,sh)
 		elseif find(CurrentPulseText,'%.') then
 			local x_plus  = X + DotRightOfNote*sh
-			local y_minus = Y + DotAboveNote*sh
+			local y_minus = Y + dot_above_note
 			printf("%g %g %g dot", x_plus, y_minus, sh)
 		end
 	end
@@ -2116,6 +2128,7 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 	local min_beam_clearance = MinBeamClearance   * StvHgt
 	local sharp_half_height  = SharpHalfHeight    * StvHgt
 	local flat_half_height   = FlatHalfHeight     * StvHgt
+	local beam_width         = BeamWidth          * StvHgt
 	local Direction, x,ylowblob,yhighblob,duration,direction,accidental
 	local durations={}; local xes={};  local ylowblobs={}; local yhighblobs={}
 	local accidentals={}; local optionses={}
@@ -2154,9 +2167,9 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 		table.insert(accidentals, accidental)
 		table.insert(optionses,   options)
 	end
-	local smallstaveheight = StvHgt * smallness;   -- for speed
-	local stem_length   = StemLength*smallstaveheight;
-	local max_beam_stub = MaxBeamStub*smallstaveheight;
+	local smallstaveheight = StvHgt * smallness   -- for speed
+	local stem_length      = StemLength*smallstaveheight
+	local max_beam_stub    = MaxBeamStub*smallstaveheight
 	local x1,xn, ylowblob1,ylowblobn, yhighblob1,yhighblobn, y1,yn
 	x1         = xes[1];         xn         = xes[n]
 	ylowblob1  = ylowblobs[1] ;  ylowblobn  = ylowblobs[n]
@@ -2213,19 +2226,30 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 				end
 			end
 		end
-		-- raise beam if any notes are too high ... 2.9v
+		-- raise beam if any notes are too high ... 2.9v 3.2p
 		dy = yn - y1 ;  dydx = dy / dx
-		for i = 1,n do
+		local half_a_space = 0.125*StvHgt
+		for i = 2,n do  -- 3.2 shouldn't  1,n  really be  2,n  ?
 			x = xes[i]; y = y1 + dydx * (x-x1)
 			ymin = yhighblobs[i] + min_beam_clearance +
-			  BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1)
+			  0.6 * gap * (ps_tails_or_beams(durations[i]) - 1) -- 3.2p
 			if y < ymin then y1 = y1 + ymin - y ; yn = yn + ymin - y end
-			if accidentals[i] ~= '-' then
+			if accidentals[i] ~= '-' then  -- we have an accidental...
 				x = xes[i] - accidental_before_note
 				y = y1 + dydx * (x-x1)
-				-- 2.9z should detect if accidental is flat or sharp...
-				ymin = yhighblobs[i] + min_beam_clearance + flat_half_height
-				if y < ymin then y1 = y1 + ymin - y ;  yn = yn + ymin - y end
+				-- detect if accidental is flat or sharp... 2.9z 3.2p
+				local acc_half_height = sharp_half_height
+				if find(accidentals[i], 'b') then -- 3.2p
+					acc_half_height = flat_half_height
+				end
+				-- detect if accidental touches the lowest beam 3.2p
+-- it's not as easy as durations[i] ! ; eg i=2 with  8 [G# 32 A B c d]
+				local y_clearance = y - acc_half_height - yhighblobs[i] -
+				  BeamGapMult * gap * (ps_tails_or_beams(durations[i]) - 1) -
+				  beam_width - half_a_space  -- 3.2p
+				if y_clearance < 0 then
+					y1 = y1 - y_clearance ; yn = yn - y_clearance
+				end 
 			end
 		end
 		-- print the first (qua) beam anyway ...
@@ -2954,11 +2978,13 @@ local function changestave (stavestr)
 			  ' staves')
 			warn_ln("stavenumber "..tostring(stave)..' too big for system '..
 			  tostring(Isyst))
+			os.exit(1)
 			stave = Nstaves[Isyst]
 		elseif stave < 1 then
 			print("% ERROR: stave = "..tostring(stave)..
 			  ", should be at least one")
 			warn_ln("stavenumber "..tostring(stave).." too small")
+			os.exit(1)
 			stave = 1
 		end
 		Ystv      = Ystave[Isyst][Istave]      -- timesaver
@@ -3225,6 +3251,10 @@ local function newbar (line)
 		Xml['staves'] = '1'
 		xml_timesig(line[1])
 	else 
+		if not Nbars[Isyst] then  -- 3.2n
+			warn_ln('missing "bars" line before the newbar "|" symbol')
+			return false
+		end
 		if Isyst>0.5 and bit32.band(BarType[Isyst][Ibar],2)>0.5 then
 			ps_finish_ties(Xbar[Isyst][Ibar])  -- is :|| or :||:
 		end
@@ -4664,13 +4694,17 @@ local function newstave (line)
 	else
 		-- The spacing of the bar was specified in Nparts parts
 		-- BUG ! if the "|" line after a "N bars " is omitted, nparts = 0 !!
-		if Nparts[Isyst][Ibar] then
+		if  Nparts[Isyst] and Nparts[Isyst][Ibar] then  -- 3.2n
 			CrosPerPart = CrosSoFar / Nparts[Isyst][Ibar]
 		else print_sp(
 			  '% ERROR: no | before stave line, page',PageNum,', sys',Isyst)
 			warn_ln('bad syntax: no | before stave line')
-			Ibar = 1
-			CrosPerPart = 10 -- ugly but legal
+			return false  -- 3.2n  more rigorous than muscript_pl
+			-- Ibar = 1
+			-- Xbar[Isyst]      = {} -- 3.2n
+			-- Nparts[Isyst]    = {} -- 3.2n
+			-- Nparts[Isyst][1] = 1  -- 3.2n
+			-- CrosPerPart = 10 -- ugly but legal
 		end
 		-- so what are the corresponding x positions ?
 		-- NB! Xpart[n] is the left end of part n, but Xbar{s,m} is right end
@@ -4935,7 +4969,7 @@ local function interpret_syntax (line)
 		boundingbox(s1,s2); return
 	end
 	if not MIDI and not XmlOpt and not PS_prologAlready then ps_prolog() end
-	s1,s2 = match(line, '^([1-9][0-9]*)%s+systems%s+(.*)$')
+	s1,s2 = match(line, '^([1-9][0-9]*)%s+systems?%s+(.*)$')
 	if s2 then systems(s1,s2); return end
 	s1 = match(line,'^midi%s*(.*)$') ; if s1 then   -- 3.1f
 		if      s1 == 'on'  then Midi_off = false
