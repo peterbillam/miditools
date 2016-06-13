@@ -77,19 +77,19 @@ Since version 2.0, <A HREF="#option_i">the -i and -o options</A>
 allow <I>midiecho</I> to work on real-time (raw) midi inputs,
 as well as on midi files.
 </p><p>Midiecho sounds best if
-<A HREF="#option_e">the -e option</A> or
-<A HREF="#option_e">the -E option</A>
+<A HREF="#option_e">the -e option</A>
 is used, to assign the echoes to different MIDI-channels;
-this avoids notes being restarted before they have finished.
-Without -e, <i>midiecho</i> works much better on transient sounds,
+this avoids notes being restarted before they have finished. &nbsp;
+If <A HREF="#option_e">the -e option</A> is not used,
+the echo note is played on the same channel as the original note,
+and in this mode <i>midiecho</i> works much better on transient sounds,
 e.g. banjo, or snare-drum.
 </p><p>
-If <A HREF="#option_e">the -e option</A> is not being used,
-then the echo note is played on the same channel as the original note.
-</p><p>
-Since version 2.5, the -E option works like the -e option,
-except not just the Note-On and Note-Off events are echoed,
-but also the Control-Change and Pitch-Bend events.
+Since version 4.5,
+<A HREF="#option_E">the -E option</A> specifies the list of CC controllers
+which will be echoed to the echo-channels.
+This is different from previous versions,
+in which the -E option did not work and was undocumented.
 </p><p>
 Since version 2.6, the delays are incremental (since the previous
 delay) not absolute (since the original note); this is a bug-fix,
@@ -152,6 +152,7 @@ within one <I>midiecho</I> process.
 <A HREF="#option_c">-c</A>, &nbsp;
 <A HREF="#option_d">-d</A>, &nbsp;
 <A HREF="#option_e">-e</A>, &nbsp;
+<A HREF="#option_E">-E</A>, &nbsp;
 <A HREF="#option_n">-n</A>, &nbsp;
 <A HREF="#option_p">-p</A>, &nbsp;
 <A HREF="#option_w">-w</A>, &nbsp;
@@ -185,26 +186,48 @@ If -d is not specified, the default delay is just 300 mS</p>
 
 <dt><strong><a name="option_e"><em>-e 4,5,4</em></a></strong>
 <dd>
-<p>The <strong>E</strong>choes are generated
+<p>The <B>e</B>choes are generated
 not on the original (-c) channel,
 but on the channels 4 then 5 then 4 again
 (in this example there are three echoes).
 This is a really useful option :-)
-</p><p>
+<BR>
 As one example usage, you might have set up your synth's channel 4 and 5
 with the same patch (instrumental sound) as the original channel (e.g. 3),
 but panned to different places in the stereo image.
 This creates a very realistic echo-effect.
-</p><p>
+<BR>
 Another example usage could be to set up the echo-channels with a
 completely different sound, maybe something atmospheric or ethereal.
-</p><p>
+<BR>
 Another example usage could be to set up the echo-channels
 with a different patch, and use a 1ms delay, thus doubling
 the original channel with a different sound.
-</p><p>
+<BR>
 If the number of echo-channels (-e) is fewer than the number of delays
 in the -d list, then the last echo-channel is repeated as necessary.
+<BR>
+By default, the controllers CCs
+<a href="../muscript/gm.html#cc">
+0,1,5,11,32,64,65,66,84 (Bankselect,Modulation,Portamento,Expression,Pedals)
+</a>
+go through to the echo-channels.
+But if you want to control the echo-channels independently in
+these controllers, see the <B>-E</B> option&nbsp;.&nbsp;.&nbsp;.
+</p>
+</dd>
+
+<dt><strong><a name="option_E"><em>-E 1,11,64,66</em></a></strong>
+<dd>
+<p>Only the controller-numbers specified here will
+get echoed into the echo-channels.<BR>
+In this example, just
+<a href="../muscript/gm.html#cc">Modulation, Pan, and the Pedals</a>
+get echoed, so that the echo-channels in these controllers follow the
+<A HREF="#option_c">the <B>-c</B></A> channel<BR>
+<B>-E</B> needs a parameter, so if you want to block all CCs
+set it to some irrelevant controller, eg:
+<CODE>-E&nbsp;999</CODE>
 </p>
 </dd>
 
@@ -388,6 +411,8 @@ module.
 <hr />
 <h3><a name="changes">CHANGES</a></h3>
 <p>
+<BR><B>4.5</B>, 20160613, the <A HREF="#option_E">-E option</A>
+specifies which controllers get echoed
 <BR><B>4.4</B>, 20160326, <A HREF="#option_N">-i 0 option</A> doesn't connect
 from anything, conforming to <A HREF="midichord.html">midichord</A> usage
 <BR><B>4.3</B>, 20140704, <A HREF="#option_N">-N option</A> to set the ALSA-Client name

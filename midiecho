@@ -9,14 +9,12 @@
 # Simulates (very roughly) a tape-delay echo on a particular MIDI-channel
 # in a MIDI-file, or, since 2.0. on real-time-MIDI,
 # by issuing repeated note_on events with diminishing volume.  YMMV!
-#
-# Given -c 0 -e 1, I need an option to also echo cc64 on cha0 to cc64 on cha1
 
 use Term::ReadKey;
 use bytes;
 
-my $Version      = '4.4';   # -i 0 option doesn't connect from anything
-my $VersionDate  = '26mar2016';
+my $Version      = '4.5';   # -E specifies which controllers get echoed
+my $VersionDate  = '13jun2016';
 my %Channel      = ('0',1); # MIDI channel on which the echoes will be added
 my %EchoNotes    = ();      # MIDI notes to which the echoes will be added
 my @Delays       = (300);   # incremental milliseconds of the various delays
@@ -26,7 +24,8 @@ my %PitchWheel   = ();      # pitch_wheel, -1..+1 semitones, -4095..+4096
 my @PitchDelta   = ();      # int(PitchChange/100) added to note-pitch
 my @Patches      = ();      # the Patches that the echo-channels will be set to
 my @Softenings   = (25);    # decremental velocites (loudness) of the echoes
-my %DoEchoCC     = map {$_,1} (1,5,11,64,65,66,84); # Modul,Portam,Expr,Pedals
+my %DoEchoCC     = map {$_,1} (1,5,11,64,65,66,84);
+# do echo Modulation,Portamento,Expression and Pedals
 my $Debug        = 0;
 my $AlsaName     = "midiecho pid=$$";   # 4.3 for -N option
 # no display in real-time-mode; for use in background, and in scripts:
@@ -34,6 +33,7 @@ my $Quiet        = 0;
 my $RealTimeMode = 0;
 my $InputPort    = q{};
 my $OutputPort   = q{};
+my $E_option     = 0;
 # vt100 globals
 my $CursorRow    = 7;
 my $Irow         = 1;
@@ -60,8 +60,8 @@ while ($ARGV[$[] =~ /^-(\w)/) {
 		@Echoes      = split (',', $a);
 	} elsif ($1 eq 'E') { shift;
 		my $a = shift; if ($a !~ /^\d[\d,]*$/) { die "bad -E arg: $a\n"; }
-		@Echoes      = split (',', $a);
-		%DoEchoCC    = map { $_, 1 } split (',', $a);
+		%DoEchoCC  = map { $_, 1 } split (',', $a);
+		$E_option = 1;
 	} elsif ($1 eq 'p') { shift;
 		my $a = shift; if ($a !~ /^[\d,]*$/)   { die "bad -p arg: $a\n"; }
 		@Patches = split (',', $a);
@@ -488,6 +488,7 @@ sub display_equivalent_cmd {
 	my @c = sort keys %Channel;
 	my $s = "midiecho -c $c[$[] -d ".join(",",@Delays);
 	if (@Echoes) { $s .= " -e ".join(",",@Echoes); }
+	if ($E_option) { $s .= " -E ".join(",",sort keys %DoEchoCC); }
 	$s .= " -s ".join(",",@Softenings);
 	if (@Patches) { $s .= " -p ".join(",",@Patches); }
 	if (@PitchChanges) { $s .= " -w ".join(",",@PitchChanges); }
@@ -948,7 +949,7 @@ Since version 2.0, the -i and -o options
 allow I<midiecho> to work on real-time (raw) midi inputs,
 as well as on midi files.
 
-Midiecho sounds best if the -e or -E option is used, to assign the
+Midiecho sounds best if the -e option is used, to assign the
 echoes to different MIDI-channels; this avoids notes being
 restarted before they have finished.
 Without -e, I<midiecho> works much better on transient sounds,
@@ -961,9 +962,10 @@ If this leaves your synth chopping of lots of notes
 then your synth is probably stateless, 
 and you should try invoking midiecho with the -S option.
 
-Since version 2.5, the -E option works like the -e option,
-except not just the Note-On and Note-Off events are echoed,
-but also the Control-Change and Pitch-Bend events.
+Since version 4.5, the -E option specifies the list of CC controllers
+which do get echoed to the echo-channels.
+This is different from previous versions,
+in which the -E option did not work and was undocumented.
 
 Since version 2.6, the delays are incremental (since the previous delay)
 not absolute (since the original note);
@@ -1028,14 +1030,6 @@ The B<-s> option replaces the -q option,
 because in the real-time mode keyboard interface B<q> means quit.
 
 =back
-
-B<Coming Soon:>
-currently, echo can only be applied to one channel.
-Over the next couple of releases this restriction may be removed.
-To make this possible, a more compact notation may be introduced
-to replace the -d, -e, -m, -n, -p and -w options:
-
- midiecho -c 0 d300e1p0cc73=95cc10=15 d300e2p74cc10=103
 
 =head1 OPTIONS
 
