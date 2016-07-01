@@ -44,8 +44,8 @@
 
 use Time::HiRes;  # 5.3
 
-my $Version = '7.7'; # after Find, \cH or Backspace returns to where you were
-my $VersionDate = '20151106';
+my $Version = '7.8'; # -d on multi-track files resets ticks to 0 each track
+my $VersionDate = '20160701';
 my $UseCurses = 1;
 my $TopKeystrokesLine;   # set by display_keystrokes
 my $OutputPort = $ENV{'ALSA_OUTPUT_PORTS'};
@@ -179,7 +179,8 @@ if (! $UseCurses) {
 	my @text = split(/\n/, $text);
 	my $tmp = "/tmp/midiedit.$$";
 	if (! open(T, '>', $tmp)) { die "can't open $tmp: $!\n"; }
-	local $ticks = 0;
+	# local $ticks = 0;
+	# should reset ticks with each new Track !
 	foreach my $line (@text) { print T $line.line2comment($line)."\n"; }
 	close T;
 	while (1) {
@@ -2214,10 +2215,10 @@ sub to_millisecs {
 
 #----------------- non-Curses infrastructure -----------------
 sub line2comment { my $line = $_[$[];
-	if ($line =~ /[a-z]', (\d+), /) {
-		$ticks += $1;
-	} else {
-		return q{};
+	my $ticks = 0;   # 7.8
+	if ($line =~ /[a-z]', (\d+), /) { $ticks += $1;
+	} elsif ($line =~ /MIDI::Track->new/) {  $ticks = 0; return q{};  # 7.8
+	} else { return q{};
 	}
 	my $len = length $line;
 	my $spaces = " ";
@@ -2366,6 +2367,7 @@ so you have to keep track of matching note_ons and note_offs.
 
 =head1 CHANGES
 
+ 7.8 20160701, -d with multi-track midi-files resets ticks to 0 each track
  7.7 20151106, after a Find, ctrl-H or Backspace returns to where you were
  7.6 20151105, finding a marker matches on a substring
  7.5 20151031, like 7.4, except it also works for multiple un-do's
