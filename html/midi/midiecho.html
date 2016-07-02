@@ -171,7 +171,7 @@ The channels are numbered from 0...15
 &nbsp;
 If -c is not specified, the default channel is 0.
 &nbsp;
-Currently, <I>midiecho</I> can only add echoes to one channel
+<I>midiecho</I> can only add echoes to one channel
 at once; the other channels pass through unaltered.</p>
 </dd>
 
@@ -208,9 +208,8 @@ If the number of echo-channels (-e) is fewer than the number of delays
 in the -d list, then the last echo-channel is repeated as necessary.
 <BR>
 By default, the controllers CCs
-<a href="../muscript/gm.html#cc">
-0,1,5,11,32,64,65,66,84 (Bankselect,Modulation,Portamento,Expression,Pedals)
-</a>
+<a href="../muscript/gm.html#cc"> 0,1,5,11,32,64,65,66,84
+(Bankselect,Modulation,Portamento,Expression,Pedals)</a>
 go through to the echo-channels.
 But if you want to control the echo-channels independently in
 these controllers, see the <B>-E</B> option&nbsp;.&nbsp;.&nbsp;.
@@ -267,7 +266,7 @@ speakers they don't beat with each other, and sound almost like two
 instruments playing in unison.
 </P><P>
 With larger parameters, it can be used to produce doubling at
-a large interval; e.g. &nbsp; <I>-d&nbsp;2&nbsp;-w&nbsp;1200</I> &nbsp;
+a large interval; e.g. &nbsp; <CODE>-d&nbsp;2&nbsp;-w&nbsp;1200</CODE> &nbsp;
 causes the original
 voice to be doubled (with a delay of 2mS) at the octave (1200 cents).
 </p>

@@ -1201,12 +1201,17 @@ The Perl script <I>eps2jpg</I> converts this EPS
 into JPG format (with a white background), which can be used in web pages
 especially if they also have white backgrounds.<BR>
 Or when called under the name <I>eps2png</I> it converts the
-EPS into PNG format (with a transparent background),
+EPS into PNG format.<BR>
+Or when called with the <B>-t</B> option it converts the
+EPS into PNG format with a transparent background,
 which can be used in web pages even if they have non-white backgrounds.<BR>
-They're the same script, so you can download just one and use <CODE>ln</CODE>
+<I>eps2jpg</I> and <I>eps2png</I> are the same script,
+so you can download just one and use <CODE>ln</CODE>
 to link it to the other.<BR>
-It produces its output on <CODE>stdout</CODE>,
-so you can redirect it wherever you want it.
+They produce their output on <CODE>stdout</CODE>,
+so you can redirect it wherever you want it.<BR>
+See &nbsp; <CODE>perldoc pgn2jpg</CODE> &nbsp;
+or &nbsp; <CODE>perldoc pgn2png</CODE>
 
 </DD><DT>
 <CODE><A HREF="http://www.pjb.com.au/muscript/a42us">
