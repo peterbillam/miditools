@@ -179,8 +179,7 @@ if (! $UseCurses) {
 	my @text = split(/\n/, $text);
 	my $tmp = "/tmp/midiedit.$$";
 	if (! open(T, '>', $tmp)) { die "can't open $tmp: $!\n"; }
-	# local $ticks = 0;
-	# should reset ticks with each new Track !
+	local $ticks = 0;   # 7.8 line2comment resets ticks with each new Track
 	foreach my $line (@text) { print T $line.line2comment($line)."\n"; }
 	close T;
 	while (1) {
@@ -2215,7 +2214,6 @@ sub to_millisecs {
 
 #----------------- non-Curses infrastructure -----------------
 sub line2comment { my $line = $_[$[];
-	my $ticks = 0;   # 7.8
 	if ($line =~ /[a-z]', (\d+), /) { $ticks += $1;
 	} elsif ($line =~ /MIDI::Track->new/) {  $ticks = 0; return q{};  # 7.8
 	} else { return q{};
