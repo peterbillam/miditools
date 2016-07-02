@@ -2176,34 +2176,62 @@ sub file2ms_score {
 
 #------------------------ Other Transformations ---------------------
 
-sub to_millisecs {
+sub to_millisecs {   # 20160702 rewrite, following MIDI.lua 6.7
 	my @old_opus = @_;
-	if (!@old_opus) {
-		return (1000,[],);
-	}
-	my $old_tpq  = $_[$[];
+	if (!@old_opus) { return (1000,[],); }
+	my $old_tpq  = $old_opus[$[];
 	my @new_opus = (1000,);
-	my $millisec_per_old_tick = 1000.0 / $old_tpq;  # float: will round later
+	# 6.7 first go through building a table of set_tempos by absolute-tick
+	my %ticks2tempo = ();
 	$itrack = $[+1;
 	while ($itrack <= $#old_opus) {
-		my $millisec_so_far = 0.0;
-		my $previous_millisec_so_far = 0.0;
-		my @new_track = (['set_tempo',0,1000000],);  # new "crochet" is 1 sec
+		my $ticks_so_far = 0;
 		foreach my $old_event_ref (@{$old_opus[$itrack]}) {
 			my @old_event = @{$old_event_ref};
-			# print "to_millisecs: old_event = @old_event\n";
 			if ($old_event[0] eq 'note') {
 				_die 'to_millisecs needs an opus, not a score';
 			}
-			my @new_event = deepcopy(@old_event);  # copy.deepcopy ?
-			$millisec_so_far += ($millisec_per_old_tick * $old_event[1]);
-			$new_event[1] = round($millisec_so_far-$previous_millisec_so_far);
+			$ticks_so_far += $old_event[1];
 			if ($old_event[0] eq 'set_tempo') {
-				$millisec_per_old_tick = $old_event[2] / (1000.0 * $old_tpq);
-			} else {
-				$previous_millisec_so_far = $millisec_so_far;
+				$ticks2tempo{$ticks_so_far} = $old_event[2];
+			}
+		}
+		$itrack += 1;
+	}
+	# then get the sorted-array of their keys
+	my @tempo_ticks = sort { $a <=> $b; } keys %ticks2tempo;
+	#  then go through converting to millisec, testing if the next
+	#  set_tempo lies before the next track-event, and using it if so.
+	$itrack = $[+1;
+	while ($itrack <= $#old_opus) {
+		my $ms_per_old_tick = 1000.0 / $old_tpq;  # will round later
+		my $i_tempo_ticks = 0;
+		my $ticks_so_far = 0;
+		my $ms_so_far = 0.0;
+		my $previous_ms_so_far = 0.0;
+		my @new_track = (['set_tempo',0,1000000],);  # new "crochet" is 1 sec
+		foreach my $old_event_ref (@{$old_opus[$itrack]}) {
+			# detect if ticks2tempo has something before this event
+			# 20160702 if ticks2tempo is at the same time, leave it
+			my @old_event = @{$old_event_ref};
+			my $event_delta_ticks = $old_event[1];
+			if ($i_tempo_ticks <= $#tempo_ticks and
+			  $tempo_ticks[$i_tempo_ticks] < ($ticks_so_far+$old_event[1])) {
+				my $delta_ticks = $tempo_ticks[$i_tempo_ticks]-$ticks_so_far;
+				$ms_so_far += ($ms_per_old_tick * $delta_ticks);
+				$ticks_so_far = $tempo_ticks[$i_tempo_ticks];
+				$ms_per_old_tick=$ticks2tempo{$ticks_so_far}/(1000*$old_tpq);
+				$i_tempo_ticks += 1;
+				$event_delta_ticks -= $delta_ticks;
+			}   # now handle the new event
+			my @new_event = deepcopy(@old_event);  # copy.deepcopy ?
+			$ms_so_far += ($ms_per_old_tick * $old_event[1]);
+			$new_event[1] = round($ms_so_far-$previous_ms_so_far);
+			if ($old_event[0] ne 'set_tempo') { # set_tempos already handled!
+				$previous_ms_so_far = $ms_so_far;
 				push @new_track, \@new_event;
 			}
+			$ticks_so_far += $event_delta_ticks;
 		}
 		push @new_opus, \@new_track;
 		$itrack += 1;
