@@ -121,8 +121,9 @@ event, with a duration:
 
 import sys, struct, os, copy
 # sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb')
-Version = '6.5'
-VersionDate = '20150921'
+Version = '6.6'
+VersionDate = '20160702'
+# 20160702 6.6 to_millisecs() now handles set_tempo across multiple Tracks
 # 20150921 6.5 segment restores controllers as well as patch and tempo
 # 20150914 6.4 text data is bytes or bytearray, not ISO-8859-1 strings
 # 20150628 6.3 absent any set_tempo, default is 120bpm (see MIDI file spec 1.1)
@@ -414,24 +415,52 @@ but it does make it easy to mix different scores together.
         _warn('to_millisecs: the opus '+str(type(old_opus))+' has no elements')
         return [1000,[],]
     new_opus = [1000,]
-    #millisec_per_old_tick=1000.0 / old_tpq
-    millisec_per_old_tick = 500.0 / old_tpq  # float: will round later 6.3
+    # 6.7 first go through building a table of set_tempos by absolute-tick
+    ticks2tempo = {}
     itrack = 1
     while itrack < len(old_opus):
-        millisec_so_far = 0.0
-        previous_millisec_so_far = 0.0
-        new_track = [['set_tempo',0,1000000],]  # new "crochet" is 1 sec
+        ticks_so_far = 0
         for old_event in old_opus[itrack]:
             if old_event[0] == 'note':
                 raise TypeError('to_millisecs needs an opus, not a score')
-            new_event = copy.deepcopy(old_event)
-            millisec_so_far += (millisec_per_old_tick * old_event[1])
-            new_event[1] = round(millisec_so_far - previous_millisec_so_far)
+            ticks_so_far += old_event[1]
             if old_event[0] == 'set_tempo':
-                millisec_per_old_tick = old_event[2] / (1000.0 * old_tpq)
-            else:
-                previous_millisec_so_far = millisec_so_far
+                ticks2tempo[ticks_so_far] = old_event[2]
+        itrack += 1
+    # then get the sorted-array of their keys
+    tempo_ticks = []  # list of keys
+    for k in ticks2tempo.keys():
+        tempo_ticks.append(k)
+    tempo_ticks.sort()
+    # then go through converting to millisec, testing if the next
+    # set_tempo lies before the next track-event, and using it if so.
+    itrack = 1
+    while itrack < len(old_opus):
+        ms_per_old_tick = 500.0 / old_tpq  # float: will round later 6.3
+        i_tempo_ticks = 0
+        ticks_so_far = 0
+        ms_so_far = 0.0
+        previous_ms_so_far = 0.0
+        new_track = [['set_tempo',0,1000000],]  # new "crochet" is 1 sec
+        for old_event in old_opus[itrack]:
+            # detect if ticks2tempo has something before this event
+            # 20160702 if ticks2tempo is at the same time, leave it
+            event_delta_ticks = old_event[1]
+            if (i_tempo_ticks < len(tempo_ticks) and
+              tempo_ticks[i_tempo_ticks] < (ticks_so_far + old_event[1])):
+                delta_ticks = tempo_ticks[i_tempo_ticks] - ticks_so_far
+                ms_so_far += (ms_per_old_tick * delta_ticks)
+                ticks_so_far = tempo_ticks[i_tempo_ticks]
+                ms_per_old_tick = ticks2tempo[ticks_so_far] / (1000.0*old_tpq)
+                i_tempo_ticks += 1
+                event_delta_ticks -= delta_ticks
+            new_event = copy.deepcopy(old_event)  # now handle the new event
+            ms_so_far += (ms_per_old_tick * old_event[1])
+            new_event[1] = round(ms_so_far - previous_ms_so_far)
+            if old_event[0] != 'set_tempo':
+                previous_ms_so_far = ms_so_far
                 new_track.append(new_event)
+            ticks_so_far += event_delta_ticks
         new_opus.append(new_track)
         itrack += 1
     _clean_up_warnings()
