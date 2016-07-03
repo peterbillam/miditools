@@ -17,17 +17,17 @@ CONTENT="MIDI, Lua, module, luarock, score, opus">
 <TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
 <TR><TD ALIGN="left">
 <ul>
-	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#functions">FUNCTIONS</a></li>
 	<li><a href="#events">EVENTS</a></li>
+	<li><a href="#data_types">DATA TYPES</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
-	<li><a href="#data_types">DATA TYPES</a></li>
 	<li><a href="#public_access_tables">PUBLIC-ACCESS TABLES</a></li>
 	<li><a href="#download">DOWNLOAD</a></li>
+	<li><a href="#changes">CHANGES</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
 </ul>
@@ -521,8 +521,44 @@ or, if you're using Lua 5.3:
 <p>
 </p>
 <hr />
+<h2><a name="changes">CHANGES</a></h2><pre>
+ 20160702 6.7 to_millisecs() now handles set_tempo across multiple Tracks
+ 20150921 6.5 segment restores controllers as well as patch and tempo
+ 20150920 6.4 segment respects a set_tempo exactly on the start time
+ 20150628 6.3 absent any set_tempo, default is 120bpm (see MIDI filespec 1.1)
+ 20150422 6.2 works with lua5.3
+ 20140609 6.1 switch pod and doc over to using moonrocks 
+ 20140108 6.0 in lua5.2 require('posix') returns the posix table
+ 20120504 5.9 add the contents of mid_opus_tracks()
+ 20111129 5.7 _encode handles empty tracks; score2stats num_notes_by_channel
+ 20111111 5.6 fix patch 45 and 46 in Number2patch, should be Pizz and Harp
+ 20110115 5.5 add mix_opus_tracks()
+ 20110126 5.4 "previous message repeated N times" to save space on stderr
+ 20110126 5.3 robustness fix if one note_on and multiple note_offs
+ 20110125 5.2 opus2score terminates unended notes at the end of the track
+ 20110124 5.1 the warnings in midi2opus display track_num
+ 20110122 5.0 sysex2midimode.get pythonism eliminated
+ 20110119 4.9 copyright_text_event "time" item was missing
+ 20110110 4.8 note_on with velocity=0 treated as a note-off
+ 20110109 4.7 many global vars localised, passes lualint :-)
+ 20110108 4.6 duplicate int2sevenbits removed, passes lualint -r
+ 20110108 4.5 related end_track bugs fixed around line 516
+ 20110108 4.4 null text_event bug fixed
+ 20101026 4.3 segment() remembers all patch_changes, not just the list values
+ 20101010 4.2 play_score() uses posix.fork if available
+ 20101009 4.2 merge_scores() moves aside conflicting channels correctly
+ 20101006 4.1 concatenate_scores() deepcopys also its 1st score
+ 20101006 4.1 segment() uses start_time and end_time named arguments
+ 20101005 4.1 timeshift() must not pad the set_tempo command
+ 20101003 4.0 pitch2note_event must be chapitch2note_event
+ 20100918 3.9 set_sequence_number supported, FWIW
+ 20100918 3.8 timeshift and segment accept named args
+ 20100913 3.7 first released version
+</pre>
+<hr />
 <h2><a name="author">AUTHOR</a></h2>
-<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>Peter J Billam, &nbsp;
+<a href="http://www.pjb.com.au/comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
 <p>
 </p>
 <hr />
