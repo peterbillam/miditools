@@ -708,7 +708,10 @@ sub opus2file {
 		$cpan_opus->write_to_file( '>-' );
 	} elsif ($filename eq '-d') {
 		$PID = fork;
-		if (! $PID) {
+		if ($PID) {
+			eval "sub END { kill 'INT', $PID; wait;}";
+			$SIG{'HUP'} = sub { exit; };
+		} else {
 			if (!open(P, '| aplaymidi -')) { die "can't run aplaymidi: $!\n"; }
 			$cpan_opus->write_to_handle( *P{IO}, {} );
 			close P;
@@ -963,7 +966,7 @@ then your synth is probably stateless,
 and you should try invoking midiecho with the -S option.
 
 Since version 4.5, the -E option specifies the list of CC controllers
-which do get echoed to the echo-channels.
+which get echoed to the echo-channels.
 This is different from previous versions,
 in which the -E option did not work and was undocumented.
 

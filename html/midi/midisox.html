@@ -332,7 +332,9 @@ Does a statistical check on the MIDI, and prints results on <I>stderr</I>.
 <BR>
 This <I>sox</I>-compatible behaviour means if you want to
 <I>grep</I> the output, you redirect <I>stderr</I>, e.g.:<BR><CODE>
- &nbsp; &nbsp; midisox mix3.mid -n stat 2&gt;&amp;1 | grep patch_changes_by_track 
+ &nbsp; &nbsp;
+midisox mix3.mid -n stat 2&gt;&amp;1 | grep patch_changes_by_track<BR>
+ &nbsp; &nbsp; midisox mix3.mid -n stat 2&gt;&amp;1 | grep nticks
 </CODE><BR>
 The MIDI is passed unmodified through the processing chain.<BR>
 The <I>-freq</I> option calculates the input's MIDI-pitch-spectrum
