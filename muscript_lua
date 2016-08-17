@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2p for Lua5'  -- fixed ps_beam with stemup beams over accidentals
-VersionDate  = '16apr2016';
+Version = '3.2r for Lua5'  -- fixed midi global transpose
+VersionDate  = '17aug2016';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -638,8 +638,8 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 
 /barnumber {	% usage: x y staveheight (string) barnumber
 	/s exch def /staveheight exch def /y exch def /x exch def
-	gsave Helvetica-Bold findfont  staveheight 0.6 mul scalefont setfont
-	0.8 setgray x s stringwidth pop 0.5 mul sub  y moveto
+	gsave /Helvetica-Bold findfont  staveheight 0.6 mul scalefont setfont
+	0.2 setgray x s stringwidth pop 0.5 mul sub  y moveto
 	s show grestore
 } bind def
 
@@ -3401,11 +3401,11 @@ local function midi_global (s)
 			if str['vib']     then midi_cc_100(cha,77,str['vib})']) end
 			if str['delay']   then midi_cc_100(cha,78,str['delay']) end
 			if str['chorus']  then midi_cc_100(cha,93,str['chorus']) end
-			if str['tra']       then
-				Cha2transpose[cha] = tonumber(str['tra'])
+			if str['tra']       then  -- 3.2r
+				Cha2transpose[tonumber(cha)] = tonumber(str['tra'])
 			end
-			if str['transpose'] then   -- 3.1u
-				Cha2transpose[cha] = tonumber(str['transpose'])
+			if str['transpose'] then   -- 3.1u 3.2r
+				Cha2transpose[tonumber(cha)] = tonumber(str['transpose'])
 			end
 		elseif str['pause'] then
 			if MidiTempo then  -- uSec per crochet
@@ -4401,21 +4401,22 @@ function substitute (text, infinite_depth)
 		local val = Vars[var]
 		if type(val) == 'function' then
 			text=gsub(text,VariableGetRE_f, function() return val() end)
--- warn('substitute: text=',text)
+			-- warn('substitute: text=',text)
 		elseif type(val) == 'table' then  -- multiline, stored as arrayref
 			local raw_lines = {} ;
 			for i,v in ipairs(val) do raw_lines[i]=v end
 			local subst_lines = {}
 			while #raw_lines > 0.5 do
 				local raw_line = table.remove(raw_lines, 1)
--- warn('substitute: raw_line=',dump(raw_line))
-				if not raw_line or raw_line=='' then break end
+				-- warn('substitute: raw_line=',dump(raw_line))
+				-- if not raw_line or raw_line=='' then break end -- ?? 3.2q
+				if not raw_line then break end -- 3.2q  superfluous ?
 				if find(raw_line, VariableSetRE_f) then
 					table.insert(raw_lines, 1, raw_line)
 					local n = set_var(raw_lines, 1, infinite_depth)
 					for i = n,#raw_lines do raw_lines[i-n+1]=raw_lines[i] end
 					raw_lines[#raw_lines-n+2] = nil
-				else
+				elseif raw_line ~= '' then   -- 3.2q
 					for i,v in ipairs(substitute(raw_line,infinite_depth)) do
 						subst_lines[#subst_lines+1] = v
 					end
@@ -4427,7 +4428,7 @@ function substitute (text, infinite_depth)
 			warn_ln("variable ",var," is undefined")
 			text = gsub(text, VariableGetRE_m, '')
 		elseif val then
--- warn('substitute: var='..var..'  val='..val..'\n')
+			-- warn('substitute: var='..var..'  val='..val..'\n')
 			text = gsub(text, '%$'..var, val)
 		end
 	end
