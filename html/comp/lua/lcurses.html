@@ -26,12 +26,15 @@ DIV.txt  { margin-left: 4% }
     <li><a href="#name">NAME</a></li>
     <li><a href="#synopsis">SYNOPSIS</a></li>
     <li><a href="#description">DESCRIPTION</a></li>
-    <li><a href="#curses_functions">CURSES FUNCTIONS</a></li>
-    <li><a href="#window_methods">WINDOW METHODS</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
+    <li><a href="#curses_functions">CURSES FUNCTIONS</a></li>
+    <li><a href="#window_methods">WINDOW METHODS</a></li>
     <li><a href="#constants">CONSTANTS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
     <li><a href="#compatibility">COMPATIBILITY</a></li>
     <li><a href="#installation">INSTALLATION</a></li>
     <li><a href="#author">AUTHOR</a></li>
@@ -47,7 +50,12 @@ DIV.txt  { margin-left: 4% }
 </p>
 <h2><a name="name">NAME</a></h2><DIV CLASS="txt">
 <p><strong>lcurses</strong> &nbsp; - &nbsp;
-a C library for Lua 5.1 that wraps the curses API.
+wraps the curses API for Lua.
+<B>This page is now out of date. You should consult:<BR>
+<A HREF="http://lcurses.github.io/lcurses/">
+lcurses.github.io/lcurses/</A> &nbsp; and &nbsp;
+<A HREF="http://lcurses.github.io/lcurses/modules/curses.html#curses">
+lcurses.github.io/lcurses/modules/curses.html#curses</A></B>
 </p><p></p>
 </DIV><h2><a name="synopsis">SYNOPSIS</a></h2><DIV CLASS="txt">
 <pre>local curses = require 'curses'
@@ -70,6 +78,13 @@ end</pre>
 <p>
 </p>
 </DIV><h2><a name="description">DESCRIPTION</a></h2><DIV CLASS="txt">
+<P>
+<B>This page is now out of date. You should consult:<BR>
+<A HREF="http://lcurses.github.io/lcurses/">
+lcurses.github.io/lcurses/</A> &nbsp; and &nbsp;
+<A HREF="http://lcurses.github.io/lcurses/modules/curses.html#curses">
+lcurses.github.io/lcurses/modules/curses.html#curses</A></B>
+</P>
 <p><code>lcurses</code> is the interface between Lua and your system's <code>ncurses</code>
 or <code>curses</code> library.  For descriptions on the usage of a given function
 or constant, consult your system's documentation, starting with
@@ -77,6 +92,11 @@ or constant, consult your system's documentation, starting with
 <p>
 </p>
 </DIV><h2><a name="curses_functions">CURSES FUNCTIONS</a></h2><DIV CLASS="txt">
+<P><B>
+This section is out of date. You should consult:<BR>
+<A HREF="http://lcurses.github.io/lcurses/modules/curses.html#Functions">
+lcurses.github.io/lcurses/modules/curses.html#Functions</A>
+</B></P>
 <p>This list of functions can be seen by</p>
 <pre>
   local curses = require 'curses'
@@ -269,6 +289,11 @@ section of lcurses.c
 <CODE>wsetscrreg()</CODE> &nbsp; see <A HREF="lcurses_c.html#lcw_wsetscrreg">lcurses.c</A><BR>
 </p><p></p>
 </DIV><h2><a name="constants">CONSTANTS</a></h2><DIV CLASS="txt">
+<P><B>
+This section is out of date. You should consult:<BR>
+<A HREF="http://lcurses.github.io/lcurses/modules/curses.html#Constants">
+lcurses.github.io/lcurses/modules/curses.html#Constants</A>
+</B></P>
 <p>These constants only appear after curses.initscr() is called;
 they can be seen by:</p>
 <pre>
@@ -498,24 +523,27 @@ If you are translating Perl code into Lua you may wish to use
 </p><p></p>
 </DIV><h2><a name="installation">INSTALLATION</a></h2><DIV CLASS="txt">
 <pre>
-  luarocks install lcurses</pre>
+  luarocks install luaposix</pre>
 <p></p>
 </DIV><h2><a name="author">AUTHOR</a></h2><DIV CLASS="txt">
-<p><B>lcurses</B> was written by &nbsp; Reuben Thomas &nbsp;
+<p><B>lcurses</B> was originally written by Reuben Thomas &nbsp;
 <a href="http://github.com/rrthomas/lcurses">
-http://github.com/rrthomas/lcurses</a><BR>
-This documentation was created by
-<A HREF="make_lcurses_doc">a script</A>
-written by
-<A HREF="http://www.pjb.com.au">Peter Billam</A>.
+http://github.com/rrthomas/lcurses</a>
+<BR>
+This documentation on this page is out of date: it was created by
+<A HREF="make_lcurses_doc">a script</A> written by
+<A HREF="http://www.pjb.com.au">Peter Billam</A>,<BR>
+and more up to date documentation is available at:
+<A HREF="http://lcurses.github.io/lcurses/">lcurses.github.io/lcurses/</A>.
 </p><p></p>
 </DIV><h2><a name="see_also">SEE ALSO</a></h2><DIV CLASS="txt">
-<pre><a href="http://github.com/rrthomas/lcurses">http://github.com/rrthomas/lcurses</a>
-<a href="http://luaforge.net/projects/lcurses/">http://luaforge.net/projects/lcurses/</a>
-<a href="http://luarocks.org/repositories/rocks/index.html#lcurses">http://luarocks.org/repositories/rocks/index.html#lcurses</a>
-<a href="http://luaforge.net/frs/download.php/4823/lcurses-6.tar.gz">http://luaforge.net/frs/download.php/4823/lcurses-6.tar.gz</a>
-<a href="http://git.savannah.gnu.org/cgit/zile.git/tree/src/term_curses.lua?h=lua">http://git.savannah.gnu.org/cgit/zile.git/tree/src/term_curses.lua?h=lua</a>
-<a href="http://search.cpan.org/perldoc?Curses">http://search.cpan.org/perldoc?Curses</a>
+<pre>
+<A HREF="https://github.com/lcurses/lcurses">github.com/lcurses/lcurses</A>
+<A HREF="http://lcurses.github.io/lcurses/">lcurses.github.io/lcurses/</A>
+<A HREF="http://lcurses.github.io/lcurses/modules/curses.html">lcurses.github.io/lcurses/modules/curses.html</A>
+<A HREF="http://luaposix.github.io/luaposix/">luaposix.github.io/luaposix/</A>
+<A HREF="https://luarocks.org/modules/gvvaughan/luaposix">
+luarocks.org/modules/gvvaughan/luaposix</A>
 man ncurses
 man curses</pre>
 

@@ -52,7 +52,7 @@ This is a Lua interface for gdbm, the GNU database manager.
 <PRE>
  local G = require "gdbm"
  print(G.version)
- local d = assert(<A HREF="#open">G.open("/tmp/test.gdbm", "n")</A>)
+ local d = assert(<A HREF="#open">G.open("/tmp/test.gdbm", "c")</A>)
  <A HREF="#insert">d:insert("JAN", "January")</A>
  <A HREF="#insert">d:insert("FEB", "February")</A>
  if <A HREF="#exists">d:exists("JAN")</A> then print("JAN exists :-)") end

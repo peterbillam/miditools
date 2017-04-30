@@ -4619,6 +4619,7 @@ end
 
 local function newstave (line)
 	local newstave,remainder = match(line, "^(%d+[,']?)(.*)$")
+	-- 20161216 BUG newstave can be nil, eg ==1'
 	local tmp = gsub(newstave, "[,']", "")
 	Istave = tonumber(tmp)   -- why not Istave directly ?
 	if not Stave2channels[Istave] then Stave2channels[Istave] = {} end
