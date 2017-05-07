@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2r for Lua5'  -- fixed midi global transpose
-VersionDate  = '17aug2016';
+Version = '3.2s for Lua5'  -- Istave not istave in line 3954
+VersionDate  = '08may2017';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -3950,8 +3950,8 @@ local function xml_text (text_type, size, vertpos, text)
 	XmlCache[#XmlCache+1] =
 	  'font-size="'..font_size..'" font-weight="'..font_weight..'">'
 	XmlCache[#XmlCache+1] = text..'</words>\n'..t4..'</direction-type>\n'
-	if Istave > 0.5 then XmlCache[#XmlCache+1] =
-		 t4..'<staff>'..istave..'</staff>\n'..t3..'</direction>\n'
+	if Istave and Istave > 0.5 then XmlCache[#XmlCache+1] =
+		 t4..'<staff>'..Istave..'</staff>\n'..t3..'</direction>\n'
 	else 
 		XmlCache[#XmlCache+1] = t4..'<staff>1</staff>\n'..t3..'</direction>\n'
 	end
