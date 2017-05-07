@@ -8,7 +8,7 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2s for Lua5'  -- Istave not istave in line 3954
+Version = '3.2t for Lua5'  -- fixed -gs option under -xml
 VersionDate  = '08may2017';
 
 --require 'DataDumper'
@@ -3951,7 +3951,7 @@ local function xml_text (text_type, size, vertpos, text)
 	  'font-size="'..font_size..'" font-weight="'..font_weight..'">'
 	XmlCache[#XmlCache+1] = text..'</words>\n'..t4..'</direction-type>\n'
 	if Istave and Istave > 0.5 then XmlCache[#XmlCache+1] =
-		 t4..'<staff>'..Istave..'</staff>\n'..t3..'</direction>\n'
+		 t4..'<staff>'..Istave..'</staff>\n'..t3..'</direction>\n' -- 3.2s
 	else 
 		XmlCache[#XmlCache+1] = t4..'<staff>1</staff>\n'..t3..'</direction>\n'
 	end
@@ -4102,7 +4102,7 @@ function xml_event (symbols)
 						  '<trill-mark placement="'..updown..'"/>'
 					end
 				elseif option == 'blank' or option == '' then  -- 2.9c
-				elseif find(option,'/^gs%d') then  -- 3.1y
+				elseif find(option,'^gs%d') then  -- 3.1y 3.2t
 					-- BUG: what about -gs ?
 					-- See technical in ~/musicxml/musicxml3/note.dtd
 					-- but guitar-strings are not printed like violin-strings!
