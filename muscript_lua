@@ -1967,7 +1967,7 @@ local function ps_note (noteref, X, height2cross)
 		end
 		-- 3.2o only raise dot if the note is on a line ...
 		local dot_above_note = 0.0  -- 3.2o
-		if math.floor(0.01 + Ytable[noteref['pitch']]*8.0) % 2 > 0.5 then
+		if math.floor(0.01+(Ytable[noteref['pitch']] or 0)*8.0) % 2 > 0.5 then
 			dot_above_note = DotAboveNote*sh
 		end
 		if find(CurrentPulseText,'%.%.') then
