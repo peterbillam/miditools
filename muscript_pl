@@ -279,7 +279,7 @@ while (@Stack) {  # the main loop through the input-file
 	}
 	chop $line;
 	if ($line =~ /^\s*$/) { next; }
-	if ($line =~ /^\s*#P/) {
+	if ($line =~ /^\s*#P/) {   # reused in 3.2u
 		if (! $PrePro) {   # 3.2c keep #P and expand them
 			if ($Midi) { next; } $line =~ s/^\s*#P//; # 3.1h 3.2c
 		}
@@ -546,6 +546,15 @@ sub set_var { my ($stackref, $infinite_depth) = @_;
 		while (@$stackref) {
 			my $line = shift @$stackref;
 			while ($line=~s{\\\n$}{}) {my $nxt=shift @$stackref; $line.=$nxt;}
+			if ($line =~ /^\s*#P/) {   # 3.2u
+				if (! $PrePro) {   # 3.2c keep #P and expand them
+					if ($Midi) { next; } $line =~ s/^\s*#P//; # 3.1h 3.2c
+				}
+			} elsif ($line =~ /^\s*#M/) {   
+				if (! $PrePro) {   # 3.2c keep #M and expand them
+					if (! $Midi) { next; } $line =~ s/^\s*#M//;  # 3.2c
+				}
+			}
 			chop $line;
 			$line =~ s{^\s+}{};  # strip leading space
 			if ($line =~ /^}/ or ! defined $line) { last; }

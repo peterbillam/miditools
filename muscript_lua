@@ -8,7 +8,7 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2t for Lua5'  -- fixed -gs option under -xml
+Version = '3.2u for Lua5'  -- #M and #P lines work in multi-line variables
 VersionDate  = '08may2017';
 
 --require 'DataDumper'
@@ -3082,6 +3082,9 @@ end
 
 local function newsystem ()
 	if MIDI then return end
+	if not RememberNsystems then  -- 3.2u
+		die(' newsystem called with no previous systems line')
+	end
 	if XmlOpt then Isyst = Isyst + 1; Xml['staves'] = '1' return end
 	  -- could also add <print new-system="yes"/>
 	  -- See Mario Lang in ~/Mail/musicxml ...
@@ -4453,6 +4456,18 @@ function set_var (stackref, i, infinite_depth)
 				line = gsub(line,'\\$','')
 				i = i+1
 				line = line .. stackref[i]
+			end
+			-- 3.2u must handle #P and #M comments, as in line 5144
+			if find(line, '^%s*#P') then   -- 3.2u
+				if not PrePro then
+					if MIDI then goto nextline end
+					line = gsub(line, '^%s*#P', '')
+				end
+			elseif find(line, '^%s*#M') then
+				if not PrePro then
+					if not MIDI then goto nextline end
+					line = gsub(line, '^%s*#M', '')
+				end
 			end
 			line = gsub(line, '^%s+', '', 1)  -- strip leading space
 			if not line or find(line, '^}') then break end
