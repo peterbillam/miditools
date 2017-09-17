@@ -48,16 +48,16 @@ if not ALSA then
   luarocks install midialsa]])
 end
 
-local CURSES = nil -- www.pjb.com.au/comp/lua/lcurses_c.html
+local CURSES = nil
 pcall(function() CURSES = require 'curses' end)
 if not CURSES then
-	die([[you need to install luaposix, e.g.:
+	die([[can't find curses; you need to install luaposix, e.g.:
   luarocks install luaposix]])
 end
-local POSIX = nil -- www.pjb.com.au/comp/lua/lcurses_c.html
+local POSIX = nil
 pcall(function() POSIX = require 'posix' end)
 if not POSIX then
-	die([[you need to install luaposix, e.g.:
+	die([[can't find posix; you need to install luaposix, e.g.:
   luarocks install luaposix]])
 end
 
