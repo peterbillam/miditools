@@ -2,8 +2,8 @@
 local MIDI= require 'MIDI'
 require 'DataDumper'
 
-local Version = '5.5  for Lua5'
-local VersionDate = '20130507'
+local Version = '5.6  for Lua5'
+local VersionDate = '20170917'
 
 -- todo: introduce loopset effect, for piping into aplaymidi -p midiloop -
 --   If it's in muscript, then we know where the barlines are :-)
@@ -444,7 +444,7 @@ local function echo(score, params)
 		end
 		local pan = 117 - 107*(iecho_score%2)
 		local itrack = 2
-		while itrack <= table.maxn(echo_scores[#echo_scores]) do
+		while itrack <= #(echo_scores[#echo_scores]) do   -- 5.6
 			local extra_events = {}
 			-- pan the echo_tracks Left and Right respectively
 			for k,event in ipairs(echo_scores[iecho_score][itrack]) do
@@ -960,8 +960,8 @@ while iarg <= #arg do   -- loop through all files, input and output...
 	argument = arg[iarg]
 	if argument == '--volume' or argument == '-v' then
 		iarg = iarg + 1
-		if iarg > #arg then
-			die(argument + ' must be followed by a volume, and an input file')
+		if iarg > #arg then   -- 5.6 .. instead of +
+			die(argument .. ' must be followed by a volume, and an input file')
 		end
 		volume = tonumber(arg[iarg])
 		if not volume then
@@ -970,9 +970,8 @@ while iarg <= #arg do   -- loop through all files, input and output...
 	elseif Possible_Effects[argument] then
 		break
 		-- os.path.exists(arg) or arg == '-':   -- or a pipe...
-		-- die('input file ' + arg + ' does not exist')   might be output...
-	-- it's a filename
-	else
+		-- die('input file ' .. arg .. ' does not exist')   might be output...
+	else  -- it's a filename
 		input_files[#input_files+1] = {volume, argument}
 		volume = 1.0
 	end
@@ -1018,7 +1017,7 @@ for k,input_file in ipairs(input_files) do
 			gm_on_already = input_file[2]
 		end
 	end
-	if table.maxn(stats['bank_select']) > 0 then
+	if #stats['bank_select'] > 0 then  -- 5.6
 		--warn("stats['bank_select']="..DataDumper(stats['bank_select']))
 		if gm_on_already then
 			warning(gm_on_already..' turns GM on, but '..input_file[2]..' selects a bank')
