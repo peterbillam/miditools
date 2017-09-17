@@ -1,0 +1,299 @@
+<HTML><HEAD><TITLE>digitalfilter.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="digital filter, Lua, module, luarock, score, opus">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>digitalfilter.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#TABLE-OF-OPTIONS">TABLE OF OPTIONS</a></li>
+  <li><a href="#FILTER-TYPES">FILTER TYPES</a></li>
+  <li><a href="#FUNCTIONS">FUNCTIONS</a></li>
+  <li><a href="#CONSTANTS">CONSTANTS</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#DOWNLOAD">DOWNLOAD</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#CHANGES">CHANGES</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<H2 id="NAME">NAME</H2>
+
+<p>digitalfilter.lua - Butterworth, Chebyschev and Bessel digital filters</p>
+
+<H2 id="SYNOPSIS">SYNOPSIS</H2>
+
+<pre><code> local DF = require &#39;digitalfilter&#39;
+ local my_filter = DF.new_digitalfilter ({   -- returns a closure
+    filtertype  = &#39;butterworth&#39;,
+    order       = 3,
+    shape       = &#39;lowpass&#39;,
+    freq        = 1000,
+    samplerate  = 441000,
+ })
+ for i = 1,95 do
+    local u = (math.floor((i%16)/8 + 0.01)*2 - 1)  -- square wave
+    local x = my_filter(u)
+    if i &gt;= 80 then print(&#39;my_filter(&#39;..u..&#39;) \t=&#39;, x) end
+ end</code></pre>
+
+<H2 id="DESCRIPTION">DESCRIPTION</H2>
+
+<p>This module provides some Digital Filters - Butterworth, Chebyschev
+and Bessel, in lowpass and highpass. Primitive bandpass and bandstop
+filters are provided, and hopefully, Inverse Chebyschev and Elliptic
+filters will follow.</p>
+
+<p>To quote
+<A HREF="https://en.wikipedia.org/wiki/Digital_filter">
+en.wikipedia.org/wiki/Digital_filter</A>
+ ; &quot;The design of digital filters is a deceptively complex
+topic. Although filters are easily understood and calculated, the
+practical challenges of their design and implementation are significant
+and are the subject of much advanced research.&quot;</p>
+
+<p>In the literature I have, the notation is often confusing. For example,
+in Temes/Mitra p.152 the general z^-1 transfer-function is given with
+parameters A_2 in the numerator equal to zero. Constantinides sometimes
+uses u and v to mean the real and imaginary parts of the frequency omega,
+and sometimes to mean the input and output signals of a digital filter;
+Rorabaugh, however, (p.156) uses X(z) and Y(z) to mean the input and
+output signals of a digital filter. Rorabaugh sometimes uses q to
+mean the quality of filter-section, sometimes to mean the location
+of a zero in the z^-1 plane. Constantinides sometimes uses a and b to
+mean the coefficients of the transfer function in the frequency-domain,
+and alpha and beta to mean the coefficients of the transfer function in
+the z^-1-domain, but he often uses a and b to mean the coefficients of
+the transfer function in the z^-1-domain. Or, comparing Constantinides
+p.36 with Rorabaugh p.156, the meanings of a and b have been swapped,
+as have the meanings of G(z) and H(z).
+In the <I>sox biquad b0 b1 b2 a0 a1 a2</I> option,
+<I>b*</I> is numerator and <I>a*</I> is denominator, agreeing with Rorabaugh,
+so I will, sometime, change my code over to use that "standard".
+</p>
+
+<p>This version of <i>digitalfilter.lua</i> uses the procedure given in
+Rorabaugh&#39;s &quot;Digital Filter Designer&#39;s Handbook&quot;,
+pp.287-291. Overall, while writing this module, I have found
+Rorabaugh&#39;s book to be the most helpful.</p>
+
+<H2 id="TABLE-OF-OPTIONS">TABLE OF OPTIONS</H2>
+
+<p>Various functions, including <i>new_digitalfilter(options)</i>, need
+an argument to set the parameters; This argument is a table, with keys
+&#39;filtertype&#39;, &#39;order&#39;, &#39;shape&#39;, &#39;freq&#39; and
+&#39;samplerate&#39;, and for basspass and bandstop also &#39;Q&#39;</p>
+
+<p>The &#39;filtertype&#39; can be &#39;butterworth&#39;, &#39;bessel&#39;,
+or &#39;chebyschev&#39;. In the case of &#39;chebyschev&#39; there is
+an additional option &#39;ripple&#39; which specifies in decibels the
+desired ripple in the passband, defaulting to 1dB.</p>
+
+<p>The &#39;order&#39; can currently be from 1 to 7 for all types,
+and this range will probably be extended.</p>
+
+<p>The &#39;shape&#39; can be &#39;highpass&#39;, &#39;lowpass&#39;,
+&#39;bandpass&#39; or &#39;bandstop&#39;, though currently
+&#39;highpass&#39; or &#39;lowpass&#39; are only implemented for
+&#39;order&#39; = 2.</p>
+
+<p>The &#39;freq&#39; is the desired cutoff-frequency for
+&#39;lowpass&#39; and &#39;highpass&#39; filters, and the centre-frequency
+for &#39;bandpass&#39; and &#39;bandstop&#39;, It must be given in
+the same units as the &#39;samplerate&#39;. A &#39;freq&#39; greater
+than half the &#39;samplerate&#39; is a mistake, but is implemented as
+setting the gain to zero for &#39;lowpass&#39; or &#39;bandpass&#39;,
+or 1 for &#39;highpass&#39; or &#39;bandstop&#39;.<BR>
+For Butterworth and Bessel lowpass designs, the corner frequency is the
+frequency at which the magnitude of the response is -3 dB. For Chebyshev
+lowpass designs, the corner frequency is the highest frequency at which
+the magnitude of the response is equal to the specified ripple.</p>
+
+<p>The &#39;samplerate&#39; is the sampling-frequency. For example in
+audio use &#39;samplerate&#39; will often be 44100 or 48000.</p>
+
+<p>The &#39;Q&#39; is only necessary for &#39;bandpass&#39; and
+&#39;bandstop&#39; shapes, and specifies the <i>quality</i> of the
+pole. High &#39;Q&#39; gives the filter a narrower resonance.</p>
+
+<H2 id="FILTER-TYPES">FILTER TYPES</H2>
+
+<dl>
+
+<dt id="butterworth"><i>butterworth</i></dt>
+<dd>
+The Butterworth filter is designed to have as flat a frequency response
+as possible in the passband. It is also referred to as a maximally flat
+magnitude filter. It is very much used in audio work.
+&nbsp; See:
+<A HREF="https://en.wikipedia.org/wiki/Butterworth_filter">
+en.wikipedia.org/wiki/Butterworth_filter</A>
+
+</dd>
+<dt id="chebyschev"><i>chebyschev</i></dt>
+<dd>
+Chebyshev filters have a much steeper roll-off than Butterworth
+filters. but have ripples in the frequency-response in the passband.
+&nbsp; See:
+<A HREF="https://en.wikipedia.org/wiki/Chebyshev_filter">
+en.wikipedia.org/wiki/Chebyshev_filter</A>
+
+</dd>
+<dt id="bessel"><i>bessel</i></dt>
+<dd>
+The Bessel filter is a type of linear filter with a maximally flat
+group/phase delay (maximally linear phase response), which preserves
+the wave shape of filtered signals in the passband.
+Bessel filters are often used in audio crossover systems.
+&nbsp; See:
+<A HREF="https://en.wikipedia.org/wiki/Bessel_filter">
+en.wikipedia.org/wiki/Bessel_filter</A>
+<BR>
+Currently, the Bessel filters are implemented with the bilinear transform,
+which preserves the amplitude response, but alas not the phase response;
+preferably, they should be implemented using the Thiran filter.
+&nbsp; See:
+<A HREF="https://en.wikipedia.org/wiki/Bessel_filter#Digital">
+en.wikipedia.org/wiki/Bessel_filter#Digital</A>
+
+</dd>
+</dl>
+
+<H2 id="FUNCTIONS">FUNCTIONS</H2>
+
+<dl>
+
+<dt id="new_digitalfilter-options"><i>my_filter = new_digitalfilter(options)</i></dt>
+<dd>
+
+<p><i>new_digitalfilter</i> returns a closure - a function that lies
+within a context of local variables which implement the filter. You
+can then call this closure with your input-signal-value as argument,
+and it will return the filtered-signal-value.</p>
+
+<p>The argument <i>options</i> is a table, with keys &#39;filtertype&#39;,
+&#39;order&#39;, &#39;shape&#39;, &#39;freq&#39; and
+&#39;samplerate&#39;.</p>
+
+<p>If an error is detected, <i>new_digitalfilter</i> returns <i>nil</i>
+and an error message, so it can be used with <i>assert</i>.</p>
+
+<p>It is hoped that some future version of <i>new_digitalfilter</i> will
+return also a second closure, allowing the &#39;freq&#39; parameter to
+be varied during use.</p>
+
+
+</dd>
+</dl>
+
+<H2 id="CONSTANTS">CONSTANTS</H2>
+
+<dl>
+
+<dt id="version">Version</i></dt> <dd>
+The <I>digitalfilter.lua</I> version
+</dd>
+
+<dt id="version_date">VersionDate</i></dt> <dd>
+The release-date of this <I>digitalfilter.lua</I> version
+</dd>
+
+</dl>
+
+<H2 id="DOWNLOAD">DOWNLOAD</H2>
+
+<p>
+This module is available as a LuaRock in
+<A HREF="http://luarocks.org/modules/peterbillam">
+luarocks.org/modules/peterbillam</A>
+so you should be able to install it with the command:
+<PRE> $ su
+ Password:
+ # luarocks install digitalfilter
+</PRE>
+or:
+<PRE> # luarocks install http://www.pjb.com.au/comp/lua/digitalfilter-2.1-0.rockspec
+</PRE>
+The test script used during development is &nbsp;
+<A HREF="test_digitalfilter.lua">
+www.pjb.com.au/comp/lua/test_digitalfilter.lua</A>
+
+
+<H2 id="AUTHOR">AUTHOR</H2>
+
+<p>Peter J Billam, &nbsp;
+<A HREF="http://www.pjb.com.au/comp/contact.html">
+www.pjb.com.au/comp/contact.html</A>
+</p>
+
+<H2 id="CHANGES">CHANGES</H2>
+
+<pre> 20170803 2.1 the 'type' option changed to 'filtertype'
+ 20170802 2.0 chebyschev even orders start at the bottom of their ripple
+ 20170731 1.4 chebyschev filters added, but not the right shape
+ 20170730 1.3 finally fix the bessel freq-resp bug
+ 20170729 1.2 the same bad bessel freq-resp, using Rorabaugh&#39;s book
+ 20170722 1.1 bad bessel freq-resp, using Constantinides&#39; book
+ 20170719 1.0 place-holder; not working yet</code></pre>
+
+<H2 id="SEE-ALSO">SEE ALSO</H2>
+
+<pre><code> &quot;Digital Filter Designer&#39;s Handbook&quot;, C. Bitton Rorabaugh,
+    TAB Books (McGraw-Hill) 
+ <A HREF="http://cdn.preterhuman.net/texts/engineering/Dsp/">cdn.preterhuman.net/texts/engineering/Dsp/</A>
+ <A HREF="http://www.pjb.com.au/comp/free/digital_filter_designers_handbook_1.pdf">www.pjb.com.au/comp/free/digital_filter_designers_handbook_1.pdf</A>
+
+ <A HREF="http://www.pjb.com.au/comp/lua/digitalfilter.html">www.pjb.com.au/comp/lua/digitalfilter.html</A>
+ <A HREF="digitalfilter_talk/index.html">www.pjb.com.au/comp/lua/digitalfilter_talk/index.html</A>
+ <A HREF="http://www.pjb.com.au/comp/index.html#electronics">www.pjb.com.au/comp/index.html#electronics</A>
+
+ &quot;Modern Filter Theory and Design&quot;,
+   Gabor C. Temes and Sanjit K. Mitra, Wiley, 1973
+ &quot;Approximation Methods for Electronic Filter Design&quot;,
+   Richard W. Daniels, McGraw-Hill, 1974
+ &quot;Introduction to Digital Filtering&quot;,
+   R.E.Bogner and A.G.Constantinides, Wiley 1975
+ &quot;Active Filter Design Handbook&quot;,
+   G.S. Moschytz and Petr Horn, Wiley, 1981
+
+ <A HREF="https://en.wikipedia.org/wiki/Fourier_transform">en.wikipedia.org/wiki/Fourier_transform</A>
+ <A HREF="https://en.wikipedia.org/wiki/Laplace_transform">en.wikipedia.org/wiki/Laplace_transform</A>
+ <A HREF="https://en.wikipedia.org/wiki/Digital_filter">en.wikipedia.org/wiki/Digital_filter</A>
+ <A HREF="https://en.wikipedia.org/wiki/Butterworth_filter">en.wikipedia.org/wiki/Butterworth_filter</A>
+ <A HREF="https://en.wikipedia.org/wiki/Chebyshev_filter">en.wikipedia.org/wiki/Chebyshev_filter</A>
+ <A HREF="https://en.wikipedia.org/wiki/Bessel_function">en.wikipedia.org/wiki/Bessel_function</A>
+ <A HREF="https://en.wikipedia.org/wiki/Bessel_polynomials">en.wikipedia.org/wiki/Bessel_polynomials</A>
+ <A HREF="https://en.wikipedia.org/wiki/Bessel_filter">en.wikipedia.org/wiki/Bessel_filter</A>
+ <A HREF="https://en.wikipedia.org/wiki/Bessel_filter#Digital">en.wikipedia.org/wiki/Bessel_filter#Digital</A>
+ <A HREF="http://www-users.cs.york.ac.uk/~fisher/mkfilter/trad.html">www-users.cs.york.ac.uk/~fisher/mkfilter/trad.html</A>
+ <A HREF="http://www-users.cs.york.ac.uk/~fisher/mkfilter/mzt.html">www-users.cs.york.ac.uk/~fisher/mkfilter/mzt.html</A>
+ <A HREF="https://www.dsprelated.com">www.dsprelated.com</A>
+ <A HREF="http://www.pjb.com.au/">www.pjb.com.au</A>
+</code></pre>
+
+
+</body>
+
+</html>
+
+

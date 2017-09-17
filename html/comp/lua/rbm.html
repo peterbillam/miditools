@@ -1,0 +1,138 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title></title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+
+
+<ul id="index">
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+  <li><a href="#RULES-OF-THUMB">RULES OF THUMB</a></li>
+  <li><a href="#FUNCTIONS">FUNCTIONS</a></li>
+  <li><a href="#DOWNLOAD">DOWNLOAD</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+
+<h1 id="NAME">NAME</h1>
+
+<p>rbm.lua - a re-expression in lua of rbm.py</p>
+
+<h1 id="SYNOPSIS">SYNOPSIS</h1>
+
+<pre><code>  RBM = require &#39;rbm&#39;
+  r = RBM.new_rbm(6, 2) -- 6 visibles, but 2 hiddens wanted
+  training_data = {
+    {1,1,1,0,0,0}, {1,0,1,0,0,0}, {1,1,1,0,0,0},
+    {0,0,1,1,1,0}, {0,0,1,1,0,0}, {0,0,1,1,1,0}
+  }
+  RBM.train(r, training_data, 5000)
+  -- r stores internally the weights learned during training
+  visible_data  = { {0,0,0,1,1,0} }
+  -- now which category does this new visible data belong to ?
+  hidden_states  = RBM.vis2hid(r, visible_data)
+  -- which set of visible data do these hiddens best express ?
+  visible_states = RBM.hid2vis(r, hidden_states)
+  -- we can let the iteration run freely (aka, daydream)
+  samples = RBM.daydream(r, 100) -- iterate 100 times</code></pre>
+
+<h1 id="DESCRIPTION">DESCRIPTION</h1>
+
+<p>This module is a re-expression in <i>Lua</i> of the file <i>rbm.py</i> in <a href="https://github.com/echen/restricted-boltzmann-machines">https://github.com/echen/restricted-boltzmann-machines</a></p>
+
+<p>Restricted Boltzmann Machines perform a binary version of factor analysis. Training the RBM tries to discover hidden patterns that categorise the various configurations of the set of the visible input-variables.</p>
+
+<p>A Restricted Boltzmann Machine is a stochastic neural network, where &quot;neural&quot; means we have neuron-like units whose binary activations depend on the neighbors they&#39;re connected to, and &quot;stochastic&quot; means these activations have a probabilistic element. &quot;Activation&quot; seems to be what Geoff Hinton&#39;s 2010 talk (at 2min 30sec) refers to as &quot;energy&quot; ... <a href="https://www.youtube.com/watch?v=VdIURAu1-aU">https://www.youtube.com/watch?v=VdIURAu1-aU</a></p>
+
+<p>An RBM consists of a layer of visible units, and a layer of hidden units. Each visible unit depends on all the hidden units; and this connection is undirected, so also each hidden unit depends on all the visible units. (Internally, there is also a hidden bias unit, always set to 1.0, and connected to all the visible units and all the hidden units, which you shouldn&#39;t ever have to worry about.)</p>
+
+<p>The word &quot;<i>Restricted</i>&quot; means that we restrict the network so that no visible unit is connected to any other visible unit, and no hidden unit is connected to any other hidden unit. This makes it equally easy to deduce hidden from visible variables as the other way round. This makes it easy to iterate between visible and hidden, in search of the best correlation.</p>
+
+<p>Much to do ... See Geoff Hinton 2010 talk, 2min30sec - 10min30sec Multiple levels ! Back propagation ! Real (not boolean) units ! 9min20sec - 10min30sec</p>
+
+<h1 id="RULES-OF-THUMB">RULES OF THUMB</h1>
+
+<p>A rule of thumb for <b>choosing the number of hidden units</b>: Estimate how many bits it would take to describe each data vector if you were using a good model (i.e. estimate the typical negative log2 probability of a datavector under a good model). Multiply that by the number of training cases, then divide by about ten. If the training cases are highly redundant, as they typically are for large training-sets, you&#39;ll need to use fewer hidden-units.</p>
+
+<p>The rules are quoted from Geoff Hinton&#39;s <code>guideTR.pdf</code></p>
+
+<h1 id="FUNCTIONS">FUNCTIONS</h1>
+
+<dl>
+
+<dt id="rbm-new_rbm-num_visible-num_hidden-learning_rate"><i>rbm = new_rbm(num_visible, num_hidden, learning_rate)</i></dt>
+<dd>
+
+<p>This creates a new Recursive Boltzmann Machine, which will study <i>num_visible</i> variables and summarise their relationships in <i>num_hidden</i> hidden variables.</p>
+
+<p>If the <i>learning_rate</i> is not given it defaults to 0.1</p>
+
+</dd>
+<dt id="train-rbm-training_data-max_epochs"><i>train(rbm, training_data, max_epochs)</i></dt>
+<dd>
+
+<p>This trains the weights in your new Recursive Boltzmann Machine on a 2D array of <i>training_data</i>, each element of which is an array of <i>num_visible</i> numbers.</p>
+
+<p>The function returns nothing, since the weights are stored inside the <code>rbm</code></p>
+
+<p>If the <i>max_epochs</i> is not given it defaults to 1000</p>
+
+</dd>
+<dt id="new_hidden-vis2hid-rbm-visible_data"><i>new_hidden = vis2hid(rbm, visible_data)</i></dt>
+<dd>
+
+<p>This uses the trained weights to derive the hidden variables from the given visible variables.</p>
+
+</dd>
+<dt id="new_visible-hid2vis-rbm-hidden_data"><i>new_visible = hid2vis(rbm, hidden_data)</i></dt>
+<dd>
+
+<p>This uses the trained weights to derive a set of visible variables back from a set of hidden variables.</p>
+
+</dd>
+<dt id="daydream-rbm-num_samples"><i>daydream(rbm, num_samples)</i></dt>
+<dd>
+
+<p>This generates <i>num_samples</i> plausible sets of sample-data. For each set, it starts with random visible data, then using <i>rbm.weights</i> to extract the corresponding hidden data, then using <i>rbm.weights</i> again to generate a plausible set of visible data.</p>
+
+</dd>
+</dl>
+
+<h1 id="DOWNLOAD">DOWNLOAD</h1>
+
+<p>This module is available at <a href="http://www.pjb.com.au/comp/lua/rbm.html">http://www.pjb.com.au/comp/lua/rbm.html</a></p>
+
+<h1 id="AUTHOR">AUTHOR</h1>
+
+<p>Peter J Billam, <a href="http://www.pjb.com.au/comp/contact.html">http://www.pjb.com.au/comp/contact.html</a></p>
+
+<h1 id="SEE-ALSO">SEE ALSO</h1>
+
+<pre><code> http://www.pjb.com.au/
+ http://www.pjb.com.au/comp/lua/rbm.html
+ https://github.com/echen/restricted-boltzmann-machines
+ http://blog.echen.me/2011/07/18/introduction-to-restricted-boltzmann-machines/
+ http://deeplearning4j.org/restrictedboltzmannmachine.html
+ http://deeplearning4j.org/understandingRBMs.html
+ http://learning.cs.toronto.edu
+ http://www.cs.toronto.edu/~hinton/
+ https://en.wikipedia.org/wiki/Geoffrey_Hinton
+ http://www.cs.toronto.edu/~hinton/absps/guideTR.pdf
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html
+ https://www.youtube.com/watch?v=VdIURAu1-aU      2010 google talk
+ https://www.youtube.com/watch?v=GJdWESd543Y      2012 IPAM summer school</code></pre>
+
+
+</body>
+
+</html>
+
+

@@ -1,0 +1,182 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title></title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+
+
+<ul id="index">
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+  <li><a href="#FUNCTIONS">FUNCTIONS</a></li>
+  <li><a href="#DOWNLOAD">DOWNLOAD</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+
+<h1 id="NAME">NAME</h2>
+
+<p>sox.lua - interface to libsox, an audio file-format and effect library</p>
+
+<h1 id="SYNOPSIS">SYNOPSIS</h2>
+
+<pre><code> local SOX = require &#39;sox&#39;
+ SOX.format_init()
+ SOX.format_quit()
+ ft1 = SOX.open_read(path, info, filetype)
+ ft2 = SOX.open_write(fname,path,info,ftype,comment,length,instr,loops)
+ SOX.read(ft1, buf, len)
+ SOX.write(ft2, buf, len)
+ SOX.close(ft2)
+ SOX.seek(ft1, offset, whence)
+ effect_handler = SOX.find_effect(name)
+ sox_effect = SOX.create_effect(effect_handler)
+ SOX.effect_options(sox_effect, argc, argv)
+ SOX.create_effects_chain(in_enc, out_enc)
+ SOX.delete_effects_chain(effects_chain)
+ SOX.add_effect(effects_chain, sox_effect, in, out)</code></pre>
+
+<h1 id="DESCRIPTION">DESCRIPTION</h2>
+
+<p>libsox is a library of sound sample file format readers/writers and sound effects processors. It is mainly developed for use by SoX but is useful for any sound application.</p>
+
+<p>See: http://sox.sourceforge.net/libsox.html</p>
+
+<h1 id="FUNCTIONS">FUNCTIONS</h2>
+
+<dl>
+
+<dt id="format_init"><i>format_init</i></dt>
+<dd>
+
+<p>format_init() performs some required initialization related to all file format handlers. If compiled with dynamic library support then this will detect and initialize all external libraries. This should be called before any other file operations are performed. It returns true or false</p>
+
+</dd>
+<dt id="format_quit"><i>format_quit</i></dt>
+<dd>
+
+<p>format_quit() performs some required cleanup related to all file format handlers.</p>
+
+</dd>
+<dt id="open_read-path-or-open_read-path-info-filetype"><i>open_read(path)</i> or <i>open_read(path, info, filetype)</i></dt>
+<dd>
+
+<p>open_read() opens the file for reading whose name is the string pointed to by path and returns a sox_format_t with it. A special path of &quot;-&quot; can be used to read data from stdin. It returns the handle for the new session, or <i>nil</i> on failure. Returned handle must be closed with close().</p>
+
+<p>If info is non-NULL then it will be used to specify the data format of the input file. This is normally only needed for headerless audio files since the information is not stored in the file.</p>
+
+<p>If filetype is non-NULL then it will be used to specify the file type. If this is not specified then the file type is attempted to be derived by looking at the file header and/or the filename extension.</p>
+
+</dd>
+<dt id="open_write-fname-path-info-ftype-comment-length-instr-loops"><i>open_write(fname, path, info, ftype, comment, length, instr, loops)</i></dt>
+<dd>
+
+<p>open_output opens the file for writing whose name is the string pointed to by path and associates an sox_format_t with it.</p>
+
+<p>If info is non-NULL then it will be used to specify the data format of the output file. Since most file formats can write data in different data formats, this generally has to be specified. The info structure from the input format handler can be specified to copy data over in the same format.</p>
+
+<p>If comment is non-NULL, it will be written in the file header for formats that support comments. If filetype is non-NULL then it will be used to specify the file type. If this is not specified then the file type is attempted to be derived by looking at the filename extension.</p>
+
+<p>A special name of &quot;-&quot; can be used to write data to stdout.</p>
+
+</dd>
+<dt id="read-sox_format-buf-len"><i>read(sox_format, buf, len)</i></dt>
+<dd>
+
+<p>sox_read reads len samples in to buf using the format handler specified by. All data read is converted to 32-bit signed samples before being placed in to buf. The value of len is specified in total samples. If its value is not evenly divisable by the number of channels, undefined behavior will occur.</p>
+
+</dd>
+<dt id="write-sox_format-buf-len"><i>write(sox_format, buf, len)</i></dt>
+<dd>
+
+<p>sox_write writes len samples from buf using the format handler specified by ft. Data in buf must be 32-bit signed samples and will be converted during the write process. The value of len is specified in total samples. If its value is not evenly divisable by the number of channels, undefined behavior will occur.</p>
+
+</dd>
+<dt id="close-sox_format"><i>close(sox_format)</i></dt>
+<dd>
+
+<p>sox_close dissociates the named sox_format_t from its underlying file or set of functions. If the format handler was being used for output, any buffered data is written first.</p>
+
+</dd>
+<dt id="effect_handler-find_effect-name"><i>effect_handler = find_effect(name)</i></dt>
+<dd>
+
+<p>sox_find_effect finds effect name, returning a pointer to its sox_effect_handler_t if it exists, and NULL otherwise.</p>
+
+</dd>
+<dt id="sox_effect-create_effect-effect_handler"><i>sox_effect = create_effect(effect_handler)</i></dt>
+<dd>
+
+<p>create_effect instantiates an effect into a sox_effect given a sox_effect_handler. Any missing methods are automatically set to the corresponding nothing method.</p>
+
+<p>THIS FUNCTION SHOULD INCLUDE find_effect() and effect_options() ! so it&#39;s: sox_effect = create_effect(&#39;pad 0 3&#39;)</p>
+
+</dd>
+<dt id="effect_options-sox_effect-argc-argv"><i>effect_options(sox_effect, argc, argv)</i></dt>
+<dd>
+
+<p>sox_effect_options allows passing options into the effect to control its behavior. It will return SOX_EOF if there were any invalid options passed in. On success, the effp-&gt;in_signal will optional contain the rate and channel count it requires input data from and effp-&gt;out_signal will optionally contain the rate and channel count it outputs in. When present, this information should be used to make sure appropriate effects are placed in the effects chain to handle any needed conversions.</p>
+
+<p>Passing in options is currently only supported when they are passed in before the effect is ever started. The behavior is undefined if its called once the effect is started.</p>
+
+<p>It returns, er:</p>
+
+</dd>
+<dt id="effects_chain-create_effects_chain-in_enc-out_enc"><i>effects_chain = create_effects_chain(in_enc, out_enc)</i></dt>
+<dd>
+
+<p>create_effects_chain will instantiate an effects chain that effects can be added to. in_enc and out_enc are the signal encoding of the input and output of the chain respectively.</p>
+
+<p>It is OK if their values change over time to reflect new input or output encodings as they are referenced only as effects start up or are restarted.</p>
+
+</dd>
+<dt id="delete_effects_chain-effects_chain"><i>delete_effects_chain(effects_chain)</i></dt>
+<dd>
+
+<p>delete_effects_chain will release any resources reserved during the creation of the chain. This will also call sox_delete_effects if any effects are still in the chain.</p>
+
+</dd>
+<dt id="add_effect-effects_chain-effp-in-out"><i>add_effect(effects_chain, effp, in, out)</i></dt>
+<dd>
+
+<p>add_effect adds an effect to the chain. &#39;in&#39; specifies the input signal info for this effect. &#39;out&#39; is a suggestion as to what the output signal should be, but depending on the effects given options and on &#39;in&#39; the effect can choose to do differently.</p>
+
+<p>Whatever output rate and channels the effect does produce are written back to &#39;in&#39;.</p>
+
+<p>It is meant that &#39;in&#39; be stored and passed to each new call to sox_add_effect so that changes will be propagated to each new effect.</p>
+
+</dd>
+</dl>
+
+<h1 id="DOWNLOAD">DOWNLOAD</h2>
+
+<p>This module is available as a luarock, and can be installed with</p>
+
+<pre><code> luarocks install sox</code></pre>
+
+<p>You will need the libsox C-library installed. If it isn&#39;t already, it can be installed with, for example on debian:</p>
+
+<pre><code> aptitude install libsox2</code></pre>
+
+<h1 id="AUTHOR">AUTHOR</h2>
+
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+
+<h1 id="SEE-ALSO">SEE ALSO</h2>
+
+<pre><code> apt-get install libsox-dev ; less /usr/include/sox.h
+ http://www.pjb.com.au/</code></pre>
+
+
+</body>
+
+</html>
+
+

@@ -1,0 +1,273 @@
+<HTML><HEAD><TITLE>ecasound.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="ecasound, Lua, module, ecasound-iam">
+<META HTTP-EQUIV="content-type" content="text/html; charset=utf-8" />
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>ecasound.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</UL>
+</TD><TD ALIGN="left">
+<UL>
+	<li><a href="#functions">FUNCTIONS</a>
+		<ul>
+		<li><a href="#Constructing-and-destructing">Constructing and destructing</a></li>
+		<li><a href="#The-Do-Everything-Function">The Do-Everything Function</a></li>
+		<li><a href="#Events">Events</a></li>
+		</ul>
+	</li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#eci-commands">ECI&nbsp;COMMANDS</a></li>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see-also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+
+<hr />
+<!-- INDEX END -->
+
+<h2 id="name">NAME</h2>
+<p>
+&nbsp; &nbsp;
+<B>ecasound.lua - Provides access to the ecasound interactive mode</B>
+</p>
+
+<h2 id="synopsis">SYNOPSIS</h2>
+
+<pre><code> local E = require &#39;ecasound&#39;
+ E.eci_init()
+ local commands = E.eci("int-cmd-list")    -- an array
+ E.eci("cs-add play_chainsetup")
+ E.eci("c-add 1st_chain")
+ E.eci("ai-add /tmp/t.wav")
+ E.eci("ao-add /dev/dsp")
+ E.eci("cop-add -efl:100")     -- add a chain operator
+ E.eci("cop-select 1")
+ E.eci("copp-select 1") -- parameter 1 means the 100Hz
+ print("aio-status = "..E.eci("aio-status"))
+ E.eci("start")
+ local freq_ratio = 1.2
+ while (true) do
+     os.execute("sleep 1")
+     if E.eci("engine-status") ~= "running" then break end
+     if E.eci("get-position") &gt; 150 then break end
+     local freq = E.eci("copp-get")
+     if freq &lt; 80 then break end
+     if freq &gt; 10000 then freq_ratio = 0.8333 end
+     E.eci("copp-set", freq_ratio*freq) -- extra float argument
+ end
+ E.eci("stop")
+ E.eci_cleanup()</code></pre>
+
+<h2 id="description">DESCRIPTION</h2>
+
+<p>This module offers in Lua most of the functions defined in eg:
+<code>/usr/include/libecasoundc/ecasoundc.h</code>, except &nbsp;
+<b>1)</b> instead of <CODE>eci_command()</CODE>
+it is abbreviated to <CODE>eci()</CODE>, and &nbsp;
+<b>2)</b> those functions concerned with the return-types and return-values
+are not offered, since all that is handled internally by
+<code>eci("commandstring")</code>, which returns a Lua string, or array
+of strings, or a number, or a boolean, according to the command given.
+</p><p>
+<CODE>eci()</CODE> reports errors by returning <CODE>nil,
+&#39;error-string&#39;</CODE> as is needed by the Lua <CODE>assert()</CODE>
+function. Therefore, commands in the C library which really <B><I>do</I></B>
+return nothing, here in <code>ecasound.lua</code>
+return not <code>nil</code>, but a zero-length string.</p>
+
+<h2 id="functions">FUNCTIONS</h2>
+
+<h3 id="Constructing-and-destructing">Constructing and destructing</h3>
+
+<dl>
+
+<dt id="eci_init"><i>eci_init()</i></dt>
+<dd>
+
+<p>returns nothing</p>
+
+</dd>
+<dt id="eci_ready"><i>eci_ready()</i></dt>
+<dd>
+
+<p>returns an integer</p>
+
+</dd>
+<dt id="eci_cleanup"><i>eci_cleanup()</i></dt>
+<dd>
+
+<p>returns nothing</p>
+
+</dd>
+</dl>
+
+<h3 id="The-Do-Everything-Function">The Do-Everything Function</h3>
+
+<dl>
+
+<dt id="eci-commandstring"><i>eci("commandstring")</i></dt>
+<dd>
+
+</dd>
+<dt id="eci-commandstring-987.654"><i>eci("commandstring", 987.654)</i></dt>
+<dd>
+
+<p>There are about 200 available commands, see
+<a href="#eci-commands">ECI COMMANDS</a> below.
+</p>
+
+<p>Some commands need a floating-point number as an argument,
+and this should go as a separate second argument,
+as in the second example, eg: &nbsp; <code>eci("copp-set", 2805.7)</code>
+</p><P>
+The return value has its natural Lua datatype, either a string,
+an array of strings, a number, a boolean, or <CODE>nil</CODE>.
+If the commandstring contains '<CODE>-is-</CODE>' then the return value
+is a boolean, not the integer as returned by the C library;
+this affects <CODE>c-is-bypassed</CODE>, <CODE>c-is-muted</CODE>,
+<CODE>cop-is-bypassed</CODE> and <CODE>cs-is-valid</CODE>.
+</P><P>
+<CODE>eci()</CODE> reports errors by returning <B>nil, 'error-string'</B>
+as is needed by the Lua <B>assert()</B> function.
+Therefore, commands in the C library which really <B>do</B> return nothing,
+here in <CODE>ecasound.lua</CODE> return not <CODE>nil</CODE>,
+but a zero-length string.
+</P>
+
+</dd>
+</dl>
+
+<h3 id="Events">Events</h3>
+
+<dl>
+
+<dt id="eci_events_available"><i>eci_events_available()</i></dt>
+<dd>
+
+<p>Returns an integer, the number of events available.</p>
+
+</dd>
+<dt id="eci_next_event"><i>eci_next_event()</i></dt>
+<dd>
+
+<p>Moves the <i>ecasound</i> engine on to the next event; returns nothing.</p>
+
+</dd>
+<dt id="eci_current_event"><i>eci_current_event()</i></dt>
+<dd>
+
+<p>Returns a string.</p>
+
+</dd>
+</dl>
+
+<h2 id="download">DOWNLOAD</h2>
+
+<p>This module is available on
+<A HREF="https://luarocks.org/">https://luarocks.org/</A>
+so you should be able to install it with<BR>
+<code> &nbsp; luarocks install ecasound</code><BR>
+or:<BR>
+<code> &nbsp; luarocks install http://www.pjb.com.au/comp/lua/ecasound-0.4-0.rockspec</code>
+</p><p>
+If this results in an error message such as:<BR>
+
+<code> &nbsp; Error: Could not find expected file libecasound.a, or libecasound.so,<BR>
+ &nbsp; or libecasound.so.* for ecasound -- you may have to install ecasound in<BR>
+ &nbsp; your system and/or pass ECAS_DIR or ECAS_LIBDIR to the luarocks command.<BR>
+ &nbsp; Example: luarocks install ecasound ECAS_DIR=/usr/local</code>
+</p><p>
+then you need to find the appropriate directory with:<BR>
+<code> &nbsp; find /usr/lib -name &#39;libecasound.*&#39; -print<BR>
+ &nbsp; find /usr/local/lib -name &#39;libecasound.*&#39; -print</code>
+</P><P>
+and then invoke:<BR>
+<code> &nbsp; luarocks install \<BR>
+ &nbsp; http://www.pjb.com.au/comp/lua/ecasound-0.4-0.rockspec \<BR>
+ &nbsp; ECAS_LIBDIR=/usr/lib/i386-linux-gnu/   # or wherever</code>
+</p><p>
+accordingly. &nbsp; You may also need to:<BR>
+<CODE> &nbsp; apt-get install ecasound ecasound-doc libecasoundc-dev</CODE>
+</p>
+
+<h2 id="eci-commands">ECI COMMANDS</h2>
+<P>
+See also &nbsp; <CODE>man ecasound-iam</CODE> &nbsp; for more details
+<BR>
+see &nbsp; <CODE>man ecasound</CODE> &nbsp; for the channel-operators
+as needed by &nbsp; <CODE>cop-add</CODE>
+<BR>
+see &nbsp; <CODE>listplugins</CODE> &nbsp; for the LADPSA plugin names, and
+<BR>
+see &nbsp; <CODE>analyseplugin</CODE> &nbsp; for details of their parameters.
+</P>
+
+<p>This is a list of the ECI commands offered by my system (debian stable):</p>
+
+<ul>
+
+<p><code>ai-add ai-attach ai-describe ai-forward ai-get-format ai-get-length ai-get-length-samples ai-get-position ai-get-position-samples ai-getpos ai-index-select ai-iselect ai-list ai-remove ai-rewind ai-select ai-selected ai-set-position ai-set-position-samples ai-setpos ai-status ai-wave-edit aio-register aio-status ao-add ao-add-default ao-attach ao-describe ao-forward ao-get-format ao-get-length ao-get-length-samples ao-get-position ao-get-position-samples ao-getpos ao-index-select ao-iselect ao-list ao-remove ao-rewind ao-select ao-selected ao-set-position ao-set-position-samples ao-setpos ao-status ao-wave-edit</code></p>
+
+<p><code>c-add c-bypass c-clear c-deselect c-index-select c-is-bypassed c-is-muted c-iselect c-list c-mute c-muting c-remove c-rename c-select c-select-add c-select-all c-selected c-status cop-add cop-bypass cop-describe cop-get cop-index-select cop-is-bypassed cop-iselect cop-list cop-register cop-remove cop-select cop-selected cop-set cop-status copp-get copp-index-select copp-iselect copp-list copp-select copp-selected copp-set</code></p>
+
+<p><code>cs cs-add cs-connect cs-connected cs-disconnect cs-edit cs-forward cs-get-length cs-get-length-samples cs-get-position cs-get-position-samples cs-getpos cs-index-select cs-is-valid cs-iselect cs-list cs-load cs-option cs-remove cs-rewind cs-save cs-save-as cs-select cs-selected cs-set-audio-format cs-set-length cs-set-length-samples cs-set-param cs-set-position cs-set-position-samples cs-setpos cs-status cs-toggle-loop</code></p>
+
+<p><code>ctrl-add ctrl-describe ctrl-get-target ctrl-index-select ctrl-iselect ctrl-list ctrl-register ctrl-remove ctrl-select ctrl-selected ctrl-status ctrlp-get ctrlp-list ctrlp-select ctrlp-selected ctrlp-set debug dump-ai-length dump-ai-open-state dump-ai-position dump-ai-selected dump-ao-length dump-ao-open-state dump-ao-position dump-ao-selected dump-c-selected dump-cop-value dump-cs-status dump-length dump-position dump-status dump-target engine-halt engine-launch engine-status es forward fs fw get-length get-position getpos h help int-cmd-list int-log-history int-output-mode-wellformed int-set-float-to-string-precision int-set-log-history-length int-version-lib-age int-version-lib-current int-version-lib-revision int-version-string jack-connect jack-disconnect jack-list-connections ladspa-register lv2-register map-cop-list map-ctrl-list map-ladspa-id-list map-ladspa-list map-lv2-list map-preset-list preset-register q quit resource-file rewind run rw s set-position setpos st start status stop stop-sync t</code></p>
+
+</ul>
+
+<h2 id="changes">CHANGES</h2>
+
+<pre>   20170202  0.4  more robust test_ecasound
+   20170201  0.3  various bug-fixes, and improved test_ecasound
+   20170131       the eci commands containing '-is-' return boolean
+   20170129  0.2  first working version
+   20170129  0.1  placeholder only
+
+</pre>
+
+<h2 id="author">AUTHOR</h2>
+
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+
+<h2 id="see-also">SEE ALSO</h2>
+
+<pre><code> apt-get install ecasound-doc libecasoundc-dev
+ man ecasound-iam
+ man ecasound
+ ecasound -c   # interactive mode
+ <A HREF="https://sourceforge.net/p/ecasound/mailman/">sourceforge.net/p/ecasound/mailman/</A>
+ <A HREF="http://www.pjb.com.au/comp/lua/ecasound.html">www.pjb.com.au/comp/lua/ecasound.html</A>
+ <A HREF="http://search.cpan.org/perldoc?Audio::Ecasound">search.cpan.org/perldoc?Audio::Ecasound</A>
+ <A HREF="http://www.eca.cx/ecasound/">www.eca.cx/ecasound/</A>
+ <A HREF="https://luarocks.org/modules/peterbillam">luarocks.org/modules/peterbillam</A>
+ <A HREF="https://luarocks.org/">luarocks.org/</A>
+ <A HREF="http://www.pjb.com.au/">www.pjb.com.au/</A>
+</code></pre>
+
+
+</body>
+
+</html>
+
+

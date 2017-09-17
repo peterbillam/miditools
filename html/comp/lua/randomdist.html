@@ -1,0 +1,248 @@
+<HTML><HEAD><TITLE>randomdist.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="randomdist, Lua, module, gaussian, randomget">
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>randomdist.lua</I></FONT>
+</H1>
+<p><a name="__index__"></a></p>
+
+<!-- INDEX BEGIN -->
+<!-- INDEX BEGIN -->
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#download">DOWNLOAD</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#changes">CHANGES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<h2><a name="name">NAME</a></h2>
+<p>randomdist.lua - a few simple procedures for generating random numbers.</p>
+
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<pre>
+ local R = require 'randomdist'</pre>
+<pre>
+ grand1 = R.<A HREF="#new_grand">new_grand(10,3)</A>
+ grand2 = R.<A HREF="#new_grand">new_grand(100,3)</A>
+ for i = 1,20 do print( grand1(), grand2() ) end
+
+ gue_irand1 = R.<A HREF="#new_gue_irand">new_gue_irand(4)</A>
+ gue_irand2 = R.<A HREF="#new_gue_irand">new_gue_irand(20)</A>
+ for i = 1,20 do print( gue_irand1(), gue_irand2() ) end
+
+ for i = 1,20 do print(R.<A HREF="#rayleigh_rand">rayleigh_rand(3)</A>) end
+
+ a = {'cold', 'cool', 'warm', 'hot'}
+ for i = 1,20 do print(R.<A HREF="#randomget">randomget(a)</A>) end
+</pre>
+<p>
+</p>
+<hr />
+<h2><a name="description">DESCRIPTION</a></h2>
+<p>
+This module implements in Lua a few simple functions for generating random
+numbers according to various distributions.
+<p>
+randomdist.lua is based on the PostScript module
+<A HREF="http://www.pjb.com.au/comp/random.html">random.ps</A>
+</p>
+<p>
+</p>
+<hr />
+<h2><a name="functions">FUNCTIONS</a></h2><P>
+<a href="#new_grand"><B>new_grand()</B></a>, &nbsp;
+<a href="#new_gue_irand"><B>new_gue_irand()</B></a>, &nbsp;
+<a href="#rayleigh_rand"><B>rayleigh_rand()</B></a>, &nbsp;
+<a href="#randomget"><B>randomget()</B></a> and &nbsp;
+<a href="#randomgetn"><B>randomgetn()</B></a>
+</P>
+<dl>
+<dt><strong><a name="new_grand" class="item"><em>new_grand</em> (mean, stddev)</a></strong></dt>
+
+<dd>
+<p>
+This function returns a closure, which is a function which you can then
+call to return a
+<A HREF="https://en.wikipedia.org/wiki/Normal_distribution">
+Gaussian (or Normal) Random distribution</A>
+of numbers with the given <I>mean</I> and <I>standard deviation</I>.
+</P><P>
+It keeps some internal local state, but because it is a closure, you
+may run different Gaussian Random generators simultaneously, for
+example with different means and standard-deviations, without them
+interfering with each other.
+</P><P>
+It uses the algorithm given by Erik Carter in
+<A HREF="http://www.design.caltech.edu/erik/Misc/Gaussian.html">
+www.design.caltech.edu/erik/Misc/Gaussian.html</A>
+</P><P>
+This algorithm generates results in pairs, but returns them one by one.
+Therefore if you are using <I>math.randomseed</I> to reset the random-number
+generator to a known state, and your code happens to make an odd number
+of calls to your closure, and you want your program to run consistently,
+then you should call your closure (eg: grand1) with the argument
+'reset' each time you call <I>math.randomseed</I>. Eg:<BR><CODE>
+ &nbsp; grand1 = R.new_grand(10,3)<BR>
+ &nbsp; ... grand1() ... etc ...<BR>
+ &nbsp; math.randomseed(244823040) ; grand1('reset')
+</CODE>
+</p>
+</dd>
+<dt><strong><a name="new_gue_irand" class="item"><em>new_gue_irand</em> (average)</a></strong></dt>
+<dd>
+<P>
+This function returns a closure, which is a function which you can then
+call to return a
+<A HREF="https://en.wikipedia.org/wiki/Random_matrix#Gaussian_ensembles">
+Gaussian-Random-Ensemble</A> distribution of integers.
+</P><P>
+The Gaussian Unitary Ensemble models Hamiltonians lacking time-reversal
+symmetry. Considering a hermitian matrix with gaussian-random values;
+from the ordered sequence of eigenvalues, one defines the normalized
+spacings<BR><CODE>
+ &nbsp; s = (\lambda_{n+1}-\lambda_n) / &lt;s&gt;
+<BR></CODE>
+where &lt;s&gt; = is the mean spacing. The probability distribution of
+spacings is approximately given by<BR><CODE>
+ &nbsp; p_2(s) = (32 / pi^2) * s^2 * e^((-4/pi) * s^2)
+<BR></CODE>
+These numerical constants are such that p_2 (s) is normalized: and the
+mean spacing is 1.<BR><CODE>
+ &nbsp; \int_0^\infty ds p_2(s) = 1 
+ &nbsp; \int_0^\infty ds s p_2(s) = 1
+<BR></CODE>
+</P><P>
+<A HREF="https://en.wikipedia.org/wiki/Montgomery%27s_pair_correlation_conjecture">
+Montgomery's pair correlation conjecture</A> is a conjecture made by Hugh
+Montgomery (1973) that the pair correlation between pairs of zeros of the
+Riemann zeta function (normalized to have unit average spacing) is:<BR><CODE>
+ &nbsp; 1 - ({sin(pi u)}/{pi u}})^2 + \delta(u)
+<BR></CODE>
+which, as Freeman Dyson pointed out to him, is the same as the pair
+correlation function of random Hermitian matrices.
+</P>
+</dd>
+
+<dt><strong><a name="rayleigh_rand" class="item"><em>rayleigh_rand</em> (sigma)</a></strong></dt>
+<dd>
+<p>
+This function returns a random number according to the
+<A HREF="https://en.wikipedia.org/wiki/Rayleigh_distribution">
+Rayleigh Distribution</A>, which is a continuous probability distribution
+for positive-valued random variables. It occurs, for example, when random
+complex numbers whose real and imaginary components are independent
+Gaussian distributions with equal variance and zero mean, in which case,
+the absolute value of the complex number is Rayleigh-distributed.<BR><CODE>
+ &nbsp; f(x; sigma) = x exp(-x^2 / 2*sigma^2) / sigma^2      for x&gt;=0
+<BR></CODE>
+The algorithm contains no internal state, hence <I>rayleigh_rand</I>
+directly returns a number.
+</p>
+</dd>
+<dt><strong><a name="randomget" class="item"><em>randomget</em> (an_array)</a></strong></dt>
+<dd>
+<p>
+This example gets a random element from the given array. For example,
+the following executes one of the given procedures at random:<BR><CODE>
+ &nbsp; f = {bassclef, trebleclef, sharp, natural} randomget()<BR>
+ &nbsp; f()
+<BR></CODE>
+</p>
+</dd>
+<dt><strong><a name="randomgetn" class="item"><em>randomgetn</em> (an_array, n)</a></strong></dt>
+<dd>
+<p>
+This example returns an array containing <B>n</B> random elements,
+with distinct indices, from the given array.
+<BR></CODE>
+</p>
+</dd>
+</dl>
+<p>
+</p>
+
+<hr />
+<h2><a name="download">DOWNLOAD</a></h2>
+<p>This module is available as a LuaRock in
+<A HREF="http://luarocks.org/modules/peterbillam">
+luarocks.org/modules/peterbillam</A>
+so you should be able to install it with the command:</p>
+<PRE>
+ $ su
+ Password:
+ # luarocks install randomdist</pre>
+<p>or:</p>
+<pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/randomdist-1.2-0.rockspec</pre>
+</p><p>
+The test script used during development is
+<a href="http://www.pjb.com.au/comp/lua/test_randomdist.lua">
+www.pjb.com.au/comp/lua/test_randomdist.lua</a><BR>
+</p>
+<p>
+</p>
+<hr />
+<h2><a name="changes">CHANGES</a></h2><pre>
+ 20170819 1.2 add randomgetn()
+ 20170707 1.1 grand('reset') more robust, and tested
+ 20170706 1.0 first released version
+</pre>
+<hr />
+<h2><a name="author">AUTHOR</a></h2>
+<p>Peter J Billam, &nbsp;
+<a href="http://www.pjb.com.au/comp/contact.html">www.pjb.com.au/comp/contact.html</a></p>
+<p>
+</p>
+<hr />
+<h2><a name="see_also">SEE ALSO</a></h2>
+<pre>
+<A HREF="https://en.wikipedia.org/wiki/Normal_distribution">en.wikipedia.org/wiki/Normal_distribution</A>
+<A HREF="http://www.design.caltech.edu/erik/Misc/Gaussian.html">www.design.caltech.edu/erik/Misc/Gaussian.html</A>
+<A HREF="https://en.wikipedia.org/wiki/Random_matrix#Gaussian_ensembles">en.wikipedia.org/wiki/Random_matrix#Gaussian_ensembles</A>
+<A HREF="https://en.wikipedia.org/wiki/Random_matrix#Distribution_of_level_spacings">en.wikipedia.org/wiki/Random_matrix#Distribution_of_level_spacings</A>
+<A HREF="https://en.wikipedia.org/wiki/Montgomery%27s_pair_correlation_conjecture">en.wikipedia.org/wiki/Montgomery%27s_pair_correlation_conjecture</A>
+<A HREF="https://en.wikipedia.org/wiki/Radial_distribution_function">en.wikipedia.org/wiki/Radial_distribution_function</A>
+<A HREF="https://en.wikipedia.org/wiki/Pair_distribution_function">en.wikipedia.org/wiki/Pair_distribution_function</A>
+<A HREF="https://en.wikipedia.org/wiki/Rayleigh_distribution">en.wikipedia.org/wiki/Rayleigh_distribution</A>
+<A HREF="https://luarocks.org/modules/luarocks/lrandom">luarocks.org/modules/luarocks/lrandom</A>
+<A HREF="http://www.pjb.com.au/comp/randomdist.html">www.pjb.com.au/comp/randomdist.html</A>
+<A HREF="http://www.pjb.com.au/comp/index.html">www.pjb.com.au/comp/index.html</A>
+</pre><P>
+Montgomery, Hugh L. (1973), "The pair correlation of zeros of the zeta
+function", Analytic number theory, Proc. Sympos. Pure Math., XXIV,
+Providence, R.I.: American Mathematical Society, pp. 181-193, MR 0337821
+</P><P>
+Odlyzko, A. M. (1987), "On the distribution of spacings between zeros
+of the zeta function", Mathematics of Computation, American Mathematical
+Society, 48 (177): 273-308, ISSN 0025-5718, JSTOR 2007890, MR 866115,
+doi:10.2307/2007890
+</P><P>
+John Derbyshire, <I>Prime Obsession</I>, Joseph Henry Press, 2003, p.288
+</P>
+
+</body>
+
+</html>
