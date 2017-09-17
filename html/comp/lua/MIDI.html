@@ -497,7 +497,7 @@ so you should be able to install it with the command:</p>
  # luarocks install midi</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.7-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/MIDI-6.8-0.rockspec</pre>
 </p><p>
 The test script used during development is
 <a href="http://www.pjb.com.au/comp/lua/test_mi.lua">
@@ -522,6 +522,7 @@ or, if you're using Lua 5.3:
 </p>
 <hr />
 <h2><a name="changes">CHANGES</a></h2><pre>
+ 20170917 6.8 fix 153: bad argument #1 to 'char', and round dtime
  20160702 6.7 to_millisecs() now handles set_tempo across multiple Tracks
  20150921 6.5 segment restores controllers as well as patch and tempo
  20150920 6.4 segment respects a set_tempo exactly on the start time

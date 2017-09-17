@@ -3,6 +3,7 @@
 local M = {} -- public interface
 M.Version = 'VERSION'
 M.VersionDate = 'DATESTAMP'
+-- 20170917 6.8 fix 153: bad argument #1 to 'char' and round dtime
 -- 20160702 6.7 to_millisecs() now handles set_tempo across multiple Tracks
 -- 20150921 6.5 segment restores controllers as well as patch and tempo
 -- 20150920 6.4 segment respects a set_tempo exactly on the start time
@@ -67,12 +68,12 @@ local function warn(str)
 		previous_warning = str
 	end
 end
-
 local function die(str)
 	clean_up_warnings()
 	io.stderr:write(str,'\n')
 	os.exit(1)
 end
+local function round(x) return math.floor(x+0.5) end
 
 local function readOnly(t)  -- Programming in Lua, page 127
 	local proxy = {}
@@ -149,6 +150,8 @@ details).  Its bytes represent an unsigned integer in base 128,
 most significant digit first, with as few digits as possible.
 Bit eight (the high bit) is set on each byte except the last.
 ]]
+-- stderr.write('integer = ..',integer)
+	-- warn('integer = '..tostring(integer)..' type '..type(integer))
 	if integer == 0 then return '\000' end
 	local ber = { string.char(integer % 128) }
 	while integer > 127 do
@@ -587,7 +590,7 @@ local function _encode(events_lol)
 		local event = E[1] -- 4.7
 		if #event < 1 then break end
 
-		local dtime = E[2] -- 4.7
+		local dtime = round(E[2]) -- 4.7 6.8
 		-- print('event='..event..' dtime='..dtime)
 
 		local event_data = '' -- 4.7
