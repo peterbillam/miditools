@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2u for Lua5'  -- #M and #P lines work in multi-line variables
-VersionDate  = '08may2017';
+Version = '3.2z for Lua5'  -- defends against missing bars-spacing
+VersionDate  = '24jul2017';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -802,6 +802,7 @@ end
 function warn_ln(...) warn(' line ',LineNum,': ', ...) end
 function warning(...) warn('warning: ', ...) end
 function die(...) warn(...) ;  os.exit(1) end
+function die_ln(...) warn_ln(...) ;  os.exit(1) end   -- 3.2w
 function dump(x)
 	local function tost(x)
 		if type(x) == 'table' then return 'table['..tostring(#x)..']' end
@@ -1246,6 +1247,9 @@ local function systems (nsystems, sizes)
 			local stavesandgaps = split(word, '-', 9999)
 			for i,v in ipairs(stavesandgaps) do
 				local staveorgap = tonumber(v)
+				if not staveorgap then   -- 3.2v
+					die_ln('missing stave number ',isyst)
+				end
 				totsyswidth = totsyswidth + staveorgap
 				syswidth    = syswidth + staveorgap
 				if isastave then
@@ -2194,6 +2198,9 @@ local function ps_beam (beamupordown) -- usage: &ps_beam(@BeamUp)
 			if y1 < ymin then y1 = ymin end
 		else	-- negative gradient
 			ymin = y1 - MaxBeamGradient * (xn-x1)
+-- if the bar-spacing is blank, then:
+-- attempt to perform arithmetic on local 'xn' (a string value)
+ -- 3.2y 20170711
 			if yn < ymin then yn = ymin end
 		end
 		-- check if any intermediate notes are too high ...
@@ -2539,8 +2546,13 @@ local function ps_event (symbols)
 						stemdown_rightshift = noteref['rightshift']
 					end
 					if noteref['cross'] then   -- 2.8p, 3.1j
-						local height = round( 8*Ytable[noteref['pitch']] )
-						height2cross[height] = 1
+						local y = Ytable[noteref['pitch']]  -- 3.2x
+						if y then
+							local height = round(8 * y)
+							height2cross[height] = 1
+						else
+							warn_ln('unrecognised pitch: ',pitch)
+						end
 					end
 					if CurrentPulse < shortestdown then
 						shortestdown     = CurrentPulse
@@ -2770,7 +2782,7 @@ local function ps_text (fonttype, fontsize, vertpos, text)
 	local staveheight = StvHgt -- can be locally changed
 	if not vertpos or vertpos == '' then vertpos = TextBelowStave end
 	if Istave == 0 then   -- above the top stave in the system
-		staveheight = StaveHeight[Isyst][1]
+		staveheight = StaveHeight[Isyst][1] or 0  -- 3.2z 20170724
 		ytext = Ystave[Isyst][1] + vertpos*staveheight
 		size  = TextSize * staveheight
 	elseif Istave < Nstaves[Isyst] then  -- text lies between staves
@@ -2933,8 +2945,9 @@ local function bars (nbars, str) -- eg. $str='| 4.5 | 2 3 | 4 ||'
 			local tok = tonumber(tokens[itoken])
 			if not tok or tok == 0 then
 			warn_ln("bars: '",tokens[itoken],"' should be numeric and nonzero")
-				Nparts[Isyst][ibar] = Nparts[Isyst][ibar] - 1
-				itoken = itoken + 1
+				-- 3.2y Nparts[Isyst][ibar] = Nparts[Isyst][ibar] - 1
+				tok = 1 -- 3.2y 20170711
+				-- itoken = itoken + 1
 			end
 			PartShare[ibar][ipart] = tok
 			Proportion[ibar] = Proportion[ibar] + tok
@@ -2972,19 +2985,24 @@ local function changestave (stavestr)
 	local stave = match(tostring(stavestr), "^(%d+)")
 	stave = tonumber(stave)
 	if not MIDI and not XmlOpt then
+		if not Nstaves[Isyst] then
+			Nstaves[Isyst] = 0
+			Ystave[Isyst] = {}
+			StaveHeight[Isyst] = {}
+		end  -- 3.2z 20170724
 		if stave > Nstaves[Isyst] then
 			print("% ERROR: stave = "..tostring(stave)..', but system '..
 			  tostring(Isyst)..' only has '..tostring(Nstaves[stave])..
 			  ' staves')
 			warn_ln("stavenumber "..tostring(stave)..' too big for system '..
 			  tostring(Isyst))
-			os.exit(1)
+			-- os.exit(1)  -- commented out 3.2w
 			stave = Nstaves[Isyst]
 		elseif stave < 1 then
 			print("% ERROR: stave = "..tostring(stave)..
 			  ", should be at least one")
 			warn_ln("stavenumber "..tostring(stave).." too small")
-			os.exit(1)
+			-- os.exit(1)  -- commented out 3.2w
 			stave = 1
 		end
 		Ystv      = Ystave[Isyst][Istave]      -- timesaver
@@ -4634,9 +4652,9 @@ end
 
 local function newstave (line)
 	local newstave,remainder = match(line, "^(%d+[,']?)(.*)$")
-	-- 20161216 BUG newstave can be nil, eg ==1'
+	if not newstave then die_ln("incorrect stave line\n  ="..line) end -- 3.2w
 	local tmp = gsub(newstave, "[,']", "")
-	Istave = tonumber(tmp)   -- why not Istave directly ?
+	Istave = tonumber(tmp)
 	if not Stave2channels[Istave] then Stave2channels[Istave] = {} end
 	local maxstvhgt = MaxStaveHeight[Isyst] -- for speed ...
 	if not PrePro and not changestave(newstave) then return false end
