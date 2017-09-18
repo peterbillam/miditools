@@ -48,17 +48,17 @@ if not ALSA then
   luarocks install midialsa]])
 end
 
-local CURSES = nil
-pcall(function() CURSES = require 'curses' end)
-if not CURSES then
-	die([[can't find curses; you need to install luaposix, e.g.:
-  luarocks install luaposix]])
-end
 local POSIX = nil
 pcall(function() POSIX = require 'posix' end)
 if not POSIX then
 	die([[can't find posix; you need to install luaposix, e.g.:
   luarocks install luaposix]])
+end
+local CURSES = nil
+pcall(function() CURSES = require 'curses' end)
+if not CURSES then
+	die([[can't find curses; you need to install lcurses, e.g.:
+  luarocks install lcurses]])
 end
 
 function homedir(user)
