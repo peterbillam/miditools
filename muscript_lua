@@ -8,7 +8,7 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.3q for Lua5'  -- defends against missing bars-spacing
+Version = '3.3a for Lua5'  -- Istave must be a number
 VersionDate  = '23nov2017';
 
 --require 'DataDumper'
