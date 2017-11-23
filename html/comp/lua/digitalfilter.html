@@ -18,13 +18,14 @@ CONTENT="digital filter, Lua, module, luarock, score, opus">
   <li><a href="#NAME">NAME</a></li>
   <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
   <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+  <li><a href="#TABLE-OF-OPTIONS">TABLE OF OPTIONS</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
-  <li><a href="#TABLE-OF-OPTIONS">TABLE OF OPTIONS</a></li>
   <li><a href="#FILTER-TYPES">FILTER TYPES</a></li>
   <li><a href="#FUNCTIONS">FUNCTIONS</a></li>
   <li><a href="#CONSTANTS">CONSTANTS</a></li>
+  <li><a href="#BACKGROUND">BACKGROUND</a></li>
 </ul>
 </TD><TD ALIGN="left">
 <ul>
@@ -44,17 +45,17 @@ CONTENT="digital filter, Lua, module, luarock, score, opus">
 <H2 id="SYNOPSIS">SYNOPSIS</H2>
 
 <pre><code> local DF = require &#39;digitalfilter&#39;
- local my_filter = DF.new_digitalfilter ({   -- returns a closure
+ local my_filter = DF.<A HREF="#new_digitalfilter">new_digitalfilter</A> ({   -- returns a closure
     filtertype  = &#39;butterworth&#39;,
     order       = 3,
     shape       = &#39;lowpass&#39;,
-    freq        = 1000,
-    samplerate  = 441000,
+    freq        = 2756,
+    samplerate  = 44100,
  })
- for i = 1,95 do
-    local u = (math.floor((i%16)/8 + 0.01)*2 - 1)  -- square wave
+ for i = 1,160 do
+    local u = math.floor((i%16)/8 + 0.01)*2 - 1   -- square wave
     local x = my_filter(u)
-    if i &gt;= 80 then print(&#39;my_filter(&#39;..u..&#39;) \t=&#39;, x) end
+    if i &gt;= 144 then print(&#39;my_filter(&#39;..u..&#39;) \t=&#39;, x) end
  end</code></pre>
 
 <H2 id="DESCRIPTION">DESCRIPTION</H2>
@@ -62,49 +63,25 @@ CONTENT="digital filter, Lua, module, luarock, score, opus">
 <p>This module provides some Digital Filters - Butterworth, Chebyschev
 and Bessel, in lowpass and highpass. Primitive bandpass and bandstop
 filters are provided, and hopefully, Inverse Chebyschev and Elliptic
-filters will follow.</p>
-
-<p>To quote
-<A HREF="https://en.wikipedia.org/wiki/Digital_filter">
-en.wikipedia.org/wiki/Digital_filter</A>
- ; &quot;The design of digital filters is a deceptively complex
-topic. Although filters are easily understood and calculated, the
-practical challenges of their design and implementation are significant
-and are the subject of much advanced research.&quot;</p>
-
-<p>In the literature I have, the notation is often confusing. For example,
-in Temes/Mitra p.152 the general z^-1 transfer-function is given with
-parameters A_2 in the numerator equal to zero. Constantinides sometimes
-uses u and v to mean the real and imaginary parts of the frequency omega,
-and sometimes to mean the input and output signals of a digital filter;
-Rorabaugh, however, (p.156) uses X(z) and Y(z) to mean the input and
-output signals of a digital filter. Rorabaugh sometimes uses q to
-mean the quality of filter-section, sometimes to mean the location
-of a zero in the z^-1 plane. Constantinides sometimes uses a and b to
-mean the coefficients of the transfer function in the frequency-domain,
-and alpha and beta to mean the coefficients of the transfer function in
-the z^-1-domain, but he often uses a and b to mean the coefficients of
-the transfer function in the z^-1-domain. Or, comparing Constantinides
-p.36 with Rorabaugh p.156, the meanings of a and b have been swapped,
-as have the meanings of G(z) and H(z).
-In the <I>sox biquad b0 b1 b2 a0 a1 a2</I> option,
-<I>b*</I> is numerator and <I>a*</I> is denominator, agreeing with Rorabaugh,
-so I will, sometime, change my code over to use that "standard".
+filters will follow.
+</p><p>
+It was the subject of
+<A HREF="digitalfilter_talk/index.html">
+a talk given at Taslug in October 2017</A>
 </p>
 
-<p>This version of <i>digitalfilter.lua</i> uses the procedure given in
-Rorabaugh&#39;s &quot;Digital Filter Designer&#39;s Handbook&quot;,
-pp.287-291. Overall, while writing this module, I have found
-Rorabaugh&#39;s book to be the most helpful.</p>
 
 <H2 id="TABLE-OF-OPTIONS">TABLE OF OPTIONS</H2>
 
-<p>Various functions, including <i>new_digitalfilter(options)</i>, need
-an argument to set the parameters; This argument is a table, with keys
+<p>The main function,
+<i><A HREF="#new_digitalfilter">new_digitalfilter(options)</A></i>,
+needs an argument to set the parameters; This argument is a table, with keys
 &#39;filtertype&#39;, &#39;order&#39;, &#39;shape&#39;, &#39;freq&#39; and
 &#39;samplerate&#39;, and for basspass and bandstop also &#39;Q&#39;</p>
 
-<p>The &#39;filtertype&#39; can be &#39;butterworth&#39;, &#39;bessel&#39;,
+<p>The
+<A HREF="#FILTER-TYPES">&#39;filtertype&#39;</A>
+can be &#39;butterworth&#39;, &#39;bessel&#39;,
 or &#39;chebyschev&#39;. In the case of &#39;chebyschev&#39; there is
 an additional option &#39;ripple&#39; which specifies in decibels the
 desired ripple in the passband, defaulting to 1dB.</p>
@@ -183,7 +160,7 @@ en.wikipedia.org/wiki/Bessel_filter#Digital</A>
 
 <dl>
 
-<dt id="new_digitalfilter-options"><i>my_filter = new_digitalfilter(options)</i></dt>
+<dt id="new_digitalfilter"><i>my_filter = new_digitalfilter(options)</i></dt>
 <dd>
 
 <p><i>new_digitalfilter</i> returns a closure - a function that lies
@@ -193,7 +170,9 @@ and it will return the filtered-signal-value.</p>
 
 <p>The argument <i>options</i> is a table, with keys &#39;filtertype&#39;,
 &#39;order&#39;, &#39;shape&#39;, &#39;freq&#39; and
-&#39;samplerate&#39;.</p>
+&#39;samplerate&#39;. &nbsp; See the
+<A HREF="#TABLE-OF-OPTIONS">Table of Options</A>
+</p>
 
 <p>If an error is detected, <i>new_digitalfilter</i> returns <i>nil</i>
 and an error message, so it can be used with <i>assert</i>.</p>
@@ -219,6 +198,38 @@ The release-date of this <I>digitalfilter.lua</I> version
 </dd>
 
 </dl>
+
+<H2 id="BACKGROUND">BACKGROUND</H2>
+<p>To quote
+<A HREF="https://en.wikipedia.org/wiki/Digital_filter">
+en.wikipedia.org/wiki/Digital_filter</A>
+ ; &quot;The design of digital filters is a deceptively complex
+topic. Although filters are easily understood and calculated, the
+practical challenges of their design and implementation are significant
+and are the subject of much advanced research.&quot;</p>
+<p>In the literature I have, the notation is often confusing. For example,
+in Temes/Mitra p.152 the general z^-1 transfer-function is given with
+parameters A_2 in the numerator equal to zero. Constantinides sometimes
+uses u and v to mean the real and imaginary parts of the frequency omega,
+and sometimes to mean the input and output signals of a digital filter;
+Rorabaugh, however, (p.156) uses X(z) and Y(z) to mean the input and
+output signals of a digital filter. Rorabaugh sometimes uses q to
+mean the quality of filter-section, sometimes to mean the location
+of a zero in the z^-1 plane. Constantinides sometimes uses a and b to
+mean the coefficients of the transfer function in the frequency-domain,
+and alpha and beta to mean the coefficients of the transfer function in
+the z^-1-domain, but he often uses a and b to mean the coefficients of
+the transfer function in the z^-1-domain. Or, comparing Constantinides
+p.36 with Rorabaugh p.156, the meanings of a and b have been swapped,
+as have the meanings of G(z) and H(z).
+In the <I>sox biquad b0 b1 b2 a0 a1 a2</I> option,
+<I>b*</I> is numerator and <I>a*</I> is denominator, agreeing with Rorabaugh,
+so I will, sometime, change my code over to use that "standard".
+</p>
+<p>This version of <i>digitalfilter.lua</i> uses the procedure given in
+Rorabaugh&#39;s &quot;Digital Filter Designer&#39;s Handbook&quot;,
+pp.287-291. Overall, while writing this module, I have found
+Rorabaugh&#39;s book to be the most helpful.</p>
 
 <H2 id="DOWNLOAD">DOWNLOAD</H2>
 

@@ -433,7 +433,7 @@ so you should be able to install it with the command:</p>
  # luarocks install fluidsynth</pre>
 <p>or:</p>
 <pre>
- # luarocks install http://www.pjb.com.au/comp/lua/fluidsynth-2.0-0.rockspec</pre>
+ # luarocks install http://www.pjb.com.au/comp/lua/fluidsynth-2.1-0.rockspec</pre>
 <p>It depends on the <I>fluidsynth</I> library and its header-files;
 for example on Debian you may need:
 </p><pre>
@@ -446,6 +446,7 @@ or on Centos you may need:</p><pre>
 <hr />
 <h2><a name="changes">CHANGES</a></h2>
 <pre>
+ 20171112 2.1 fix compiler warnings on 64-bit machines
  20150424 2.0 keep ptrs in C arrays and return indexes; C returns nil on error
  20150421     include lua5.3, and move pod and doc back to luarocks.org
  20140913 1.8 introduce get(synth, parameter) to get a current setting
