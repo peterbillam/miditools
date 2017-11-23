@@ -3790,7 +3790,9 @@ local function midi_event (symbols)
 					midi_expression(B, cha, 100)
 				end
 				if StartedSlurs[Istave] then
-					if endslur then table.remove(StartedSlurs,Istave)
+					if endslur then
+ 						-- table.remove(StartedSlurs,Istave)
+						StartedSlurs[Istave] = nil  -- 3.2z
 					else D = D + fullduration - duration
 					end
 				end
