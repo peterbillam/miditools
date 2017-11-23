@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.2z for Lua5'  -- defends against missing bars-spacing
-VersionDate  = '24jul2017';
+Version = '3.3q for Lua5'  -- defends against missing bars-spacing
+VersionDate  = '23nov2017';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -984,7 +984,7 @@ function initialise ()
 		TicksThisBar     = 0      -- so as not to delay the start
 		MidiBarParts     = '2.4'  -- default guesses 4/4 at 100 cro/min
 		Stave2channels   = {}
-		Istave           = '1'
+		Istave           = 1      -- 3.3a number ! not string !
 	elseif XmlOpt then
 		Stave2channels   = {}
 		XmlTimesig      = '4/4'
@@ -3790,9 +3790,9 @@ local function midi_event (symbols)
 					midi_expression(B, cha, 100)
 				end
 				if StartedSlurs[Istave] then
-					if endslur then
- 						-- table.remove(StartedSlurs,Istave)
-						StartedSlurs[Istave] = nil  -- 3.2z
+					if endslur then  -- 1 might be nil but 2 remains ...
+ 						-- 20171123 table.remove(StartedSlurs,Istave)
+						StartedSlurs[Istave] = nil  -- 3.3a
 					else D = D + fullduration - duration
 					end
 				end
