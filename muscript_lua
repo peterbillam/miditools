@@ -3577,7 +3577,7 @@ end
 local function midi_event_option (option, starttime, cha)   -- 3.1i
 	if option == '*' then   -- 3.0b
 		table.insert(MidiScore, {'control_change',starttime+1,cha,0x40,0x00})
-		table.remove(MidiPedal,cha)
+		MidiPedal[cha] = nil -- 20171124 table.remove falsified the chas
 	elseif option == 'P' then    -- 3.0b
 		if MidiPedal[cha] then
 		  table.insert(MidiScore,{'control_change',starttime+1,cha,0x40,0x00})
@@ -3598,7 +3598,7 @@ local function midi_event_option (option, starttime, cha)   -- 3.1i
 		MidiUnaPed[cha] = 1
 	elseif option == 'Tre'  then  -- 3.1n
 		table.insert(MidiScore, {'control_change',starttime-2,cha,0x43,0x00})
-		table.remove(MidiUnaPed, cha)
+		MidiUnaPed[cha] = nil -- 20171124 table.remove falsified the chas
 	end
 end
 
