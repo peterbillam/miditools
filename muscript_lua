@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.3a for Lua5'  -- Istave must be a number
-VersionDate  = '23nov2017';
+Version = '3.3b for Lua5'  -- Istave must be a number
+VersionDate  = '19jan2018';
 
 --require 'DataDumper'
 local concat = table.concat
@@ -3446,7 +3446,7 @@ local function current_pan ()
 		return Stave2pan[Istave] or 50
 end
 local function current_bend ()   -- 3.2  cha2bend ? for incremental bend+2 ?
-	return Stave2bend[Istave] or false
+	return Stave2bend[Istave] or 0 -- 3.3b, used to return false
 end
 
 function midi_in_stave (str)
