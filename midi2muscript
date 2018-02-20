@@ -1,6 +1,6 @@
 #! /usr/local/bin/lua
 local MIDI= require 'MIDI'
---require 'DataDumper'
+-- require 'DataDumper'
 -- 20150511 priorities:
 --   note-lengths, including notes lasting several bars
 --   -t option (think 5/8 7/8 3/8)
@@ -9,8 +9,8 @@ local MIDI= require 'MIDI'
 --   reasonable beaming
 --   beaming conforming to metronome beat
 
-local Version = '1.6'
-local VersionDate = '20150527'
+local Version = '1.7'  -- handles note as last event and uses table.unpack
+local VersionDate = '20180220'
 
 
 --------- basic infrastructure that I put in almost everything ----------
@@ -211,6 +211,7 @@ for ievent,weight in pairs(weights) do
 			clumped_weight = clumped_weight + weights[i]
 		end
 		i = i + 1
+		if i > #track then break end   -- 20180220
 	end
 	clumped_weights[ievent] = clumped_weight
 end
@@ -413,7 +414,7 @@ local note2acc = {'','#','','b','','','#','','#','','b',''}
 local previous_accidental = {} -- must reset at the beginning of each bar
 
 function pedal2str(event)
-	local s,t,cha,cc,val = unpack(event)
+	local s,t,cha,cc,val = table.unpack(event)
 	if (s == "control_change") then
 		if (cc == 64) then
 			if (val > 63) then return "-P" else return "-*" end
@@ -424,7 +425,7 @@ function pedal2str(event)
 	return nil
 end
 function note2str(clef, event)
-	local s,t,dt,cha,note,vol = unpack(event)
+	local s,t,dt,cha,note,vol = table.unpack(event)
 	if (s ~= 'note') then return '' end
 	if string.find(clef, '^treble') then
 		note = note - 24
@@ -567,7 +568,10 @@ function midibar2muscript (track, start_index, end_index)
 	midibar[#midibar] = nil   -- we no longer need the start of the next bar
 	bar_duration = round(bar_duration/pulse_ms)  -- now in pulses
 	for istave = 1,n_staves do
-		local clef,channel = unpack(stave2clefchannel[istave])
+if not stave2clefchannel[istave] then
+	print(DataDumper(stave2clefchannel))
+end
+		local clef,channel = table.unpack(stave2clefchannel[istave])
 		-- should detect majority stemdir (perhaps even plausibly beam!)
 		local line_words = {'='..istave}  -- ..','
 		-- we could append "," or "'" to linewords[1] much later :-)
