@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.3b for Lua5'  -- Istave must be a number
-VersionDate  = '19jan2018';
+Version = '3.3d for Lua5'  -- # quadruplet rhythms work in xml
+VersionDate  = '09feb2018'
 
 --require 'DataDumper'
 local concat = table.concat
@@ -265,6 +265,12 @@ if not MIDI and not XmlOpt then PS_Prolog = [[
 /doubledot {	% usage: x y staveheight doubledot
 	gsave 3 1 roll translate dup scale newpath
 	0 0 0.04 0 360 arc fill newpath 0.2 0 0.04 0 360 arc fill grestore
+} bind def
+
+/tripledot {	% usage: x y staveheight tripledot  3.3c
+	gsave 3 1 roll translate dup scale newpath
+	0 0 0.04 0 360 arc fill newpath 0.2 0 0.04 0 360 arc fill
+	newpath 0.4 0 0.04 0 360 arc fill grestore
 } bind def
 
 /stave {	% usage: x_left x_right y_topline staveheight stave
@@ -994,6 +1000,7 @@ function initialise ()
 		}
 		local a = {} ; for k,v in pairs(XmlDuration) do
 			a[k..'3'] = v
+			a[k..'4'] = v  -- 3.3d
 		end
 		for k,v in pairs(a) do XmlDuration[k]=v end
 		a = {} ; for k,v in pairs(XmlDuration) do
@@ -1845,17 +1852,18 @@ local function ps_rest (currentpulse, symbol, X)
 	else
 		printf("%g %g %g semiquaverrest", X,Y,smallstvhgt)
 	end
-	if find(currentpulse, "%.%.$") then  -- print the dot, if any
-		-- should give breverest more space, probably DotRightOfNote
+	if find(currentpulse, "%.$") then  -- print the dot, if any
 		local x_plus  = X + dot_right_of_rest * StvHgt -- 3.2m 3.2n
 		-- should only raise dot if note on line ...
 		local y_minus = Y + dot_above_note * StvHgt 
-		printf("%g %g %g doubledot", x_plus,y_minus,StvHgt)
-	elseif find(currentpulse, "%.$") then
-		local x_plus  = X + dot_right_of_rest * StvHgt -- 3.2m 3.2n
-		-- should only raise dot if note on line ...
-		local y_minus = Y + dot_above_note * StvHgt    -- 3.2m 3.2n
-		printf("%g %g %g dot", x_plus,y_minus,StvHgt)
+		if find(currentpulse, "%.%.%.$") then
+			printf("%g %g %g tripledot", x_plus,y_minus,StvHgt)
+		elseif find(currentpulse, "%.%.$") then  -- print the dot, if any
+			-- should give breverest more space, probably DotRightOfNote
+			printf("%g %g %g doubledot", x_plus,y_minus,StvHgt)
+		elseif find(currentpulse, "%.$") then
+			printf("%g %g %g dot", x_plus,y_minus,StvHgt)
+		end
 	end
 	if options and option~='' then
 		ps_note_options(X,ps_y_below_note(),ps_y_above_note(),'none',options)
@@ -1974,14 +1982,16 @@ local function ps_note (noteref, X, height2cross)
 		if math.floor(0.01+(Ytable[noteref['pitch']] or 0)*8.0) % 2 > 0.5 then
 			dot_above_note = DotAboveNote*sh
 		end
-		if find(CurrentPulseText,'%.%.') then
+		if find(CurrentPulseText,'%.') then
 			local x_plus  = X + DotRightOfNote*sh
 			local y_minus = Y + dot_above_note
-			printf("%g %g %g doubledot", x_plus,y_minus,sh)
-		elseif find(CurrentPulseText,'%.') then
-			local x_plus  = X + DotRightOfNote*sh
-			local y_minus = Y + dot_above_note
-			printf("%g %g %g dot", x_plus, y_minus, sh)
+			if find(CurrentPulseText,'%.%.%.') then  -- 3.3c
+				printf("%g %g %g tripledot", x_plus,y_minus,sh)
+			elseif find(CurrentPulseText,'%.%.') then
+				printf("%g %g %g doubledot", x_plus,y_minus,sh)
+			else
+				printf("%g %g %g dot", x_plus, y_minus, sh)
+			end
 		end
 	end
 	-- end the slur or tie, if any; here in PostScript they're the same.
@@ -3686,7 +3696,9 @@ local function midi_event (symbols)
 			end
 		elseif is_note then
 			local noteref    = parse_note(symbol)
+			if not noteref then return end  -- 20180202
 			local pitch      = noteref['pitch']
+			if not pitch   then return end  -- 20180202
 			local accidental = noteref['accidental']
 			local options    = noteref['options']
 			-- 3.1s:

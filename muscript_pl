@@ -49,8 +49,8 @@ $Data::Dumper::Terse     = 1;
 $debug = 0;
 if ($debug) {$|=1;}  # so you can 'tail -f' on the output file
 
-$Version      = '3.3a for Perl'; # no changes here but tracking muscript_lua
-$VersionDate  = '23nov2017';
+$Version      = '3.3d for Perl'; # quadruplet rhythms work in xml
+$VersionDate  = '09feb2018';
 no warnings;  # Use of assignment to $[ is deprecated in perl 5.14
 # if it becomes illegal, it may be easier to translate to Lua than to fix
 $[=1; # awk (and a2p) legacy, needed by $Isyst $Ibar and $Istave
@@ -497,6 +497,7 @@ sub initialise {
 		);
 		foreach my $key (keys %XmlDuration) {
 			$XmlDuration{$key.q{3}} = "$XmlDuration{$key}";
+			$XmlDuration{$key.q{4}} = "$XmlDuration{$key}";  # 3.3d
 		}
 		foreach my $key (keys %XmlDuration) {
 			$XmlDuration{$key} = "<type>$XmlDuration{$key}</type>";
@@ -3185,14 +3186,16 @@ sub ps_note { local ($note_ref, $X, $height2cross_ref) = @_; # $X needs local
 		if (int(0.01 + abs(8*$ytable{$note_ref->{pitch}})) % 2 > 0.5) {
 			$dot_above_note = $DotAboveNote*$sh;
 		}
-		if ($currentpulsetext =~ /\.\./) {
+		if ($currentpulsetext =~ /\./) {
 			my $x_plus  = $X + $DotRightOfNote*$sh; 
 			my $y_minus = $Y + $dot_above_note; 
-			printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $sh);
-		} elsif ($currentpulsetext =~ /\./) {
-			my $x_plus  = $X + $DotRightOfNote*$sh; 
-			my $y_minus = $Y + $dot_above_note;
-			printf ("%g %g %g dot\n", $x_plus, $y_minus, $sh);
+			if ($currentpulsetext =~ /\.\.\./) {  # 3.3c
+				printf ("%g %g %g tripledot\n", $x_plus, $y_minus, $sh);
+			} elsif ($currentpulsetext =~ /\.\./) {
+				printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $sh);
+			} else {
+				printf ("%g %g %g dot\n", $x_plus, $y_minus, $sh);
+			}
 		}
 	}
 
@@ -3482,6 +3485,7 @@ sub ps_barline { my ($X, $isyst, $ibar) = @_;
 	printf "%% ERROR: barline called with type = %d\n", $type;
 	return;
 }
+
 sub ps_text {  my ($fonttype, $fontsize, $vertpos, $text) = @_;
 	if ($Midi) { warn "bug: ps_text called with \$Midi set\n"; return; }
 	if ($XmlOpt)  { warn "bug: ps_text called with \$XmlOpt set\n";  return; }
@@ -4129,15 +4133,17 @@ sub ps_rest { my ($currentpulse, $symbol, $X) = @_;
 	} else {
 		printf "%g %g %g semiquaverrest\n", $X, $Y, $smallstaveheight;   # 3.1o
 	}
-	# print the dot, if any
-	if ($currentpulse =~ /\.\.$/) {
+	if ($currentpulse =~ /\.$/) {   # print the dot, if any
 		my $x_plus  = $X + $dot_right_of_rest * $StvHgt;  # 3.2n
 		my $y_minus = $Y + $dot_above_note * $StvHgt;     # 3.2n
-		printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $StvHgt);
-	} elsif ($currentpulse =~ /\.$/) {
-		my $x_plus  = $X + $dot_right_of_rest * $StvHgt;  # 3.2n
-		my $y_minus = $Y + $dot_above_note * $StvHgt;     # 3.2n
-		printf ("%g %g %g dot\n", $x_plus, $y_minus, $StvHgt);
+		if ($currentpulse =~ /\.\.\.$/) {   # 3.3c
+# warn("triple\n");
+			printf ("%g %g %g tripledot\n", $x_plus, $y_minus, $StvHgt);
+		} elsif ($currentpulse =~ /\.\.$/) {
+			printf ("%g %g %g doubledot\n", $x_plus, $y_minus, $StvHgt);
+		} else {
+			printf ("%g %g %g dot\n", $x_plus, $y_minus, $StvHgt);
+		}
 	}
 	if ($options) {
 		ps_note_options($X,&ps_y_below_note(),&ps_y_above_note(),
@@ -4293,6 +4299,12 @@ __END__
 /doubledot {	% usage: x y staveheight doubledot
 	gsave 3 1 roll translate dup scale newpath
 	0 0 0.04 0 360 arc fill newpath 0.2 0 0.04 0 360 arc fill grestore
+} bind def
+
+/tripledot {    % usage: x y staveheight tripledot  3.3c
+	gsave 3 1 roll translate dup scale newpath
+	0 0 0.04 0 360 arc fill newpath 0.2 0 0.04 0 360 arc fill
+	newpath 0.4 0 0.04 0 360 arc fill grestore
 } bind def
 
 /stave {	% usage: x_left x_right y_topline staveheight stave
