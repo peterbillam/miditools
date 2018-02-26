@@ -1,0 +1,144 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title></title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+
+
+<ul id="index">
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+  <li><a href="#ARGUMENTS">ARGUMENTS</a></li>
+  <li><a href="#TO-DO">TO DO</a></li>
+  <li><a href="#DOWNLOAD">DOWNLOAD</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+
+<h1 id="NAME">NAME</h1>
+
+<p>midimarkov - Markov-chain music reconstruction</p>
+
+<h1 id="SYNOPSIS">SYNOPSIS</h1>
+
+<pre><code>  cat t.mid | midimarkov | aplaymidi -
+  muscript -midi bach/opfer/ric6_rec | midimarkov | aplaymidi -
+  muscript -midi ~/mus/solosuite/one ~/mus/solosuite/two \
+    ~/mus/solosuite/three | midisox_lua - - pitch -300 \
+    | midimarkov -p 21 -n 60 -c 1,3,4,7 -r r.mid
+  # This leaves a midi file of its output in /tmp/midimarkov_NNNNN.mid
+
+  midimarkov /tmp/midimarkov_NNNNN ; midimarkov /tmp/midimarkov_NNNNN
+  midimarkov /tmp/midimarkov_NNNNN
+  # This interesting iteration increases fidelity to a subset of motifs
+
+  muscript -midi ~/mus/arr/bach/bwv1008/bwv1008 | midimarkov -n 800
+
+  midimarkov -n 400 -p 74 -c 0 ~/www/muscript/samples/folkdance.mid
+
+  muscript -midi ~/mus/solosuite/one | midisox_lua - - pitch -1200 \
+    | midimarkov -p 31 -n 60 -r &#39;| midisox r.mid - tempo 1.7&#39;</code></pre>
+
+<h1 id="DESCRIPTION">DESCRIPTION</h1>
+
+<p><i>midimarkov</i> uses a modified markov algorithm
+on midi files.
+
+<p>The &#39;midi file&#39; may also be a pipe (beginning with a
+&quot;|&quot; as in <i>sox</i> notation), as in this example:</p>
+
+<pre><code>  midimarkov -p 31 -n 60 &#39;| muscript -midi ~/mus/solosuite/one&#39;</code></pre>
+
+<p>It works best on a single line.</p>
+
+<h1 id="ARGUMENTS">ARGUMENTS</h1>
+
+<dl>
+
+<dt id="c-1-3"><i>-c 1,3</i></dt>
+<dd>
+<p>Disregards all channels in the input data except for channels 1 and 3</p>
+</dd>
+
+<dt id="n-400"><i>-n 400</i></dt>
+<dd>
+<p>Generate 400 notes of output. The default is 300.</p>
+</dd>
+
+<dt id="p-40"><i>-p 40</i></dt>
+<dd>
+<p>The output is given the patch number 40. The default is 82.</p>
+</dd>
+
+<dt id="q-5"><i>-q 5</i></dt>
+<dd>
+<p>Quantises the durations of the input-file, to the nearest
+5 milliseconds in this example. This makes it easier for the
+output-durations to leap around from one section of the input to another -
+which may or may not be desirable.</p>
+</dd>
+
+<dt id="r-nicerhythms.mid"><i>-r nicerhythms.mid</i></dt>
+<dd>
+
+</dd>
+<dt><i>-r &#39;| midisox nicerhythms.mid - tempo 1.6&#39;</i></dt>
+<dd>
+<p>Uses this separate midi file for the rhythm data. The &#39;midi
+file&#39; may also be a pipe (beginning with a &quot;|&quot; as in
+<i>sox</i> notation), as in the second example.</p>
+</dd>
+
+<dt id="S"><i>-S</i></dt>
+<dd>
+<p>Print on <i>stderr</i> some statistics on the lists in which items
+were found.</p>
+</dd>
+
+<dt id="v"><i>-v</i></dt>
+<dd>
+<p>Print the Version</p>
+</dd>
+
+</dl>
+
+<h1 id="TO-DO">TO DO</h1>
+
+<p>Next: perhaps something similar using <i>midialsa.lua</i> with live
+midi input, perhaps letting input-notes through while adding them to the
+input-array and remaining silent, and then when the input goes silent,
+generating a markov continuation of it - something like an uninterruptable
+solo. This needs the ability to add to the array in real-time.</p>
+
+<p>Investigate the effects of iteration: what does it converge on ?
+how do varying output-sizes affect it ?</p>
+
+<h1 id="DOWNLOAD">DOWNLOAD</h1>
+
+<p>The source is available at
+<A HREF="http://www.pjb.com.au/midi/free/midimarkov">
+www.pjb.com.au/midi/free/midimarkov</A>
+</p>
+
+<h1 id="AUTHOR">AUTHOR</h1>
+
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+
+<h1 id="SEE-ALSO">SEE ALSO</h1>
+
+<pre><code> ~/lua/lib/midi_markov.lua
+ http://www.pjb.com.au/</code></pre>
+
+
+</body>
+
+</html>
+
+

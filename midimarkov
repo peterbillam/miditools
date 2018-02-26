@@ -1,0 +1,431 @@
+#!/usr/local/bin/lua
+---------------------------------------------------------------------
+--     This Lua5 script is Copyright (c) 2018, Peter J Billam      --
+--                       www.pjb.com.au                            --
+--  This script is free software; you can redistribute it and/or   --
+--         modify it under the same terms as Lua5 itself.          --
+---------------------------------------------------------------------
+local Version = '1.0  for Lua5'
+local VersionDate  = '24jan2018';
+local Synopsis = [[
+  muscript -midi bwv1007 | midimarkov
+  midimarkov bwv1007.mid
+]]
+
+math.randomseed(os.time())
+local MIDI = require 'MIDI'
+
+-- local MA   = require 'midi_markov'
+-- require 'DataDumper'
+
+------------ rolled in from ~/lua/lib/midi_markov.lua ------------
+function warn(...)
+    local a = {}
+    for k,v in pairs{...} do table.insert(a, tostring(v)) end
+    io.stderr:write(table.concat(a),' ') ; io.stderr:flush()
+end
+function die(...) warn(...);  os.exit(1) end
+function qw(s)  -- t = qw[[ foo  bar  baz ]]
+    local t = {} ; for x in s:gmatch("%S+") do t[#t+1] = x end ; return t
+end
+
+local stats  = false
+
+function prefix (...) return table.concat({...}, " ") end
+
+local NOWORD = 199
+
+local UsingStdinAsAFile = false
+function file2millisec(filename)  -- borrowed from midisox_lua
+	if filename == '-n' then return {1000,{}} end
+	local midi = ""
+	if filename == '-' then
+		if UsingStdinAsAFile then die("can't read STDIN twice") end
+		-- (sys.stdin.fileno(), 'rb') as fh: Should disable txtmode for dos
+		UsingStdinAsAFile = true
+		return MIDI.midi2ms_score(io.read('*all'))
+	end
+	if string.find(filename, '^|%s*(.+)') then  -- 4.8
+		local command = string.match(filename, '^|%s*(.+)')  -- 4.8
+		local err_fn = os.tmpname()
+		local pipe = assert(io.popen(command..' 2>'..err_fn, 'r'))
+		-- rb if windows
+		midi = pipe:read('*all')  --XXX  -- 4.8
+		err_fh = assert(io.open(err_fn))
+		local err_msg = err_fh:read('*all')  -- 4.8
+		err_fh:close()  -- 4.8
+		os.remove(err_fn)
+		--msg  = pipe.stderr.read()
+		pipe:close()  -- 4.8
+		--status = pipe:wait()  -- 4.8
+		if string.len(err_msg) > 1 then
+			die("can't run "..command..": "..err_msg)
+		end
+		return MIDI.midi2ms_score(midi)
+	end
+	if string.find(filename, '^[a-z]+:/') then  -- 3.8
+		pcall(function() require 'curl' end)
+		if not curl then pcall(function() require 'luacurl' end) end
+		if not curl then
+			die([[you need to install lua-curl or luacurl, e.g.:
+  aptitude install liblua5.1-curl0  (or equivalent on non-debian sytems)
+or, if that doesn't work:
+  luarocks install luacurl]])
+		end
+		local midi = wget(filename)
+		return MIDI.midi2ms_score(midi)
+	end
+
+	fh = assert(io.open(filename, "rb"))
+	local midi = fh:read('*all')
+	fh:close()
+	return MIDI.midi2ms_score(midi)
+end
+
+
+function new_markov (arg)
+	local allwords
+	if  type(arg) == 'function' then allwords = arg
+	elseif type(arg) == 'table' then
+-- print('arg =', arg)
+		local i = 0
+		allwords = function () ; i = i + 1 ; return arg[i] end
+	end
+	local input_words = 0
+	local found = {0,0,0,0}
+-- print('allwords =', allwords)
+-- print('allwords() =', allwords())
+	local statetab_1 = {}   -- indexed by the current word only
+	local statetab_2 = {}   -- indexed by the last two words
+	local statetab_3 = {}   -- indexed by the last three words
+	local statetab_4 = {}   -- indexed by the last four words
+	local function insert (w1, w2, w3, w4, value)
+		local list1 = statetab_1[w4]
+		if list1 == nil then statetab_1[w4] = {value}
+		else              list1[#list1 + 1] = value
+		end
+		local p2 = prefix(w3, w4)
+		local list2 = statetab_2[p2]
+		if list2 == nil then statetab_2[p2] = {value}
+		else              list2[#list2 + 1] = value
+		end
+		local p3 = prefix(w2, w3, w4)
+		local list3 = statetab_3[p3]
+		if list3 == nil then statetab_3[p3] = {value}
+		else              list3[#list3 + 1] = value
+		end
+		local p4 = prefix(w1, w2, w3, w4)
+		local list4 = statetab_4[p4]
+		if list4 == nil then statetab_4[p4] = {value}
+		else              list4[#list4 + 1] = value
+		end
+	end
+
+	-- build table
+	local w1,w2,w3,w4 = NOWORD, NOWORD, NOWORD, NOWORD   -- initialise
+	for nextword in allwords do
+		insert(w1, w2, w3, w4, nextword)
+		w1 = w2 ; w2 = w3 ; w3 = w4 ; w4 = nextword
+		input_words = input_words + 1
+	end
+	insert(w1, w2, w3, w4, NOWORD)
+
+	-- generate text
+	w1 = NOWORD ; w2 = NOWORD ; w3 = NOWORD ; w4 = NOWORD  -- reinitialise
+	local seeds = {}
+	return function (opt, ...)
+		if opt == 'stats' then
+			local s = "input_words="..tostring(input_words)..",  "
+			for i = #found,1,-1 do
+				s = s .. "found["..tostring(i).."]="..tostring(found[i]).." "
+			end
+			return s
+		elseif opt == 'seed' then
+			seeds = {...}
+			for i = 1, #seeds do
+				seeds[i] = tostring(seeds[i])
+				if statetab_1[seeds[i]] then
+					w1 = w2 ; w2 = w3 ; w3 = w4 ; w4 = seeds[i]
+				end
+			end
+			return nil
+		end
+		if #seeds > 0 then  -- still some seeds left; regurgitate the seed
+			local w = table.remove(seeds, 1)
+			return w
+		end
+		local nextword
+		local list2 = statetab_2[prefix(w3,w4)]
+		local list3 = statetab_3[prefix(w2,w3,w4)]
+		local list4 = statetab_4[prefix(w1,w2,w3,w4)]
+		if list4 and #list4 > 1 then
+			nextword = list4[math.random(#list4)]  -- choose a random word
+			found[4] = found[4] + 1
+		elseif list3 and #list3 > 1 then
+			nextword = list3[math.random(#list3)]  -- choose a random word
+			found[3] = found[3] + 1
+		elseif list2 and #list2 > 1 then
+			nextword = list2[math.random(#list2)]
+			found[2] = found[2] + 1
+		else
+			local list1 = statetab_1[w4]
+			if not list1 then return end
+			nextword = list1[math.random(#list1)]
+			found[1] = found[1] + 1
+		end
+		-- if nextword ~= NOWORD then io.stdout:write(nextword, " ") end
+		-- if it's a NOWORD, we should try the next one ...
+		w1 = w2 ; w2 = w3 ; w3 = w4 ; w4 = nextword
+		return nextword
+	end
+end
+
+local stats  = false
+Arg = {
+	channels   = {},
+	num_notes  = 400,
+	patch      = 82,
+	quantise   = 1,
+	rhythmfile = '',
+	stats      = false,
+}
+
+local function round(x) return math.floor(x+0.5) end
+
+local function split(s, pattern, maxNb) -- http://lua-users.org/wiki/SplitJoin
+    if not s or string.len(s)<2 then return {s} end
+    if not pattern then return {s} end
+    if maxNb and maxNb <2 then return {s} end
+    local result = { }
+    local theStart = 1
+    local theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+    local nb = 1
+    while theSplitStart do
+        table.insert(result, tonumber(string.sub(s,theStart,theSplitStart-1)))
+        theStart = theSplitEnd + 1
+        theSplitStart,theSplitEnd = string.find(s,pattern,theStart)
+        nb = nb + 1
+        if maxNb and nb >= maxNb then break end
+    end
+    table.insert( result, tonumber(string.sub(s,theStart,-1)) )
+    return result
+end
+
+local iarg=1; while arg[iarg] ~= nil do
+	if not string.find(arg[iarg], '^-[a-z]') then break end
+	local first_letter = string.sub(arg[iarg],2,2)
+	if first_letter == 'v' then
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate)
+		os.exit(0)
+	elseif first_letter == 'c' then
+		iarg = iarg+1
+		Arg['channels'] = split(arg[iarg], ",")
+		-- for i,v in ipairs(split(arg[iarg], ",")) do
+		for i,v in ipairs(Arg['channels']) do
+			Arg['channels'][i] = tonumber(v)
+		end
+	elseif first_letter == 'n' then
+		iarg = iarg+1
+		Arg['num_notes'] = tonumber(arg[iarg])
+	elseif first_letter == 'p' then
+		iarg = iarg+1
+		Arg['patch'] = round(tonumber(arg[iarg]))
+	elseif first_letter == 'q' then
+		iarg = iarg+1
+		Arg['quantise'] = round(tonumber(arg[iarg]))
+	elseif first_letter == 'r' then
+		iarg = iarg+1
+		Arg['rhythmfile'] = arg[iarg]
+	elseif first_letter == 'S' then
+		Arg['stats'] = true
+	else
+		local n = string.gsub(arg[0],"^.*/","",1)
+		print(n.." version "..Version.."  "..VersionDate.."\n\n"..Synopsis)
+		os.exit(0)
+	end
+	iarg = iarg+1
+end
+Arg['notefile'] = arg[iarg] or '-'
+
+local notescore = file2millisec(Arg['notefile'])
+if #Arg['channels'] > 0 then
+	notescore = MIDI.grep(notescore, Arg['channels'])
+end
+table.sort(notescore[2], function (e1,e2) return e1[2]<e2[2] end)
+local allpitches = {}
+for i,v in ipairs(notescore[2]) do
+	if v[1] == 'note' then table.insert(allpitches, v[5]) end
+end
+
+local all_dtimes = {}
+local previous_t = 0
+local rhythmscore = notescore
+if Arg['rhythmfile'] ~= '' then
+	rhythmscore = file2millisec(Arg['rhythmfile'])
+	table.sort(rhythmscore[2], function (e1,e2) return e1[2]<e2[2] end)
+end
+for i,v in ipairs(rhythmscore[2]) do
+	if v[1] == 'note' then
+		local duration = v[2]-previous_t
+		if Arg['quantise'] > 1 then
+			duration = Arg['quantise'] * round(duration/Arg['quantise'])
+		end
+		table.insert(all_dtimes, duration)
+		previous_t = v[2]
+	end
+end
+-- print (DataDumper(all_dtimes)) ; os.exit()
+
+local newpitches = new_markov(allpitches)
+local new_dtimes = new_markov(all_dtimes)
+-- newpitches('seed',67)
+
+local new_track = {{'patch_change',0,1,Arg['patch']}, {'set_tempo',0,1000000}}
+local time = 5
+for i = 1, Arg['num_notes'] do
+	-- This looks really dumb if -c 4,5 has eliminated all notes in the score
+	-- because it generates num_notes of
+	--   ['note_on', 0, 1, 0, 98], ['note_off', 0, 1, 0, 98],    ???
+	local new_pitch = tonumber(newpitches()) or 0   -- ???
+	local new_dtime = round(tonumber(new_dtimes())) or 199   -- ???
+	-- if new_dtime == 0 then it's not appropriate for the duration !
+	-- then duration should be taken 
+	local duration = new_dtime
+	if new_dtime == 0 then duration = 199 end
+	table.insert(new_track, {'note', time, duration, 1, new_pitch, 98})
+	time = time + new_dtime   -- now increment the time for the next note
+end
+table.insert(new_track, {'marker', time, 'final_barline'})
+
+local midifile_name = '/tmp/midimarkov_'..tostring(os.time()%100000)..'.mid'
+local midifile = assert(io.open(midifile_name,'w'))
+midifile:write(MIDI.score2midi({1000, new_track}))
+midifile:close()
+
+MIDI.play_score({1000, new_track})
+
+if Arg['stats'] then
+	io.stdout:write("\n")
+	io.stdout:write(new_dtimes('stats')..'\n')
+	io.stdout:write(newpitches('stats')..'\n')
+end
+
+-- print(DataDumper(new_track))
+-- print(MIDI.score_type({1000, new_track}))
+
+os.exit()
+
+--[=[
+
+=pod
+
+=head1 NAME
+
+midimarkov - Markov-chain music reconstruction
+
+=head1 SYNOPSIS
+
+  cat t.mid | midimarkov | aplaymidi -
+  muscript -midi bach/opfer/ric6_rec | midimarkov | aplaymidi -
+  muscript -midi ~/mus/solosuite/one ~/mus/solosuite/two \
+    ~/mus/solosuite/three | midisox_lua - - pitch -300 \
+    | midimarkov -p 21 -n 60 -c 1,3,4,7 -r r.mid
+  # This leaves a midi file of its output in /tmp/midimarkov_NNNNN.mid
+
+  midimarkov /tmp/midimarkov_NNNNN ; midimarkov /tmp/midimarkov_NNNNN
+  midimarkov /tmp/midimarkov_NNNNN
+  # This interesting iteration increases fidelity to a subset of motifs
+
+  muscript -midi ~/mus/arr/bach/bwv1008/bwv1008 | midimarkov -n 800
+
+  midimarkov -n 400 -p 74 -c 0 ~/www/muscript/samples/folkdance.mid
+
+  muscript -midi ~/mus/solosuite/one | midisox_lua - - pitch -1200 \
+    | midimarkov -p 31 -n 60 -r '| midisox r.mid - tempo 1.7'
+
+=head1 DESCRIPTION
+
+I<midimarkov> uses a modified C<~/lua/lib/markov.lua> on midi files.
+This will get rolled in for an eventual relase of I<midimarkov>
+
+The 'midi file' may also be a pipe
+(beginning with a "|" as in I<sox> notation),
+as in this example:
+
+  midimarkov -p 31 -n 60 '| muscript -midi ~/mus/solosuite/one'
+
+It works best on a single line.
+
+
+=head1 ARGUMENTS
+
+=over 3
+
+=item I<-c 1,3>
+
+Disregards all channels in the input data except for channels 1 and 3
+
+=item I<-n 400>
+
+Generate 400 notes of output.  The default is 300.
+
+=item I<-p 40>
+
+The output is given the patch number 40.
+The default is 82.
+
+=item I<-q 5>
+
+Quantises the durations of the input-file,
+to the nearest 5 milliseconds in this example.
+This makes it easier for the output-durations to leap around from
+one section of the input to another - which may or may not be desirable.
+
+=item I<-r nicerhythms.mid>
+
+=item I<-r '| midisox nicerhythms.mid - tempo 1.6'>
+
+Uses this separate midi file for the rhythm data.
+The 'midi file' may also be a pipe
+(beginning with a "|" as in I<sox> notation),
+as in the second example.
+
+=item I<-S>
+
+Print on I<stderr> some statistics on the lists in which items were found.
+
+=item I<-v>
+
+Print the Version
+
+=back
+
+=head1 TO DO
+
+Next: perhaps something similar using I<midialsa.lua> with live midi input,
+perhaps letting input-notes through while adding them to the input-array
+and remaining silent, and then when the input goes silent, generating
+a markov continuation of it - something like an uninterruptable solo.
+This needs the ability to add to the array in real-time.
+
+Investigate the effects of iteration:
+what does it converge on ?
+how do varying output-sizes affect it ?
+
+=head1 DOWNLOAD
+
+The source is available at I</home/pbin/midimarkov>
+
+=head1 AUTHOR
+
+Peter J Billam, http://www.pjb.com.au/comp/contact.html
+
+=head1 SEE ALSO
+
+ ~/lua/lib/midi_markov.lua
+ http://www.pjb.com.au/
+
+=cut
+
+]=]
