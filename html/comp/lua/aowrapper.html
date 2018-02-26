@@ -1,0 +1,191 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title></title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+
+
+<ul id="index">
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+  <li><a href="#FUNCTIONS">FUNCTIONS</a></li>
+  <li><a href="#DOWNLOAD">DOWNLOAD</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+
+<h1 id="NAME">NAME</h1>
+
+<p>aowrapper.lua - wraps the ao luarock module</p>
+
+<h1 id="SYNOPSIS">SYNOPSIS</h1>
+
+<pre><code> local A = require &#39;aowrapper&#39;
+ A.open()
+ for k,v in pairs(A.driver_info()) do  -- driverinfo
+    if type(v) == &#39;table&#39; then
+       warn(&#39;  &#39;,k,&quot; = { &#39;&quot;,table.concat(v,&quot;&#39;, &#39;&quot;), &quot;&#39; }&quot;)
+    else
+       warn(&#39;  &#39;,k,&#39; = &#39;,v)
+    end
+ end
+ local twopi = 2 * math.pi
+ local buffer = {}
+ for i=1, 44100
+    sample = 0.75 * math.sin(twopi * i*262/44100)
+    A.add_sample_to_buffer(sample,sample,buffer)
+ end
+ A.play_buffer(buffer)</code></pre>
+
+<h1 id="DESCRIPTION">DESCRIPTION</h1>
+
+<p>This module offers a slightly more lua-centric interface to the pure-C &#39;lao&#39; module</p>
+
+<p>Once you have your program working, you may want to edit <i>/etc/libao.conf</i> or <i>~/.libao</i>, to set <i>quiet=yes</i></p>
+
+<p>It is hoped that in the future Lua <i>coroutines</i>, or the <i>cqueues</i> module, could be used to provide an asynchronous equivalent to <i>play_buffer()</i></p>
+
+<h1 id="FUNCTIONS">FUNCTIONS</h1>
+
+<dl>
+
+<dt id="open-filename.wav"><i>open( &#39;filename.wav&#39; )</i></dt>
+<dd>
+
+<p>If the argument is <i>nil</i>, the output goes live to your default audio output. The available output-formats can be seen as the <i>shortName</i> fields in the output of <i>driver_info_list()</i> whose <i>type</i> is &quot;live&quot; : for example on my system they are &quot;pulse&quot;, &quot;esd&quot;, &quot;sndio&quot;,&quot;oss&quot; and &quot;nss&quot;.</p>
+
+<p>If the argument is the string &#39;null&#39;, the output is thrown away.</p>
+
+<p>Otherwise, the output-format is taken from the filename-extension. The available output-formats can be seen as the <i>shortName</i> fields in the output of <i>driver_info_list()</i> whose <i>type</i> is &quot;file&quot; : for example on my system they are &quot;wav&quot;, &quot;raw&quot; and &quot;au&quot;.</p>
+
+</dd>
+<dt id="add_sample_to_buffer-sample_l-sample_r-buffer-sample_format"><i>add_sample_to_buffer( sample_l, sample_r, buffer, sample_format )</i></dt>
+<dd>
+
+<p>The first two arguments are left and right stereo samples, in a format specified by <i>sample_format</i></p>
+
+<p>The third argument <i>buffer</i> must be a predeclared table, eg</p>
+
+<pre><code> local buffer = {}</code></pre>
+
+<p>If the fourth argument <i>sample_format</i> is present, it must be one of &#39;float&#39;, &#39;unsigned&#39;, or &#39;signed&#39;. &#39;float&#39; means a number between -1.0 and +1.0, and &#39;unsigned&#39;, &#39;signed&#39; mean unsigned or signed 16-bit integers. If <i>sample_format</i> is not given, it defaults to &#39;float&#39;.</p>
+
+</dd>
+<dt id="play_buffer-buffer"><i>play_buffer(buffer)</i></dt>
+<dd>
+
+<p>This plays the data in your buffer to the output-device you have opened. It only returns after all the audio has been output.</p>
+
+</dd>
+<dt id="driver_info"><i>driver_info()</i></dt>
+<dd>
+
+<p>This returns a table of information about the driver used by <i>open()</i>. One of the items, &#39;options&#39;, is an array of the options that have been set.</p>
+
+</dd>
+<dt id="driver_info_list"><i>driver_info_list()</i></dt>
+<dd>
+
+<p>This returns an array of tables of information about the available drivers. The array-index is the <i>driverId</i> used internally.</p>
+
+</dd>
+</dl>
+
+<h1 id="DOWNLOAD">DOWNLOAD</h1>
+
+<p>This module is available at http://www.pjb.com.au/comp/lua/aowrapper.html</p>
+
+<h1 id="AUTHOR">AUTHOR</h1>
+
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+
+<h1 id="SEE-ALSO">SEE ALSO</h1>
+
+<p>The <i>libao</i> C-library, on which the <i>lao</i> lua module depends:</p>
+
+<P> &nbsp;
+<A HREF="https://xiph.org/ao/doc/libao-api.html">
+xiph.org/ao/doc/libao-api.html</A>
+<BR> &nbsp;
+<A HREF="https://xiph.org/ao/doc/drivers.html">
+xiph.org/ao/doc/drivers.html</A>
+<BR> &nbsp;
+<A HREF="https://xiph.org/ao/doc/ao_driver_id.html">
+xiph.org/ao/doc/ao_driver_id.html</A>
+<BR> &nbsp;
+<A HREF="https://xiph.org/ao/doc/config.html">
+xiph.org/ao/doc/config.html</A>
+<BR> &nbsp;
+<A HREF="file:///etc/libao.conf">/etc/libao.conf</A>
+<BR> &nbsp;
+<A HREF="file:///home/pjb/.libao">~/.libao</A>
+</P>
+
+<p>The <i>lao</i> lua module, on which <i>aowrapper</i> depends:</p>
+
+<P> &nbsp;
+<A HREF="http://thelinx.github.io/lao/">thelinx.github.io/lao/</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/install.html">
+thelinx.github.io/lao/install.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/overview.html">
+thelinx.github.io/lao/overview.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/reference.html">
+thelinx.github.io/lao/reference.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/ao_driver_info_list.html">
+thelinx.github.io/lao/ao_driver_info_list.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/ao_driver_id.html">
+thelinx.github.io/lao/ao_driver_id.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/ao_default_driver_id.html">
+thelinx.github.io/lao/ao_default_driver_id.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/ao_driver_info.html">
+thelinx.github.io/lao/ao_driver_info.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/sample_format.html">
+thelinx.github.io/lao/sample_format.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/ao_open_live.html">
+thelinx.github.io/lao/ao_open_live.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/device_play.html">
+thelinx.github.io/lao/device_play.html</A>
+<BR> &nbsp;
+<A HREF="http://thelinx.github.io/lao/device_close.html">
+thelinx.github.io/lao/device_close.html</A>
+<BR> &nbsp;
+<A HREF="https://raw.githubusercontent.com/TheLinx/lao/master/src/ao_example.lua">
+raw.githubusercontent.com/TheLinx/lao/master/src/ao_example.lua</A>
+<BR> &nbsp;
+
+<A HREF="https://en.wikipedia.org/wiki/Asynchronous_method_invocation">
+en.wikipedia.org/wiki/Asynchronous_method_invocation</A>
+<BR> &nbsp;
+<A HREF="http://www.lua.org/manual/5.3/manual.html#2.6">
+www.lua.org/manual/5.3/manual.html#2.6</A> &nbsp; &nbsp; (coroutines)
+<BR> &nbsp;
+<A HREF="https://stackoverflow.com/questions/5128375/what-are-lua-coroutines-even-for-why-doesnt-this-code-work-as-i-expect-it">
+stackoverflow.com/questions/5128375/what-are-lua-coroutines-even-for-why-doesnt-this-code-work-as-i-expect-it</A>
+<BR> &nbsp;
+
+<A HREF="http://www.pjb.com.au/">www.pjb.com.au/</A>
+</P?
+
+
+</body>
+
+</html>
+
+
