@@ -5,11 +5,11 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-local Version = '1.0  for Lua5'
-local VersionDate  = '24jan2018';
+local Version = '1.1  for Lua5'
+local VersionDate  = '26jan2018';
 local Synopsis = [[
-  muscript -midi bwv1007 | midimarkov
-  midimarkov bwv1007.mid
+  muscript -midi bwv1007 | midimarkov > t.mid
+  midimarkov bwv1007.mid | aplaymidi -
 ]]
 
 math.randomseed(os.time())
@@ -25,11 +25,6 @@ function warn(...)
     io.stderr:write(table.concat(a),' ') ; io.stderr:flush()
 end
 function die(...) warn(...);  os.exit(1) end
-function qw(s)  -- t = qw[[ foo  bar  baz ]]
-    local t = {} ; for x in s:gmatch("%S+") do t[#t+1] = x end ; return t
-end
-
-local stats  = false
 
 function prefix (...) return table.concat({...}, " ") end
 
@@ -70,7 +65,12 @@ function file2millisec(filename)  -- borrowed from midisox_lua
 			die([[you need to install lua-curl or luacurl, e.g.:
   aptitude install liblua5.1-curl0  (or equivalent on non-debian sytems)
 or, if that doesn't work:
-  luarocks install luacurl]])
+  luarocks install luacurl
+and perhaps (eg: on debian) one of the following:
+  aptitude install libcurl4-gnutls-dev
+  aptitude install libcurl4-nss-dev
+  aptitude install libcurl4-openssl-dev
+]])
 		end
 		local midi = wget(filename)
 		return MIDI.midi2ms_score(midi)
@@ -180,7 +180,6 @@ function new_markov (arg)
 	end
 end
 
-local stats  = false
 Arg = {
 	channels   = {},
 	num_notes  = 400,
@@ -298,17 +297,18 @@ for i = 1, Arg['num_notes'] do
 end
 table.insert(new_track, {'marker', time, 'final_barline'})
 
-local midifile_name = '/tmp/midimarkov_'..tostring(os.time()%100000)..'.mid'
-local midifile = assert(io.open(midifile_name,'w'))
-midifile:write(MIDI.score2midi({1000, new_track}))
-midifile:close()
+--local midifile_name = '/tmp/midimarkov_'..tostring(os.time()%100000)..'.mid'
+--local midifile = assert(io.open(midifile_name,'w'))
+--midifile:write(MIDI.score2midi({1000, new_track}))
+--midifile:close()
+--MIDI.play_score({1000, new_track})
 
-MIDI.play_score({1000, new_track})
+io.stdout:write(MIDI.score2midi({1000, new_track}))
 
 if Arg['stats'] then
-	io.stdout:write("\n")
-	io.stdout:write(new_dtimes('stats')..'\n')
-	io.stdout:write(newpitches('stats')..'\n')
+	io.stderr:write("\n")
+	io.stderr:write(new_dtimes('stats')..'\n')
+	io.stderr:write(newpitches('stats')..'\n')
 end
 
 -- print(DataDumper(new_track))
@@ -326,28 +326,26 @@ midimarkov - Markov-chain music reconstruction
 
 =head1 SYNOPSIS
 
-  cat t.mid | midimarkov | aplaymidi -
-  muscript -midi bach/opfer/ric6_rec | midimarkov | aplaymidi -
+  midimarkov t.mid | aplaymidi -
+  muscript -midi bach/opfer/ric6_rec | midimarkov > t1.mid
   muscript -midi ~/mus/solosuite/one ~/mus/solosuite/two \
     ~/mus/solosuite/three | midisox_lua - - pitch -300 \
-    | midimarkov -p 21 -n 60 -c 1,3,4,7 -r r.mid
-  # This leaves a midi file of its output in /tmp/midimarkov_NNNNN.mid
+    | midimarkov -p 21 -n 60 -c 1,3,4,7 -r r.mid > t2.mid
 
-  midimarkov /tmp/midimarkov_NNNNN ; midimarkov /tmp/midimarkov_NNNNN
-  midimarkov /tmp/midimarkov_NNNNN
-  # This interesting iteration increases fidelity to a subset of motifs
+  midimarkov t2.mid | midimarkov | midimarkov > t3.mid
+  # This iteration increases concentration on a subset of motifs
 
-  muscript -midi ~/mus/arr/bach/bwv1008/bwv1008 | midimarkov -n 800
+  muscript -midi ~/mus/bach/bwv1008 | midimarkov -n 800 > t4.mid
 
-  midimarkov -n 400 -p 74 -c 0 ~/www/muscript/samples/folkdance.mid
+  midimarkov -n 400 -p 74 -c 0 samples/folkdance.mid | amplaymidi -
 
   muscript -midi ~/mus/solosuite/one | midisox_lua - - pitch -1200 \
-    | midimarkov -p 31 -n 60 -r '| midisox r.mid - tempo 1.7'
+    | midimarkov -n 60 -r '| midisox r.mid - tempo 1.7' > t5.mid
 
 =head1 DESCRIPTION
 
-I<midimarkov> uses a modified C<~/lua/lib/markov.lua> on midi files.
-This will get rolled in for an eventual relase of I<midimarkov>
+I<midimarkov> is a <I>Lua</I> program which uses a
+modified C<~/lua/lib/markov.lua> on midi files.
 
 The 'midi file' may also be a pipe
 (beginning with a "|" as in I<sox> notation),
@@ -355,8 +353,12 @@ as in this example:
 
   midimarkov -p 31 -n 60 '| muscript -midi ~/mus/solosuite/one'
 
-It works best on a single line.
+It produces its midi output on I<stdout>
 
+It uses the I<MIDI.lua> module, which is available from
+http://www.luarocks.org
+
+It works best on a single line.
 
 =head1 ARGUMENTS
 
