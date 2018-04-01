@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.3d for Lua5'  -- # quadruplet rhythms work in xml
-VersionDate  = '09feb2018'
+Version = '3.3e for Lua5'  -- # continued lines \$ and bend-3 work again in 5.3
+VersionDate  = '09mar2018'
 
 --require 'DataDumper'
 local concat = table.concat
@@ -3564,12 +3564,12 @@ function midi_in_stave (str)
 				bend = current_bend() + val
 				if bend > 8192 then bend = 8192 end
 			else
-				s1 = match(str, '^bend-(%d+)$') ; if s1 then
+				s1 = match(str, '^bend%-(%d+)$') ; if s1 then -- 3.3e
 					val = round(tonumber(s1) * 163.82)
 					bend = current_bend() - val
 					if bend < -8191 then bend = -8191 end
-				else
-					warn_ln("strange bend command '"..str"'\n") ; return true
+				else -- 3.3e
+					warn_ln("strange bend command '"..str.."'") ; return true
 				end
 			end
 		end
@@ -4461,6 +4461,7 @@ function substitute (text, infinite_depth)
 			text = gsub(text, VariableGetRE_m, subst_str, 1) -- 3.2j
 		elseif not val or #val == 0 then
 			warn_ln("variable ",var," is undefined")
+			warn_ln("type(val) = ", type(val))
 			text = gsub(text, VariableGetRE_m, '')
 		elseif val then
 			-- warn('substitute: var='..var..'  val='..val..'\n')
@@ -4485,6 +4486,7 @@ function set_var (stackref, i, infinite_depth)
 			local line = stackref[i]
 --warn('0.7) i=',i,' line=',line)
 			while find(line,'\\$') do
+				-- line = gsub(line,'\\$','')
 				line = gsub(line,'\\$','')
 				i = i+1
 				line = line .. stackref[i]
@@ -4503,12 +4505,12 @@ function set_var (stackref, i, infinite_depth)
 			end
 			line = gsub(line, '^%s+', '', 1)  -- strip leading space
 			if not line or find(line, '^}') then break end
--- warn('1) i=',i,' line=',line)
+--warn('1) i=',i,' line=',line)
 			if not substitute_now then
 				lines_of_var[#lines_of_var+1] = line
 				goto nextline
 			elseif find(line, VariableSetRE_f) then
--- warn('1.9): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
+--warn('1.9): substitute_now=',substitute_now,' infinite_depth=',infinite_depth)
 				if substitute_now or
 				  (infinite_depth and find(line,VariableGetRE_f)) then
 --warn('2) about to call set_var  i=',i)
@@ -5173,6 +5175,7 @@ while LineNum < #Stack do  -- the main loop through the input-file
 	while find(line, '\\$') do
 		LineNum = LineNum + 1
 		line = gsub(line, '\\$', '') .. Stack[LineNum]
+		Stack[LineNum] = line    -- 3.3e
 	end
 	if find(line, '^%s*$') then goto nextline end
 	if find(line, '^%s*#P') then
