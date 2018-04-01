@@ -151,14 +151,16 @@ by a factor of <I>FACTOR</I>.
 A factor less than 1 decreases the volume; greater than 1 increases it.
 </dd></dl>
 Files can be either filenames, or<BR>
-<CODE><B>-&nbsp;</B></CODE> &nbsp; meaning STDIN or STDOUT accordingly<BR>
-<CODE><B>"|program [options] ..."</B></CODE> &nbsp; 
+<B>-&nbsp;</B> &nbsp; meaning STDIN or STDOUT accordingly<BR>
+<B>"|program [options] ..."</B> &nbsp;  &nbsp; &nbsp;
 specifies that the given program's stdout be used as an input file<BR>
-<CODE><B>http://wherever/whatever.mid</B></CODE> &nbsp; 
+<B>http://wherever/whatever.mid</B> &nbsp; 
 will fetch any valid URL as an input file<BR>
-<CODE><B>-d</B></CODE> &nbsp; meaning the "<B>d</B>efault" output-device,
-i.e. the MIDI will be fed into <I>aplaymidi</I> so you can hear it<BR>
-<CODE><B>-n</B></CODE> &nbsp; meaning a <B>n</B>ull output-device
+<B>-d</B> &nbsp; meaning the "<B>d</B>efault" output-device,
+i.e. the MIDI will be fed into <I>aplaymidi</I> so you can hear it.<BR>
+&nbsp; &nbsp; &nbsp; The <B>-d</B> option is not very portable,
+since it depends on <I>aplaymidi</I><BR>
+<B>-n</B> &nbsp; meaning a <B>n</B>ull output-device
 (useful with the <I><A HREF="#stat">stat</A></I> effect)
 </p>
 
@@ -379,8 +381,8 @@ The syntax of this effect is not the same as its SoX equivalent.
 <h3><a name="download">DOWNLOAD</a></h3>
 <p>
 <B>Python3</B> &nbsp;
-The current version of <i>midisox</i> is available by http at
-<A HREF="free/midisox">www.pjb.com.au/midi/free/midisox</A><BR>
+The current version of <i>midisox_py</i> is available by http at
+<A HREF="free/midisox_py">www.pjb.com.au/midi/free/midisox_py</A><BR>
 To install <i>midisox</i>, save it to disc,
 move it into your $PATH, make it executable, and if necessary
 edit the first line to reflect where <I>python3</I>
