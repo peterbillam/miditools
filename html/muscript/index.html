@@ -113,9 +113,8 @@ If the very first line in the file is e.g.:<BR>
 then <I>muscript</I> will generate output in Encapsulated PostScript
 (EPS) format, 65 points wide and 53 points high in this example.
 This EPS output can then be inserted into word-processor or
-desktop-publishing documents, or it can be converted into JPG format
-and used in web pages. See the <A HREF="#eps2jpg">eps2jpg</A>
-and <A HREF="#eps2jpg">eps2png</A> script,
+desktop-publishing documents, or it can be converted into JPG or PNG format
+and used in web pages. See the <A HREF="#eps2img">eps2img</A> script,
 and the <I>kdf.txt</I> file in <A HREF="samples/index.html">the samples</A>.
 
 </P><A NAME="systems"><HR></A><H2>Systems</H2><P>
@@ -1149,7 +1148,7 @@ done
 4hands2score</A></CODE></DT>
 <DD>This converts <I>muscript</I> for piano-four-hands (i.e. with one player
 reading the left-hand page and the other reading the right-hand page)
-<A NAME="eps2jpg">into</A> a single score,
+<A NAME="eps2img">into</A> a single score,
 for example for feeding into <I>muscript&nbsp;-midi</I> for proofreading.
 <BR>&nbsp;
 
@@ -1189,9 +1188,7 @@ search.cpan.org</A>
 
 </DD><DT>
 <CODE>
-<A HREF= "http://www.pjb.com.au/muscript/eps2jpg">eps2jpg</A>
-and
-<A HREF= "http://www.pjb.com.au/muscript/eps2png">eps2png</A>
+<A HREF= "eps2img">eps2img</A>
 </CODE></DT>
 <DD>
 When the input file contains a <CODE>
@@ -1199,21 +1196,16 @@ When the input file contains a <CODE>
 </CODE> command,
 then <I>muscript</I> will generate Encapsulated-PostScript (EPS) output,
 which can be inserted into word-processing or desktop-publishing documents.<BR>
-The Perl script <I>eps2jpg</I> converts this EPS
-into JPG format (with a white background), which can be used in web pages
-especially if they also have white backgrounds.<BR>
-Or when called under the name <I>eps2png</I> it converts the
-EPS into PNG format.<BR>
-Or when called with the <B>-t</B> option it converts the
+The Lua script <I>eps2img</I> converts this EPS
+into JPG or PNG format, which can be used in web pages.<BR>
+When called with the <B>-t</B> option it converts the
 EPS into PNG format with a transparent background,
 which can be used in web pages even if they have non-white backgrounds.<BR>
-<I>eps2jpg</I> and <I>eps2png</I> are the same script,
-so you can download just one and use <CODE>ln</CODE>
-to link it to the other.<BR>
-They produce their output on <CODE>stdout</CODE>,
-so you can redirect it wherever you want it.<BR>
-See &nbsp; <CODE>perldoc pgn2jpg</CODE> &nbsp;
-or &nbsp; <CODE>perldoc pgn2png</CODE>
+There is also a &nbsp; <B>-s 1.9</B> &nbsp; option,
+which increases the size of the image, by 1.9 times in this example.<BR>
+Sample usage: &nbsp; <CODE>eps2img&nbsp;f.eps&nbsp;f.jpg</CODE>
+&nbsp; or &nbsp; <CODE>eps2img&nbsp;f.eps&nbsp;f.png</CODE><BR>
+See: &nbsp; <CODE>perldoc eps2img</CODE>
 
 </DD><DT>
 <CODE><A HREF="http://www.pjb.com.au/muscript/a42us">
