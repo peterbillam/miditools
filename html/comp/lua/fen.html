@@ -1,0 +1,201 @@
+<HTML><HEAD><TITLE>fen.lua</TITLE>
+<LINK rel=stylesheet type="text/css"
+href="../styles.css" title="PJB Computing Styles">
+<META HTTP-EQUIV="Keywords"
+CONTENT="chess, FEN, notation, luarock">
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+</HEAD>
+<BODY LINK="#000066" VLINK="#000066" ALINK="#000066">
+<DIV>
+<H1><IMG SRC="../logo.jpg" ALT=" " WIDTH=126 HEIGHT=52>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<FONT COLOR="#800000"><I>fen.lua</I></FONT>
+</H1>
+
+<!-- INDEX BEGIN -->
+<TABLE ALIGN="center" WIDTH="85%" BORDER=0 CELLSPACING=0>
+<TR><TD ALIGN="left">
+<ul id="index">
+  <li><a href="#NAME">NAME</a></li>
+  <li><a href="#SYNOPSIS">SYNOPSIS</a></li>
+  <li><a href="#DESCRIPTION">DESCRIPTION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#FUNCTIONS">FUNCTIONS</a>
+  <li><a href="#LOWER-LEVEL-FUNCTIONS">LOWER-LEVEL FUNCTIONS</a></li>
+  <li><a href="#FEN-NOTATION">FEN NOTATION</a></li>
+</ul>
+</TD><TD ALIGN="left">
+<ul>
+  <li><a href="#INSTALLATION">INSTALLATION</a></li>
+  <li><a href="#CHANGES">CHANGES</a></li>
+  <li><a href="#AUTHOR">AUTHOR</a></li>
+  <li><a href="#SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</TD></TR>
+</TABLE>
+<!-- INDEX END -->
+
+<H3 id="NAME">NAME</H3>
+
+<p>fen.lua - This module manipulates FEN files.</p>
+
+<H3 id="SYNOPSIS">SYNOPSIS</H3>
+
+<pre><code> local FEN = require 'chess.fen'
+
+ french = 'rnbqkbnr/ppp2ppp/4p3/3p4/3PP3//PPP2PPP/RNBQKNR w KQkq - 0 3'
+ newfen = FEN.fenstr_move(french, 'Nc3')
+ print(newfen)
+ print(FEN.fenstr2asciidiag(newfen))
+
+ f = FEN.fenstr2tab(french)
+ print(FEN.fentab2str(f))</code></pre>
+
+<H3 id="DESCRIPTION">DESCRIPTION</H3>
+
+<p>This module manipulates chess positions in FEN notation.</p>
+
+<p>It is used by <A HREF="pgn2eco">pgn2eco</A> to look for positions
+arising in <code>/home/eco/ECOMast.txt</code> and report their ECO numbers,
+by keeping a fenstr==&gt;eco database of positions and their ECO numbers.
+<A HREF="pgn2eco">pgn2eco</A> can be used, for example, to find the ECO
+numbers corresponding to positions that arise in opening-repertoire books.
+</p>
+
+<H3 id="FUNCTIONS">FUNCTIONS</H3>
+
+<dl>
+
+<dt id="doc"><i>doc ()</i></dt>
+<dd>
+<p>This returns a multi-line string documenting the FEN notation.</p>
+
+</dd>
+<dt id="fenstr2asciidiag-fenstr"><i>fenstr2asciidiag (fenstr)</i></dt>
+<dd>
+<p>This accepts a position in FEN format and returns a multiline string which can be printed on <code>/dev/tty</code></p>
+
+</dd>
+<dt id="fenstr_move-fenstr-move"><i>fenstr_move (fenstr, move)</i></dt>
+<dd>
+<p>This accepts a position in FEN format, and an individual move in PGN
+syntax, then applies the move to the position and returns the resulting
+FEN string.</p>
+
+</dd>
+<dt id="fenstr2key-fenstr"><i>fenstr2key(fenstr)</i></dt>
+<dd>
+<p>This accepts a position in FEN format, and returns a somewhat
+simplified version of it. Specifically, the move-number and the
+fifty-move-number are ommitted, and the enpassant square is reset to
+'-' if there is no opposing pawn available to capture on that square.
+</p><p>
+The returned string can be used as a <b>key</b> to index the position
+in a database, for example of opening variations or endgame positions,
+where it matters not if the position has arisen after 9 moves or after 8
+(eg: the Sveshnikov) or has arisen by <code>1.d4 f5 2.g3</code> or by
+<code>1.g3 f5 2.d4</code></p>
+
+</dd>
+<dt id="pgn_moves-pgntext"><i>pgn_moves (pgntext)</i></dt>
+<dd>
+<p>This accepts a game, or segment of a game, in PGN notation, and
+returns an array of the moves.</p>
+
+</dd>
+</dl>
+
+<h2 id="LOWER-LEVEL-FUNCTIONS">LOWER-LEVEL FUNCTIONS</h2>
+
+<dl>
+
+<dt id="fenstr2tab-fenstr"><i>fenstr2tab (fenstr)</i></dt>
+<dd>
+
+<p>This splits a FEN string into a table of its fields, and returns the table. These table values are all strings; their keys are <code>'postab', 'active', 'castling', 'enpassant', 'fiftymove', 'movenum'</code></p>
+
+<p>The key called <code>'postab'</code> splits the position-string into a 2D array of the squares of the position. Both the rank index and the column index are numbers: <code>postab[ncol][nrank]</code></p>
+
+</dd>
+<dt id="fentab2str-fentab"><i>fentab2str (fentab)</i></dt>
+<dd>
+
+<p>This performs the reverse conversion, returning the FEN string. During this conversion, the contents of the <code>fentab['postab']</code> are converted back into position-string.</p>
+
+</dd>
+</dl>
+
+<H3 id="FEN-NOTATION">FEN NOTATION</H3>
+
+<P> See: &nbsp;
+<A HREF="https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation">
+en.wikipedia.org/wiki/Forsyth-Edwards_Notation</A><BR>
+    A FEN record contains six fields.<BR>
+    The separator between fields is a space. The fields are:
+<OL><LI>
+	Piece placement (from white's perspective). Each rank is described,
+	starting with rank 8 and ending with rank 1; within each rank, the
+	contents of each square are described from file "a" through file "h".
+	White pieces are designated using upper-case letters ("PNBRQK") while
+	black pieces use lowercase ("pnbrqk"). Empty squares are noted using
+	digits 1 through 8 (the number of empty squares); "/" separates ranks.
+</LI><LI>
+	Active color. "w" means White moves next, "b" means Black.
+</LI><LI>
+	Castling availability. If neither side can castle, this is "-".
+	Otherwise, this has one or more letters: "K" (White can castle
+	kingside), "Q" (White can castle queenside), "k" (Black can
+	castle kingside), and/or "q" (Black can castle queenside).
+</LI><LI>
+	En passant target square in algebraic notation. If there's no
+	en passant target square, this is "-". If a pawn has just made
+	a two-square move, this is the position "behind" the pawn.
+	This is recorded regardless of whether there is
+	a pawn in position to make an en passant capture.
+</LI><LI>
+	Halfmove clock: This is the number of halfmoves since the
+	last capture or pawn advance. This is used to determine
+	if a draw can be claimed under the fifty-move rule.
+</LI><LI>
+	Fullmove number: The number of the full move.
+	It starts at 1, and is incremented after Black's move.
+</LI></OL>
+
+<H3 id="INSTALLATION">INSTALLATION</H3>
+
+<p>This module is available as a <i>luarock</i> and should be installed by
+<pre><code>  luarocks install chess-fen</code></pre>
+
+</p><p>
+To use <A HREF="pgn2eco">pgn2eco</A> you will also need the
+<A HREF="lgdbm.html">lgdbm</A> module:
+<pre><code>  luarocks install lgdbm</code></pre>
+</p>
+
+<H3 id="CHANGES">CHANGES</H3>
+<pre><code> 20180408 1.2 first released version
+ 20180407 1.1 add fenstr2key()
+ 20180315 1.0 initial prototype</code></pre>
+
+<H3 id="AUTHOR">AUTHOR</H3>
+
+<p>Peter J Billam, http://www.pjb.com.au/comp/contact.html</p>
+
+<H3 id="SEE-ALSO">SEE ALSO</H3>
+<pre><code> <A HREF="https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation">en.wikipedia.org/wiki/Forsyth-Edwards_Notation</A>
+ <A HREF="http://www.pjb.com.au/comp/lua/fen.html">www.pjb.com.au/comp/lua/fen.html</A>
+ <A HREF="http://www.pjb.com.au/comp/lua/pgn2eco">www.pjb.com.au/comp/lua/pgn2eco</A>
+ <A HREF="https://github.com/jhlywa/chess.js/blob/master/README.md">github.com/jhlywa/chess.js/blob/master/README.md</A>
+ <A HREF="http://homepages.di.fc.ul.pt/~jpn/gv/pstools.htm">homepages.di.fc.ul.pt/~jpn/gv/pstools.htm</A>
+ <A HREF="http://homepages.di.fc.ul.pt/~jpn/gv/tabs/chessfont.zip">homepages.di.fc.ul.pt/~jpn/gv/tabs/chessfont.zip</A>
+ <A HREF="http://www.pjb.com.au/">www.pjb.com.au/</A>
+</code></pre>
+
+
+</body>
+
+</html>
+
+
