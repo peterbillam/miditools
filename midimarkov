@@ -367,6 +367,8 @@ perhaps letting input-notes through while adding them to the input-array
 and remaining silent, and then when the input goes silent, generating
 a markov continuation of it - something like an uninterruptable solo.
 This needs the ability to add to the array in real-time.
+It should be possible to do this efficiently enough,
+just adding the new word-sequences ..
 
 Investigate the effects of iteration:
 what does it converge on ?
@@ -378,7 +380,8 @@ but obeys it literally, and then repeats it if necessary.
 If there's nothing in the N=1 list,
 or perhaps even if there's only one option in the N=1 list,
 then relative pitches are used, eg: -15 -14 -13 ,,, -1 0 +1 +2 +3 .. +15
-Relative pitches make no sense for eg a recorder, or a tin whistle,
+Relative pitches make no sense for eg a recorder, bamboo-flute
+or a tin whistle, and this should therefore be optional.
 
 Could also, following the Biaxial LSTM models and I<DeepJ>,
 model each note within each timestep as a probability conditioned
@@ -437,7 +440,40 @@ ie: allow passing-notes ?
 The current voice will not always be the highest,
 so I need some means of launching it in a particular register.
 
-SO:
+OR: maintain various harmony chains of decreasing specificity:
+  1) an  absolute-harmony chain, eg: 43,53,59,68 -> 42,53,60,68 or -1,0,+1,0
+  2) an octavised-harmony chain, eg: 0,10,6,9 -> -1,0,+1,0
+  3) a  canonical-harmony chain, eg: 0,2,3,3 -> 0,0,+1,0 etc
+where at least 2) and 3) need incremental pitch-changes, so probably 1) also
+BUT: this means the RHS is in a different format from the LHS,
+  and I have to convert back to LHS form in order to continue.
+ALTERNATIVELY: 0,2,4,2 -> -1,3,4,2 keep track of the root,
+  then replace -1 with 0 to continue.
+  The root must be remembered and take no part in the markov chain,
+  so that transpositions of progressions can be recognised.
+  Thus with 42,2,4,2 it's 0,2,4,2 that's fed to the chain, and 42 remembered
+Probably: when 1) is recognised it is used, else 2), lastly 3)
+Voices can of course vanish or appear ... how to symbolise this?
+  0,2,6 -> 0,2,3!,3 -> 0,X,4,4 (= 0,4,4)  where X means disappear
+If 3) gets used, I also need to remember the octavisations,
+  in order to decanonicalise.
+So   1) is 42,56,62 which is chained as is
+Then 2) is 42,14,6  which is chained as 0,12,6 remembering 42
+Then 3) is 0,2,6    remembering +42,+54,+54 or something like it.
+
+I need reigning_chord() absolute2octavised() octavised2canonical()
+and vice-versa.
+
+And how to take account also of the melodic shape at the same time ?
+How to pick the "melody line" automatically ?
+Just the fastest-moving voice is not enough, eg. alberti-bass...
+Probably need to train the melody-chain from different source-material
+from that used by the harmony-chains.
+
+To know the reigning-chord, I'll need to keep track of the on-notes,
+as in midichord.
+
+Could work with just the melodic:
 1) implement -f fixed-channels,
 2) given the choice of each list, choose the NSD one,
    and if there isn't an NSD one, move to the next (shorter) list
