@@ -8,8 +8,8 @@
 --  This script is free software; you can redistribute it and/or   --
 --         modify it under the same terms as Lua5 itself.          --
 ---------------------------------------------------------------------
-Version = '3.3e for Lua5'  -- # continued lines \$ and bend-3 work again in 5.3
-VersionDate  = '09mar2018'
+Version = '3.3f for Lua5'  -- # ps_pagenum converts explicitly to integer
+VersionDate  = '19may2018'
 
 --require 'DataDumper'
 local concat = table.concat
@@ -1466,11 +1466,11 @@ local function ps_pagenum (str)
 	end
 	RememberHeader['pagenum'] = PageNum
 	if (PageNum % 2) > 0.5 then	-- odd page number
-		printf("%d %d /%s %g (%d) rightshow",
-		  rmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum)
+		printf("%d %d /%s %g (%d) rightshow",  -- 3.3f
+		  round(rmar), round(HeadMar), BoldFont, HeaderFontSize*1.2, PageNum)
 	else	 -- even page number
-		printf("%d %d /%s %g (%d) leftshow",
-		  lmar, HeadMar, BoldFont, HeaderFontSize*1.2, PageNum)
+		printf("%d %d /%s %g (%d) leftshow",   -- 3.3f
+		  round(lmar), round(HeadMar), BoldFont, HeaderFontSize*1.2, PageNum)
 	end
 end
 local function title (str)
