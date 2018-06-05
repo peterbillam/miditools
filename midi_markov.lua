@@ -67,7 +67,7 @@ function M.file2millisec(filename)  -- borrowed from midisox_lua
 		local err_fn = os.tmpname()
 		local pipe = assert(io.popen(command..' 2>'..err_fn, 'r'))
 		-- rb if windows
-		midi = pipe:read('*all')  --XXX  -- 4.8
+		midi = pipe:read('*all')
 		err_fh = assert(io.open(err_fn))
 		local err_msg = err_fh:read('*all')  -- 4.8
 		err_fh:close()  -- 4.8
@@ -101,9 +101,15 @@ end
 
 function M.reigning_chord()  -- as midichord, but detects channels as well
 	local chord = {          -- stub for testing
-		absolute  = {43, 53, 59, 68}, -- ascending order
+		absolute  = {53, 33, 68, 59}, -- ascending order
 		channels  = {4, 15, 0, 3},    -- in ascending-absolute-pitch order
 	}
+	local abs2cha = {[33]=4, [53]=15, [59]=0, [68]=3,} -- BUT unisons ?
+	table.sort(chord['absolute'])
+	for i,v in ipairs(chord['absolute']) do
+		chord['channels'][i] = abs2cha[v]
+	end
+	-- print (DataDumper(chord))
 	return chord
 end
 
@@ -130,10 +136,9 @@ function M.incremental2absolute(incremental, chord)
 	local i_new = 1
 	for i_old = 1, #incremental do
 		local d = incremental[i_old]
-		-- must also do splits and vanishings !
-		if d == 'X' then
-			-- do nothing, and don't increment i_new
-		elseif string.match(d, '&') then
+		-- must also do splits and vanishings
+		if d == 'X' then -- Vanishes; do nothing, and don't increment i_new
+		elseif string.match(d, '&') then  -- Splits
 			local splitbits = split(d, '&')
 			for i,v in ipairs(splitbits) do
 				absolute[i_new] = chord['absolute'][i_old] + tonumber(v)
@@ -147,18 +152,36 @@ function M.incremental2absolute(incremental, chord)
 	return absolute
 end
 
-function M.absabs2incremental(abs1, abs2)
-	if #abs1 == #abs2 then
+function M.absabs2incremental(abs1, abs2)   -- XXX
+	-- I need to pair the notes with their closest;
+	-- I should take account of the channels,
+	-- but where is my channel information ?
+	-- Do I need  chord={absolute={40,55,60},channels={0,1,2}}}  arguments?
+	-- BUT 40,55,60->55,60,75 is tricky :-(
+	if #abs1 == #abs2 then  -- same number of voices
 		local inc = {}
-		for i = 1,#abs1 do
-			local delta = abs2[i] - abs1[i] -- BUT 40,55,60 -> 55,60,75 tricky
+		for i1 = 1,#abs1 do
+			local delta = abs2[i1] - abs1[i1]
 			if delta < 1 then
-				inc[i] = tostring(delta)
+				inc[i1] = tostring(delta)
 			else
-				inc[i] = '+'..tostring(delta)
+				inc[i1] = '+'..tostring(delta)
 			end
 		end
 		return table.concat(inc, ',')
+	elseif #abs1 > #abs2 then   -- some voice(s) vanished
+		local nearest_in_abs1 = {}
+		for i2 = 1,#abs2 do     -- find its nearest neighbour in abs1
+			for i1 = 1,#abs1 do
+			end                 -- now which in abs1 is left over ?
+		end
+	elseif #abs1 < #abs2 then   -- some voice(s) split
+		local nearest_in_abs2 = {}
+		for i1 = 1,#abs1 do     -- find its nearest neighbour in abs2
+			for i2 = 1,#abs2 do
+			end                 -- now which in abs2 is left over ?
+		end
+	-- We could have both splits and vanishings. Best not think about this.
 	else return nil
 	end
 end
@@ -167,13 +190,11 @@ function M.new_markov (arg)
 	local allwords
 	if  type(arg) == 'function' then allwords = arg
 	elseif type(arg) == 'table' then
--- print('arg =', arg)
 		local i = 0
 		allwords = function () ; i = i + 1 ; return arg[i] end
 	end
 	local input_words = 0
 	local found = {0,0,0,0}
--- print('allwords =', allwords)
 -- print('allwords() =', allwords())
 	local statetab_1 = {}   -- indexed by the current word only
 	local statetab_2 = {}   -- indexed by the last two words
@@ -333,7 +354,7 @@ so I must remember also the channels.
 How to guess the channel of an "appear" voice may be an unsolveable problem.
 
 To know the reigning-chord, I'll need to keep track of the on-notes,
-as in midichord.
+as in midichord, and their corresponding channels.
 
 I need reigning_chord() absolute2octavised() octavised2canonical()
 and incremental2absolute()
